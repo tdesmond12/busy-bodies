@@ -31,7 +31,19 @@ a{color:var(--accent)}
 header{position:sticky;top:0;z-index:5;background:rgba(15,17,19,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
 .bar{max-width:760px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:10px}
 .logo{width:30px;height:30px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:var(--accent-ink);font:800 16px "Barlow Condensed"}
-button.badge{background:none;font:inherit;font-size:12px;cursor:pointer}
+button.badge{background:none;font:inherit;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;padding:4px 12px 4px 4px;color:var(--text)}
+button.badge .av{width:26px;height:26px;border-radius:50%;background:var(--panel2);display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--muted)}
+button.badge.cloud .av{background:var(--accent);color:var(--accent-ink)}
+button.badge.on{border-color:var(--accent)}
+.ptabs{margin-bottom:14px}
+.nbar .k{font-size:13px;font-weight:600;color:var(--muted)}
+.nbar .track{height:9px;border-radius:99px;background:var(--panel2);margin-top:5px;overflow:hidden}
+.nbar .fill{height:100%;background:#7fb3ff;border-radius:99px;transition:width .3s}
+.nbar .fill.done{background:var(--accent)}
+.water-big{font:800 46px "Barlow Condensed";text-align:center;margin:6px 0 10px}
+.water-big span{font-size:20px;color:var(--muted)}
+.meal{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.x{background:none;border:0;color:var(--muted);font-size:22px;cursor:pointer;padding:0 6px}
 .badge{margin-left:auto;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:3px 10px;white-space:nowrap}
 .badge.cloud{color:var(--accent);border-color:rgba(198,244,50,.35)}
 main{max-width:760px;margin:0 auto;padding:16px 16px 110px}
@@ -152,7 +164,7 @@ table.pr td.n{text-align:right;font-variant-numeric:tabular-nums}
 <header><div class="bar"><div class="logo">BB</div><h1>Busy Bodies</h1><button class="badge" id="badge" type="button">Loading…</button></div></header>
 <main id="app"><div class="loading">Loading your data…</div></main>
 <nav class="tabs"><div class="inner">
-  <a href="#profile" data-tab="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Profile</a>
+  <a href="#nutrition" data-tab="nutrition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2.6"/><path d="M2.5 3v18M1 3v4a1.5 1.5 0 0 0 3 0V3M21.5 21V3c-1.6 1-2.2 3-2.2 6.5h2.2"/></svg>Nutrition</a>
   <a href="#plan" data-tab="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Plan</a>
   <a href="#log" data-tab="log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/></svg>Log</a>
   <a href="#coach" data-tab="coach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/></svg>Coach</a>
@@ -457,6 +469,7 @@ function bodyStats(p){
 //                      users/{uid}                 profile + plan
 //                      users/{uid}/workouts/{id}   one doc per workout
 //                      users/{uid}/coach/chat      coach conversation
+//                      users/{uid}/days/{date}     nutrition: water, meals, supplements taken
 function localBackend(){
   const get = k => { try{ return JSON.parse(localStorage.getItem(k)); }catch{ return null; } };
   const set = (k,v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} };
@@ -471,6 +484,10 @@ function localBackend(){
     async replaceAll(account, workouts){ set('rr.account', account); set('rr.workouts', workouts); },
     async getChat(){ return []; },
     async saveChat(){},
+    async getDay(date){ return (get('rr.days')||{})[date] || null; },
+    async saveDay(date, data){ const all=get('rr.days')||{}; all[date]=data; set('rr.days', all); },
+    async listDays(){ return get('rr.days')||{}; },
+    async clearDays(){ set('rr.days', {}); },
   };
 }
 const clean = o => JSON.parse(JSON.stringify(o ?? null)); // Firestore rejects undefined
@@ -478,6 +495,7 @@ function firestoreBackend(F, db, uid){
   const userRef = F.doc(db,'users',uid);
   const wCol = F.collection(db,'users',uid,'workouts');
   const chatRef = F.doc(db,'users',uid,'coach','chat');
+  const dCol = F.collection(db,'users',uid,'days');
   const sortW = a => a.sort((x,y)=>y.date.localeCompare(x.date)||y.createdAt-x.createdAt);
   return {
     kind:'cloud',
@@ -494,6 +512,10 @@ function firestoreBackend(F, db, uid){
     },
     async getChat(){ const s=await F.getDoc(chatRef); return s.exists() ? (s.data().messages||[]) : []; },
     async saveChat(m){ await F.setDoc(chatRef, {messages: clean(m.slice(-60))}); },
+    async getDay(date){ const s=await F.getDoc(F.doc(dCol,date)); return s.exists() ? s.data() : null; },
+    async saveDay(date, data){ await F.setDoc(F.doc(dCol,date), clean(data)); },
+    async listDays(){ const s=await F.getDocs(dCol); return Object.fromEntries(s.docs.map(d=>[d.id, d.data()])); },
+    async clearDays(){ const s=await F.getDocs(dCol); for(let i=0;i<s.docs.length;i+=400){ const b=F.writeBatch(db); s.docs.slice(i,i+400).forEach(d=>b.delete(d.ref)); await b.commit(); } },
   };
 }
 // ---------- state ----------
@@ -507,14 +529,16 @@ async function saveAccount(){
 }
 
 // ---------- views ----------
-const TABS = ['profile','plan','log','coach','progress'];
+const TABS = ['nutrition','profile','plan','log','coach','progress'];
 function route(){
   if(!S.ready) return;
   let tab = location.hash.slice(1);
   if(!TABS.includes(tab)) tab = profile() ? 'plan' : (S.user ? 'coach' : 'profile');
   document.querySelectorAll('nav.tabs a').forEach(a=>a.classList.toggle('on',a.dataset.tab===tab));
+  $('#badge').classList.toggle('on', tab==='profile');
+  if(tab!=='profile') S.profileTab = 'personal'; // opening Profile always starts on Personal info
   document.body.classList.toggle('coach-open', tab==='coach');
-  ({profile:viewProfile, plan:viewPlan, log:viewLog, coach:viewCoach, progress:viewProgress})[tab]();
+  ({nutrition:viewNutrition, profile:viewProfile, plan:viewPlan, log:viewLog, coach:viewCoach, progress:viewProgress})[tab]();
   if(tab!=='coach') window.scrollTo(0,0);
 }
 const go = tab => { if(location.hash==='#'+tab) route(); else location.hash = tab; };
@@ -559,6 +583,7 @@ async function applyProfile(np){
   S.account.profile = {...np, updatedAt:Date.now()};
   if(changed) S.account.plan = buildPlan(np, hadPlan ? plan().seed : Math.floor(Math.random()*1e9));
   await saveAccount();
+  renderBadge();
   return {hadPlan, changed};
 }
 
@@ -572,10 +597,152 @@ function bindAccountCard(){
   document.querySelectorAll('[data-signin]').forEach(b=>b.onclick=doSignIn);
 }
 
-function viewProfile(){
-  const p = profile() || PROFILE_DEFAULTS;
-  const st = profile() ? bodyStats(p) : null;
+// ---------- Nutrition ----------
+const MEAL_TYPES = ['Breakfast','Lunch','Dinner','Snack'];
+const nutritionSettings = () => {
+  const n = S.account.nutrition || (S.account.nutrition = {});
+  if(!Array.isArray(n.supplements)) n.supplements = [];
+  return n;
+};
+// Water goal: about half your body weight (lb) in ounces, between 64 and 128 oz — a common starting point. Editable.
+const defaultWaterGoal = () => { const p=profile(); return p ? Math.min(128, Math.max(64, Math.round(p.weight/2/8)*8)) : 64; };
+const waterGoal = () => nutritionSettings().waterGoal || defaultWaterGoal();
+const emptyDay = () => ({water:0, meals:[], supps:{}});
+const dayTotals = d => d.meals.reduce((t,m)=>({cal:t.cal+num(m.cal), protein:t.protein+num(m.protein)}), {cal:0, protein:0});
+const shiftDate = (s, n) => { const d=parseYmd(s); d.setDate(d.getDate()+n); return ymd(d); };
+const prettyDate = s => { if(s===todayStr()) return 'Today'; if(s===shiftDate(todayStr(),-1)) return 'Yesterday'; const d=parseYmd(s); return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}); };
+
+S.days = {};          // date → day data (loaded on demand)
+S.nDate = null;
+async function loadDay(date){
+  if(!S.days[date]){
+    try{ S.days[date] = {...emptyDay(), ...(await S.store.getDay(date) || {})}; }
+    catch(e){ console.warn(e); S.days[date] = emptyDay(); }
+  }
+  return S.days[date];
+}
+// Saves are coalesced: rapid taps (e.g. water) become one write.
+const daySaveTimers = {};
+function saveDaySoon(date){
+  clearTimeout(daySaveTimers[date]);
+  daySaveTimers[date] = setTimeout(async ()=>{
+    try{ await S.store.saveDay(date, S.days[date]); }catch(e){ console.error(e); toast('Couldn’t save — check your connection'); }
+  }, 700);
+}
+
+function bar(val, goal, label, unit){
+  const pct = goal ? Math.min(100, Math.round(val/goal*100)) : 0;
+  return `<div class="nbar"><div class="row" style="justify-content:space-between"><span class="k">${label}</span><span><b>${Math.round(val).toLocaleString()}</b><span class="muted"> / ${Math.round(goal).toLocaleString()} ${unit}</span></span></div>
+    <div class="track"><div class="fill ${val>=goal?'done':''}" style="width:${pct}%"></div></div></div>`;
+}
+
+async function viewNutrition(){
+  const date = S.nDate || (S.nDate = todayStr());
+  $('#app').innerHTML = '<div class="loading">Loading…</div>';
+  const d = await loadDay(date);
+  if(location.hash!=='#nutrition') return;
+  const p = profile(), st = p ? bodyStats(p) : null, t = dayTotals(d), ns = nutritionSettings(), wg = waterGoal();
+  const calGoal = st ? Math.round(st.target/10)*10 : 2000, proGoal = st ? st.proteinLo : 120;
+  const suppsDone = ns.supplements.filter(x=>d.supps[x.id]).length;
   $('#app').innerHTML = `
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <button class="iconbtn" id="nPrev" aria-label="Previous day">‹</button>
+        <div style="text-align:center"><h2 style="margin:0">${prettyDate(date)}</h2>${date!==todayStr()?'<button class="btn sm ghost" id="nToday" style="padding:2px 6px">Back to today</button>':''}</div>
+        <button class="iconbtn" id="nNext" aria-label="Next day" ${date>=todayStr()?'disabled style="opacity:.3"':''}>›</button>
+      </div>
+      <div style="display:grid;gap:12px;margin-top:14px">
+        ${bar(t.cal, calGoal, 'Calories', 'cal')}
+        ${bar(t.protein, proGoal, 'Protein', 'g')}
+        ${bar(d.water, wg, 'Water', 'oz')}
+        ${ns.supplements.length?bar(suppsDone, ns.supplements.length, 'Supplements', 'taken'):''}
+      </div>
+      ${st?'':'<p class="hint" style="margin:10px 0 0">Add your details in your profile for personal calorie and protein targets.</p>'}
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h3>Water</h3><button class="btn sm ghost" id="wGoalBtn">Goal: ${wg} oz</button></div>
+      <div id="wGoalEdit" hidden class="row" style="margin-top:8px"><input type="number" inputmode="numeric" id="wGoalIn" value="${wg}" style="width:110px"> <span class="muted small">oz per day</span> <button class="btn sm primary" id="wGoalSave">Save</button></div>
+      <div class="water-big">${d.water}<span> oz</span></div>
+      <div class="grid3">
+        <button class="btn" data-w="8">+8 oz<br><span class="hint">glass</span></button>
+        <button class="btn" data-w="16">+16 oz<br><span class="hint">bottle</span></button>
+        <button class="btn" data-w="24">+24 oz<br><span class="hint">tumbler</span></button>
+      </div>
+      <button class="btn sm ghost" data-w="-8" style="margin-top:8px" ${d.water<=0?'disabled':''}>− Undo 8 oz</button>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:8px">Meals</h3>
+      ${d.meals.length ? d.meals.map((m,i)=>`<div class="meal"><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(m.name)}</div><div class="hint">${esc(m.type)}${m.cal?` · ${m.cal} cal`:''}${m.protein?` · ${m.protein} g protein`:''}</div></div><button class="x" data-delmeal="${i}" aria-label="Remove">×</button></div>`).join('') : '<p class="muted small" style="margin:0 0 6px">Nothing logged yet.</p>'}
+      <form id="mealForm" style="margin-top:10px">
+        <div class="seg" style="margin-bottom:8px">${MEAL_TYPES.map((m,i)=>`<input type="radio" id="mt-${i}" name="type" value="${m}" ${m===guessMealType()?'checked':''}><label for="mt-${i}">${m}</label>`).join('')}</div>
+        <input type="text" name="name" placeholder="What did you eat? e.g. turkey sandwich" required>
+        <div class="grid2" style="margin-top:8px">
+          <input type="number" inputmode="numeric" name="cal" placeholder="Calories (optional)" min="0">
+          <input type="number" inputmode="numeric" name="protein" placeholder="Protein g (optional)" min="0">
+        </div>
+        <button class="btn primary block" style="margin-top:8px">Add meal</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h3>Supplements</h3><button class="btn sm ghost" id="suppEditBtn">${S.suppEdit?'Done':'Edit list'}</button></div>
+      ${ns.supplements.length ? `<div class="checks" style="margin-top:10px;grid-template-columns:1fr">${ns.supplements.map(x=>`<label><input type="checkbox" data-supp="${esc(x.id)}" ${d.supps[x.id]?'checked':''}><span style="flex:1">${esc(x.name)}${x.dose?` <span class="hint">· ${esc(x.dose)}</span>`:''}</span>${S.suppEdit?`<button type="button" class="x" data-delsupp="${esc(x.id)}" aria-label="Remove">×</button>`:''}</label>`).join('')}</div>` : `<p class="muted small" style="margin:6px 0 0">Add vitamins, protein powder, creatine or anything you take regularly, then check them off each day.</p>`}
+      ${S.suppEdit || !ns.supplements.length ? `<form id="suppForm" class="grid2" style="margin-top:10px;grid-template-columns:1fr 1fr auto">
+        <input type="text" name="name" placeholder="e.g. Vitamin D" required>
+        <input type="text" name="dose" placeholder="Dose (optional)">
+        <button class="btn primary">Add</button>
+      </form>` : ''}
+    </div>
+    <p class="hint" style="text-align:center">Targets are estimates. Talk to a doctor or dietitian before starting supplements or big diet changes.</p>`;
+
+  $('#nPrev').onclick = ()=>{ S.nDate = shiftDate(date,-1); viewNutrition(); };
+  $('#nNext').onclick = ()=>{ if(date<todayStr()){ S.nDate = shiftDate(date,1); viewNutrition(); } };
+  $('#nToday')?.addEventListener('click', ()=>{ S.nDate = todayStr(); viewNutrition(); });
+  const rerender = ()=>{ const y=window.scrollY; viewNutrition().then(()=>window.scrollTo(0,y)); };
+  document.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{ d.water = Math.max(0, d.water + +b.dataset.w); saveDaySoon(date); rerender(); });
+  $('#wGoalBtn').onclick = ()=>{ $('#wGoalEdit').hidden = !$('#wGoalEdit').hidden; };
+  $('#wGoalSave').onclick = async ()=>{ const v=Math.round(num($('#wGoalIn').value)); if(v<16||v>300){ toast('Enter a goal between 16 and 300 oz'); return; } ns.waterGoal=v; await saveAccount(); rerender(); };
+  $('#mealForm').onsubmit = e=>{
+    e.preventDefault(); const f=new FormData(e.target); const name=String(f.get('name')||'').trim(); if(!name) return;
+    d.meals.push({name:name.slice(0,80), type:f.get('type')||'Snack', cal:Math.round(num(f.get('cal')))||0, protein:Math.round(num(f.get('protein')))||0, ts:Date.now()});
+    saveDaySoon(date); toast('Meal added'); rerender();
+  };
+  document.querySelectorAll('[data-delmeal]').forEach(b=>b.onclick=()=>{ d.meals.splice(+b.dataset.delmeal,1); saveDaySoon(date); rerender(); });
+  document.querySelectorAll('[data-supp]').forEach(c=>c.onchange=()=>{ if(c.checked) d.supps[c.dataset.supp]=true; else delete d.supps[c.dataset.supp]; saveDaySoon(date); rerender(); });
+  $('#suppEditBtn').onclick = ()=>{ S.suppEdit = !S.suppEdit; rerender(); };
+  $('#suppForm')?.addEventListener('submit', async e=>{
+    e.preventDefault(); const f=new FormData(e.target); const name=String(f.get('name')||'').trim(); if(!name) return;
+    ns.supplements.push({id:'s'+Date.now().toString(36), name:name.slice(0,60), dose:String(f.get('dose')||'').trim().slice(0,40)});
+    await saveAccount(); rerender();
+  });
+  document.querySelectorAll('[data-delsupp]').forEach(b=>b.onclick=async ev=>{ ev.preventDefault(); ns.supplements = ns.supplements.filter(x=>x.id!==b.dataset.delsupp); await saveAccount(); rerender(); });
+}
+function guessMealType(){ const h=new Date().getHours(); return h<10.5?'Breakfast':h<15?'Lunch':h<17?'Snack':h<21?'Dinner':'Snack'; }
+
+function profileFormSave(formEl, fields){
+  const f = new FormData(formEl);
+  const vals = {};
+  for(const k of fields){
+    if(k==='gear'||k==='activities') vals[k] = f.getAll(k);
+    else if(k==='lowImpact') vals[k] = !!f.get('lowImpact');
+    else vals[k] = f.get(k);
+  }
+  return normalizeProfile({...(profile()||PROFILE_DEFAULTS), ...vals});
+}
+
+function viewProfile(){
+  const has = !!profile();
+  const p = profile() || PROFILE_DEFAULTS;
+  const tab = S.profileTab || 'personal';
+  const st = has ? bodyStats(p) : null;
+  const tabsHtml = `<div class="seg ptabs" role="tablist">
+      <input type="radio" id="pt-personal" name="ptab" value="personal" ${tab==='personal'?'checked':''}><label for="pt-personal">Personal info</label>
+      <input type="radio" id="pt-workout" name="ptab" value="workout" ${tab==='workout'?'checked':''}><label for="pt-workout">Workout settings</label>
+    </div>`;
+
+  const personal = `
     ${accountCard()}
     ${st ? `<div class="card hero">
       <h2>Your numbers</h2>
@@ -585,10 +752,10 @@ function viewProfile(){
         <div class="stat"><div class="k">Maintenance</div><div class="v">${Math.round(st.tdee/10)*10}</div><div class="s">cal/day estimate</div></div>
         <div class="stat"><div class="k">Goal calories</div><div class="v">${Math.round(st.target/10)*10}</div><div class="s">${st.proteinLo}–${st.proteinHi} g protein</div></div>
       </div>
-      <div class="disclaimer">Estimates from the Mifflin-St Jeor formula. Meal recommendations will build on these numbers. Check with a doctor before starting a new program.</div>
-    </div>`:`<div class="card hero"><h2>Let’s build your plan</h2><p class="muted" style="margin:0">Fill in your details and Busy Bodies will put together a weekly workout plan for your body, goal and equipment.${S.user?' Or <a href="#coach">set it up by chatting with your coach</a>.':''}</p></div>`}
-    <form class="card" id="pf" novalidate>
-      <h2>Profile</h2>
+      <div class="disclaimer">Estimates from the Mifflin-St Jeor formula. Check with a doctor before starting a new program.</div>
+    </div>`:`<div class="card hero"><h2>Let’s get started</h2><p class="muted" style="margin:0">Add your details here, then set up your workouts on the next tab.${S.user?' Or <a href="#coach">set it all up by chatting with your coach</a>.':''}</p></div>`}
+    <form class="card" id="pfPersonal" novalidate>
+      <h2>Personal info</h2>
       <label class="f" for="name">Name (optional)</label>
       <input type="text" id="name" name="name" value="${esc(p.name)}" autocomplete="given-name">
       <div class="grid2">
@@ -597,11 +764,38 @@ function viewProfile(){
       </div>
       <label class="f">Height</label>
       <div class="grid2">
-        <select name="heightFt" aria-label="Feet">${[4,5,6,7].map(f=>`<option value="${f}" ${+p.heightFt===f||(!p.heightFt&&f===5)?'selected':''}>${f} ft</option>`).join('')}</select>
-        <select name="heightIn" aria-label="Inches">${[...Array(12).keys()].map(i=>`<option value="${i}" ${+p.heightIn===i||(p.heightIn==null&&i===9)?'selected':''}>${i} in</option>`).join('')}</select>
+        <select name="heightFt" aria-label="Feet">${[4,5,6,7].map(f=>`<option value="${f}" ${+p.heightFt===f?'selected':''}>${f} ft</option>`).join('')}</select>
+        <select name="heightIn" aria-label="Inches">${[...Array(12).keys()].map(i=>`<option value="${i}" ${+p.heightIn===i?'selected':''}>${i} in</option>`).join('')}</select>
       </div>
       <label class="f">Sex <span class="muted" style="font-weight:400">(used for calorie formula)</span></label>
       ${radios('sex',[['male','Male'],['female','Female']],p.sex)}
+      <label class="f" for="notes">Anything your coach should know?</label>
+      <textarea id="notes" name="notes" placeholder="e.g. two kids with evening practices, mornings work best, old shoulder injury">${esc(p.notes)}</textarea>
+      <div class="perr small" style="color:var(--danger);margin-top:12px"></div>
+      <button class="btn primary block" style="margin-top:12px">${has?'Save personal info':'Save and continue'}</button>
+    </form>
+    <div class="card">
+      <h2>Your data</h2>
+      <p class="small muted" style="margin-top:0">${S.user?'Your data is saved to your account. You can still download a backup copy.':'Everything is saved in this browser on this device. Download a backup now and then. You can restore it here or on another device.'}</p>
+      <div class="grid2">
+        <button class="btn" id="exportBtn" ${has||S.workouts.length?'':'disabled'}>Download backup</button>
+        <label class="btn" style="text-align:center">Restore backup<input type="file" id="importFile" accept=".json,application/json" hidden></label>
+      </div>
+      <div id="dataMsg" class="small" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <h2>Start over</h2>
+      <p class="small muted" style="margin-top:0"><b style="color:var(--text)">Redo setup</b> clears your profile, plan and coach chat but keeps your logged workouts and nutrition. <b style="color:var(--text)">Erase everything</b> also deletes every workout and nutrition entry. Neither can be undone, so download a backup first if you might want it.</p>
+      <div class="grid2">
+        <button class="btn" data-reset="setup">Redo setup</button>
+        <button class="btn danger" data-reset="all">Erase everything</button>
+      </div>
+    </div>`;
+
+  const workout = `
+    <form class="card" id="pfWorkout" novalidate>
+      <h2>Workout settings</h2>
+      <p class="small muted" style="margin-top:0">Your weekly plan is rebuilt from these when you save.</p>
       <label class="f">Main goal</label>
       ${choiceCards('goal',GOALS,p.goal)}
       <label class="f">Experience</label>
@@ -617,47 +811,43 @@ function viewProfile(){
       <label class="f">Cardio you can do</label>
       <div class="checks">${Object.entries(ACTIVITIES).map(([k,l])=>`<label><input type="checkbox" name="activities" value="${k}" ${p.activities.includes(k)?'checked':''}><span>${l}</span></label>`).join('')}</div>
       <label class="toggle"><input type="checkbox" name="lowImpact" ${p.lowImpact?'checked':''}><span>Low-impact only <span class="muted small">— no jumping or running, easier on joints</span></span></label>
-      <label class="f" for="notes">Anything your coach should know?</label>
-      <textarea id="notes" name="notes" placeholder="e.g. two kids with evening practices, mornings work best, old shoulder injury">${esc(p.notes)}</textarea>
-      <div id="perr" class="small" style="color:var(--danger);margin-top:12px"></div>
-      <button class="btn primary block" style="margin-top:12px">${profile()?'Save profile':'Build my plan'}</button>
-    </form>
-    <div class="card">
-      <h2>Your data</h2>
-      <p class="small muted" style="margin-top:0">${S.user?'Your data is saved to your account. You can still download a backup copy.':'Everything is saved in this browser on this device. Download a backup now and then. You can restore it here or on another device.'}</p>
-      <div class="grid2">
-        <button class="btn" id="exportBtn" ${profile()||S.workouts.length?'':'disabled'}>Download backup</button>
-        <label class="btn" style="text-align:center">Restore backup<input type="file" id="importFile" accept=".json,application/json" hidden></label>
-      </div>
-      <div id="dataMsg" class="small" style="margin-top:10px"></div>
-    </div>
-    <div class="card">
-      <h2>Start over</h2>
-      <p class="small muted" style="margin-top:0"><b style="color:var(--text)">Redo setup</b> clears your profile, plan and coach chat but keeps your logged workouts. <b style="color:var(--text)">Erase everything</b> also deletes every workout. Neither can be undone, so download a backup first if you might want it.</p>
-      <div class="grid2">
-        <button class="btn" data-reset="setup">Redo setup</button>
-        <button class="btn danger" data-reset="all">Erase everything</button>
-      </div>
-    </div>`;
-  document.querySelectorAll('[data-reset]').forEach(b=>b.onclick=()=>resetAccount(b));
-  bindAccountCard();
-  $('#exportBtn').onclick = exportData;
-  $('#importFile').onchange = importData;
-  document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{
-    const ps = GEAR_PRESETS[b.dataset.preset];
-    document.querySelectorAll('input[name=gear]').forEach(c=>c.checked=ps.gear.includes(c.value));
-    document.querySelectorAll('input[name=activities]').forEach(c=>c.checked=ps.activities.includes(c.value));
-  });
-  $('#pf').addEventListener('submit', async e=>{
-    e.preventDefault();
-    const f = new FormData(e.target);
-    const {p:np, err} = normalizeProfile({...Object.fromEntries(f.entries()), gear:f.getAll('gear'), activities:f.getAll('activities'), lowImpact:!!f.get('lowImpact')});
-    if(err.length){ $('#perr').textContent = 'Please enter your '+err.join(' and ')+'.'; return; }
-    e.target.querySelector('button[type=submit],button:not([type])').disabled = true;
-    const {hadPlan, changed} = await applyProfile(np);
-    toast(changed ? (hadPlan?'Profile saved — plan updated':'Your plan is ready') : 'Profile saved');
-    go(changed?'plan':'profile');
-  });
+      <div class="perr small" style="color:var(--danger);margin-top:12px"></div>
+      <button class="btn primary block" style="margin-top:12px">${has?'Save workout settings':'Build my plan'}</button>
+    </form>`;
+
+  $('#app').innerHTML = tabsHtml + (tab==='personal' ? personal : workout);
+  document.querySelectorAll('input[name=ptab]').forEach(r=>r.onchange=()=>{ S.profileTab=r.value; viewProfile(); window.scrollTo(0,0); });
+
+  if(tab==='personal'){
+    document.querySelectorAll('[data-reset]').forEach(b=>b.onclick=()=>resetAccount(b));
+    bindAccountCard();
+    $('#exportBtn').onclick = exportData;
+    $('#importFile').onchange = importData;
+    $('#pfPersonal').addEventListener('submit', async e=>{
+      e.preventDefault();
+      const {p:np, err} = profileFormSave(e.target, ['name','age','weight','heightFt','heightIn','sex','notes']);
+      if(err.length){ e.target.querySelector('.perr').textContent = 'Please enter your '+err.join(' and ')+'.'; return; }
+      e.target.querySelector('button:not([type])').disabled = true;
+      await applyProfile(np);
+      if(!has){ toast('Saved — now set up your workouts'); S.profileTab='workout'; viewProfile(); window.scrollTo(0,0); }
+      else { toast('Personal info saved'); viewProfile(); }
+    });
+  } else {
+    document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{
+      const ps = GEAR_PRESETS[b.dataset.preset];
+      document.querySelectorAll('input[name=gear]').forEach(c=>c.checked=ps.gear.includes(c.value));
+      document.querySelectorAll('input[name=activities]').forEach(c=>c.checked=ps.activities.includes(c.value));
+    });
+    $('#pfWorkout').addEventListener('submit', async e=>{
+      e.preventDefault();
+      const {p:np, err} = profileFormSave(e.target, ['goal','level','days','minutes','gear','activities','lowImpact']);
+      if(err.length){ e.target.querySelector('.perr').innerHTML = 'Add your age, height and weight on the <a href="#" id="toPersonal">Personal info</a> tab first.'; $('#toPersonal').onclick=ev=>{ev.preventDefault(); S.profileTab='personal'; viewProfile();}; return; }
+      e.target.querySelector('button:not([type])').disabled = true;
+      const {hadPlan, changed} = await applyProfile(np);
+      toast(changed ? (hadPlan?'Saved — plan updated':'Your plan is ready') : 'Workout settings saved');
+      go(changed?'plan':'profile');
+    });
+  }
 }
 
 const ICON_SWAP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg>';
@@ -878,10 +1068,10 @@ async function resetAccount(b){
   }
   document.querySelectorAll('[data-reset]').forEach(x=>x.disabled=true);
   try{
-    if(all){ await S.store.replaceAll({}, []); S.workouts = []; }
-    else { await S.store.saveAccount({}); }
+    if(all){ await S.store.replaceAll({}, []); await S.store.clearDays(); S.workouts = []; S.days = {}; }
+    else { await S.store.saveAccount(S.account.nutrition ? {nutrition:S.account.nutrition} : {}); }
     await S.store.saveChat([]);
-    S.account = {}; S.chat = []; S.draft = null;
+    S.account = all ? {} : (S.account.nutrition ? {nutrition:S.account.nutrition} : {}); S.chat = []; S.draft = null; S.profileTab = 'personal'; renderBadge();
     toast(all ? 'Everything erased — fresh start' : 'Setup cleared — let’s start again');
     go(S.user ? 'coach' : 'profile');
   }catch(e){
@@ -891,12 +1081,13 @@ async function resetAccount(b){
 }
 
 // ----- backup / restore -----
-function exportData(){
-  const data = { app:'workout-tracker', version:1, exportedAt:new Date().toISOString(), account:S.account, workouts:S.workouts };
+async function exportData(){
+  let days = {}; try{ days = await S.store.listDays(); }catch(e){ console.warn(e); }
+  const data = { app:'busy-bodies', version:2, exportedAt:new Date().toISOString(), account:S.account, workouts:S.workouts, days };
   try{
     const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = `workout-backup-${todayStr()}.json`;
+    a.href = URL.createObjectURL(blob); a.download = `busy-bodies-backup-${todayStr()}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
     $('#dataMsg').textContent = 'Backup downloaded.';
@@ -913,7 +1104,11 @@ async function importData(e){
     msg.innerHTML = `Backup has ${data.workouts.length} workouts${data.account.profile?' and a profile':''}. Restoring replaces your current data. <button class="btn sm primary" id="confirmImport" style="margin-left:6px">Replace my data</button>`;
     $('#confirmImport').onclick = async ()=>{
       await S.store.replaceAll(pendingImport.account, pendingImport.workouts);
-      S.account = await S.store.getAccount(); S.workouts = await S.store.listWorkouts(); pendingImport = null;
+      if(pendingImport.days && typeof pendingImport.days==='object'){
+        await S.store.clearDays();
+        for(const [date, day] of Object.entries(pendingImport.days)) if(/^\d{4}-\d{2}-\d{2}$/.test(date)) await S.store.saveDay(date, day);
+      }
+      S.account = await S.store.getAccount(); S.workouts = await S.store.listWorkouts(); S.days = {}; pendingImport = null; renderBadge();
       toast('Backup restored'); viewProfile();
     };
   }catch(err){ pendingImport = null; msg.textContent = 'That file isn’t a valid backup.'; }
@@ -963,7 +1158,7 @@ async function doSignIn(){
 async function doSignOut(){ if(FB){ await FB.A.signOut(FB.auth); toast('Signed out'); } }
 
 async function useLocal(){
-  S.user = null; S.store = localBackend(); S.draft = null;
+  S.user = null; S.store = localBackend(); S.draft = null; S.days = {}; S.nDate = null;
   S.account = await S.store.getAccount(); S.workouts = await S.store.listWorkouts(); S.chat = [];
   S.ready = true; renderBadge(); route();
 }
@@ -982,7 +1177,7 @@ async function useCloud(user){
       await cloud.replaceAll(lAcc, lW);
       account = await cloud.getAccount(); workouts = await cloud.listWorkouts(); migrated = true;
     }
-    S.store = cloud; S.account = account; S.workouts = workouts; S.draft = null;
+    S.store = cloud; S.account = account; S.workouts = workouts; S.draft = null; S.days = {}; S.nDate = null;
     S.chat = await cloud.getChat();
     S.ready = true; renderBadge(); route();
     if(migrated) toast('Moved your saved workouts into your account');
@@ -997,10 +1192,14 @@ async function useCloud(user){
 }
 function renderBadge(){
   const b = $('#badge');
-  if(S.user){ b.textContent = '● ' + (S.user.displayName||'Signed in').split(' ')[0]; b.classList.add('cloud'); b.onclick = ()=>go('profile'); }
-  else if(FB){ b.textContent = 'Sign in'; b.classList.remove('cloud'); b.onclick = doSignIn; }
-  else { b.textContent = 'Saved in this browser'; b.classList.remove('cloud'); b.onclick = null; }
+  const name = (profile() && profile().name) || (S.user && S.user.displayName ? S.user.displayName.split(' ')[0] : '');
+  const initial = (name || '?').trim().charAt(0).toUpperCase();
+  b.innerHTML = `<span class="av">${S.user||name ? esc(initial) : PERSON_ICON}</span><span>${esc(name || 'Profile')}</span>`;
+  b.classList.toggle('cloud', !!S.user);
+  b.title = S.user ? 'Your profile (synced)' : 'Your profile';
+  b.onclick = ()=>go('profile');
 }
+const PERSON_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>';
 
 // ---------- Coach ----------
 const COACH_STARTERS = ['I only have 20 minutes today','Something hurts','How did my week go?','Make my plan easier','Make my plan harder','What should I do today?'];
@@ -1021,6 +1220,8 @@ function coachContext(){
   const recent = S.workouts.slice(0,12);
   lines.push(recent.length ? 'RECENT WORKOUTS (newest first):\n' + recent.map(w=>`${w.date} ${w.dayName}${w.effort?` effort ${w.effort}/10`:''}${w.cardioMin?` +${w.cardioMin}min cardio`:''}: ` + w.exercises.map(e=>`${e.name} ${e.sets.map(s=>s.w?`${s.w}x${s.r}`:s.r).join(',')}`).join('; ') + (w.notes?` | notes: "${w.notes}"`:'')).join('\n') : 'RECENT WORKOUTS: none logged yet.');
   const wk = weekStart(now).getTime();
+  const nd = S.days[todayStr()];
+  if(nd){ const t=dayTotals(nd); lines.push(`NUTRITION TODAY: ${t.cal} cal, ${t.protein} g protein, ${nd.water} oz water (goal ${waterGoal()} oz). Meals: ${nd.meals.map(m=>m.name).join('; ')||'none logged'}.${(S.account.nutrition?.supplements||[]).length?' Supplements taken: '+S.account.nutrition.supplements.filter(x=>nd.supps[x.id]).map(x=>x.name).join(', ')+' (of '+S.account.nutrition.supplements.map(x=>x.name).join(', ')+').':''}`); }
   lines.push(`Workouts logged this week: ${S.workouts.filter(w=>weekStart(parseYmd(w.date)).getTime()===wk).length} of ${p.days} planned.`);
   return lines.join('\n');
 }
@@ -1047,7 +1248,7 @@ COACHING MODE (profile exists)
 - EQUIPMENT RULE: only recommend exercises from the library below and cardio from AVAILABLE CARDIO — this applies to everything you write, not just actions. The library already contains only what this user can do. If the user wants something that needs equipment or an activity they don't have, say so and offer an update_profile action that adds it (e.g. they mention they joined a gym or bought a kettlebell).
 - For swaps, use the same movement pattern when possible. Use ONLY ids from the library.
 - When the user shares lasting info (new injury, schedule change, preference), propose an update_profile action with updated "notes" (keep the old notes and add the new info).
-- Nutrition: give general, sensible guidance (protein, simple meals, the calorie estimate). A full meal planner is coming later to the app.
+- Nutrition: the app has a Nutrition tab where the user logs meals (calories/protein), water and supplements. Give general, sensible guidance (protein, simple meals for busy families, hydration, the calorie estimate). Don't recommend specific supplement doses; suggest checking with a doctor or pharmacist.
 
 SAFETY
 - You are not a doctor. For pain: tell them to stop any movement that hurts, offer a pain-free alternative, and recommend seeing a doctor or physical therapist for sharp, worsening, or lasting pain, or any chest pain, dizziness or shortness of breath (urgent care for those).
@@ -1197,6 +1398,7 @@ function msgHtml(m, i){
 async function sendCoach(text){
   if(S.coachBusy) return;
   S.chat = S.chat.filter(m=>!m.transient); S.lastFailed = '';
+  loadDay(todayStr()).catch(()=>{}); // so the coach can see today's nutrition
   if(!S.chat.length) S.chat.push({role:'model', text:greeting(), ts:Date.now()});
   S.chat.push({role:'user', text, ts:Date.now()});
   S.coachBusy = true; viewCoach();
