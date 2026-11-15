@@ -22,6 +22,7 @@
   --warn:#ffb547; --danger:#ff6b6b; --radius:14px;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 h1,h2,h3{font-family:"Barlow Condensed",Inter,sans-serif;letter-spacing:.02em;margin:0;text-transform:uppercase}
 h1{font-size:26px;font-weight:800}
@@ -44,6 +45,20 @@ button.badge.on{border-color:var(--accent)}
 .water-big span{font-size:20px;color:var(--muted)}
 .meal{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
 .x{background:none;border:0;color:var(--muted);font-size:22px;cursor:pointer;padding:0 6px}
+.star{background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px}
+.star.on{color:var(--accent)}
+.favs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.fav{position:relative;flex:none;max-width:170px;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:8px 11px;color:var(--text);font:inherit;cursor:pointer}
+.fav b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fav span{font-size:12px;color:var(--muted)}
+.fav i{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;font-style:normal;font-size:14px;display:grid;place-items:center}
+.photo-btn{text-align:center}
+.photo-btn.disabled{opacity:.5}
+.scan{margin-top:12px;padding:12px;border-radius:12px;background:var(--panel2)}
+.scan input[type=text],.scan input[type=number]{background:var(--panel);margin-top:4px}
+.scanimg{width:100%;max-height:220px;object-fit:cover;border-radius:10px;display:block}
+.idea{padding:10px 0;border-bottom:1px solid var(--line)}
+.idea:last-child{border-bottom:0}
 .badge{margin-left:auto;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:3px 10px;white-space:nowrap}
 .badge.cloud{color:var(--accent);border-color:rgba(198,244,50,.35)}
 main{max-width:760px;margin:0 auto;padding:16px 16px 110px}
@@ -638,12 +653,15 @@ function bar(val, goal, label, unit){
 
 async function viewNutrition(){
   const date = S.nDate || (S.nDate = todayStr());
-  $('#app').innerHTML = '<div class="loading">Loading…</div>';
+  if(!S.days[date]) $('#app').innerHTML = '<div class="loading">Loading…</div>';
   const d = await loadDay(date);
   if(location.hash!=='#nutrition') return;
   const p = profile(), st = p ? bodyStats(p) : null, t = dayTotals(d), ns = nutritionSettings(), wg = waterGoal();
   const calGoal = st ? Math.round(st.target/10)*10 : 2000, proGoal = st ? st.proteinLo : 120;
   const suppsDone = ns.supplements.filter(x=>d.supps[x.id]).length;
+  const favs = favorites();
+  const mealType = S.mealType || (S.mealType = guessMealType());
+  const aiOK = !!(FB && S.user);
   $('#app').innerHTML = `
     <div class="card">
       <div class="row" style="justify-content:space-between">
@@ -661,6 +679,40 @@ async function viewNutrition(){
     </div>
 
     <div class="card">
+      <h3 style="margin-bottom:8px">Meals</h3>
+      ${d.meals.length ? d.meals.map((m,i)=>`<div class="meal"><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(m.name)}</div><div class="hint">${esc(m.type)}${m.cal?` · ${m.cal} cal`:''}${m.protein?` · ${m.protein} g protein`:''}${m.src==='photo'?' · 📷':''}</div></div>
+        <button class="star ${isFav(m)?'on':''}" data-favmeal="${i}" aria-label="${isFav(m)?'Saved as favorite':'Save as favorite'}">${isFav(m)?'★':'☆'}</button><button class="x" data-delmeal="${i}" aria-label="Remove">×</button></div>`).join('') : '<p class="muted small" style="margin:0 0 6px">Nothing logged yet.</p>'}
+
+      <div class="seg" style="margin:12px 0 10px">${MEAL_TYPES.map((m,i)=>`<input type="radio" id="mt-${i}" name="mtype" value="${m}" ${m===mealType?'checked':''}><label for="mt-${i}">${m}</label>`).join('')}</div>
+
+      <div class="row" style="justify-content:space-between;margin-bottom:6px"><span class="k small muted" style="font-weight:600">Quick add favorites</span>${favs.length?`<button class="btn sm ghost" id="favEditBtn" style="padding:2px 6px">${S.favEdit?'Done':'Edit'}</button>`:''}</div>
+      ${favs.length ? `<div class="favs">${favs.map(f=>`<button class="fav" data-fav="${esc(f.id)}"><b>${esc(f.name)}</b><span>${f.cal?f.cal+' cal':''}${f.protein?` · ${f.protein}g`:''}</span>${S.favEdit?'<i data-delfav="'+esc(f.id)+'">×</i>':''}</button>`).join('')}</div>`
+        : '<p class="hint" style="margin:0 0 4px">Tap ☆ on any meal to save it here for one-tap logging.</p>'}
+
+      <div class="grid2" style="margin-top:12px">
+        <label class="btn photo-btn ${aiOK?'':'disabled'}">📷 Snap a meal<input type="file" id="mealPhoto" accept="image/*" hidden ${aiOK?'':'disabled'}></label>
+        <button class="btn" id="showManual">${S.manualOpen?'Hide form':'✎ Type it in'}</button>
+      </div>
+      ${aiOK?'':'<p class="hint" style="margin:6px 0 0">Sign in to scan meal photos and get personalized meal ideas.</p>'}
+      <div id="scanBox">${scanHtml()}</div>
+      ${S.manualOpen ? `<form id="mealForm" style="margin-top:10px">
+        <input type="text" name="name" placeholder="What did you eat? e.g. turkey sandwich" required>
+        <div class="grid2" style="margin-top:8px">
+          <input type="number" inputmode="numeric" name="cal" placeholder="Calories" min="0">
+          <input type="number" inputmode="numeric" name="protein" placeholder="Protein (g)" min="0">
+        </div>
+        <label class="toggle" style="margin-top:8px"><input type="checkbox" name="fav"><span class="small">Also save as a favorite</span></label>
+        <button class="btn primary block" style="margin-top:8px">Add ${esc(mealType.toLowerCase())}</button>
+      </form>` : ''}
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h3>Meal ideas</h3><button class="btn sm primary" id="ideasBtn" ${S.ideasBusy?'disabled':''}>${S.ideasBusy?'Thinking…':`Ideas for ${esc(mealType.toLowerCase())}`}</button></div>
+      <p class="hint" style="margin:6px 0 0">${date===todayStr() && st ? `${Math.max(0,calGoal-t.cal)} cal and ${Math.max(0,proGoal-t.protein)} g protein left today.` : 'Quick, family-friendly ideas that fit your targets.'}</p>
+      <div id="ideasBox">${ideasHtml()}</div>
+    </div>
+
+    <div class="card">
       <div class="row" style="justify-content:space-between"><h3>Water</h3><button class="btn sm ghost" id="wGoalBtn">Goal: ${wg} oz</button></div>
       <div id="wGoalEdit" hidden class="row" style="margin-top:8px"><input type="number" inputmode="numeric" id="wGoalIn" value="${wg}" style="width:110px"> <span class="muted small">oz per day</span> <button class="btn sm primary" id="wGoalSave">Save</button></div>
       <div class="water-big">${d.water}<span> oz</span></div>
@@ -673,20 +725,6 @@ async function viewNutrition(){
     </div>
 
     <div class="card">
-      <h3 style="margin-bottom:8px">Meals</h3>
-      ${d.meals.length ? d.meals.map((m,i)=>`<div class="meal"><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(m.name)}</div><div class="hint">${esc(m.type)}${m.cal?` · ${m.cal} cal`:''}${m.protein?` · ${m.protein} g protein`:''}</div></div><button class="x" data-delmeal="${i}" aria-label="Remove">×</button></div>`).join('') : '<p class="muted small" style="margin:0 0 6px">Nothing logged yet.</p>'}
-      <form id="mealForm" style="margin-top:10px">
-        <div class="seg" style="margin-bottom:8px">${MEAL_TYPES.map((m,i)=>`<input type="radio" id="mt-${i}" name="type" value="${m}" ${m===guessMealType()?'checked':''}><label for="mt-${i}">${m}</label>`).join('')}</div>
-        <input type="text" name="name" placeholder="What did you eat? e.g. turkey sandwich" required>
-        <div class="grid2" style="margin-top:8px">
-          <input type="number" inputmode="numeric" name="cal" placeholder="Calories (optional)" min="0">
-          <input type="number" inputmode="numeric" name="protein" placeholder="Protein g (optional)" min="0">
-        </div>
-        <button class="btn primary block" style="margin-top:8px">Add meal</button>
-      </form>
-    </div>
-
-    <div class="card">
       <div class="row" style="justify-content:space-between"><h3>Supplements</h3><button class="btn sm ghost" id="suppEditBtn">${S.suppEdit?'Done':'Edit list'}</button></div>
       ${ns.supplements.length ? `<div class="checks" style="margin-top:10px;grid-template-columns:1fr">${ns.supplements.map(x=>`<label><input type="checkbox" data-supp="${esc(x.id)}" ${d.supps[x.id]?'checked':''}><span style="flex:1">${esc(x.name)}${x.dose?` <span class="hint">· ${esc(x.dose)}</span>`:''}</span>${S.suppEdit?`<button type="button" class="x" data-delsupp="${esc(x.id)}" aria-label="Remove">×</button>`:''}</label>`).join('')}</div>` : `<p class="muted small" style="margin:6px 0 0">Add vitamins, protein powder, creatine or anything you take regularly, then check them off each day.</p>`}
       ${S.suppEdit || !ns.supplements.length ? `<form id="suppForm" class="grid2" style="margin-top:10px;grid-template-columns:1fr 1fr auto">
@@ -695,21 +733,44 @@ async function viewNutrition(){
         <button class="btn primary">Add</button>
       </form>` : ''}
     </div>
-    <p class="hint" style="text-align:center">Targets are estimates. Talk to a doctor or dietitian before starting supplements or big diet changes.</p>`;
+    <p class="hint" style="text-align:center">Calories and protein are estimates. Talk to a doctor or dietitian before starting supplements or big diet changes.</p>`;
 
+  const rerender = ()=>{ const y=window.scrollY; viewNutrition().then(()=>window.scrollTo(0,y)); };
+  S.rerenderNutrition = rerender;
   $('#nPrev').onclick = ()=>{ S.nDate = shiftDate(date,-1); viewNutrition(); };
   $('#nNext').onclick = ()=>{ if(date<todayStr()){ S.nDate = shiftDate(date,1); viewNutrition(); } };
   $('#nToday')?.addEventListener('click', ()=>{ S.nDate = todayStr(); viewNutrition(); });
-  const rerender = ()=>{ const y=window.scrollY; viewNutrition().then(()=>window.scrollTo(0,y)); };
+  document.querySelectorAll('input[name=mtype]').forEach(r=>r.onchange=()=>{ S.mealType=r.value; S.ideas=null; rerender(); });
+  // meals
+  document.querySelectorAll('[data-delmeal]').forEach(b=>b.onclick=()=>{ d.meals.splice(+b.dataset.delmeal,1); saveDaySoon(date); rerender(); });
+  document.querySelectorAll('[data-favmeal]').forEach(b=>b.onclick=async ()=>{ const m=d.meals[+b.dataset.favmeal]; if(isFav(m)) await removeFav(m); else await addFav(m); rerender(); });
+  // favorites
+  $('#favEditBtn')?.addEventListener('click', ()=>{ S.favEdit=!S.favEdit; rerender(); });
+  document.querySelectorAll('[data-fav]').forEach(b=>b.onclick=async ev=>{
+    const id=b.dataset.fav;
+    if(ev.target.dataset.delfav || S.favEdit){ if(ev.target.dataset.delfav){ ns.favorites = favs.filter(f=>f.id!==id); await saveAccount(); rerender(); } return; }
+    const f = favs.find(x=>x.id===id); if(!f) return;
+    logMeal(d, date, {...f, src:'fav'}); toast(`Added ${f.name}`); rerender();
+  });
+  // manual
+  $('#showManual').onclick = ()=>{ S.manualOpen=!S.manualOpen; rerender(); };
+  $('#mealForm')?.addEventListener('submit', async e=>{
+    e.preventDefault(); const f=new FormData(e.target); const name=String(f.get('name')||'').trim(); if(!name) return;
+    const m = {name:name.slice(0,80), cal:Math.round(num(f.get('cal')))||0, protein:Math.round(num(f.get('protein')))||0};
+    logMeal(d, date, m); if(f.get('fav')) await addFav(m);
+    toast('Meal added'); S.manualOpen=false; rerender();
+  });
+  // photo
+  $('#mealPhoto')?.addEventListener('change', e=>{ const file=e.target.files[0]; e.target.value=''; if(file) scanMeal(file); });
+  bindScan(d, date);
+  // ideas
+  $('#ideasBtn').onclick = ()=>getMealIdeas(d, date);
+  bindIdeas(d, date);
+  // water
   document.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{ d.water = Math.max(0, d.water + +b.dataset.w); saveDaySoon(date); rerender(); });
   $('#wGoalBtn').onclick = ()=>{ $('#wGoalEdit').hidden = !$('#wGoalEdit').hidden; };
   $('#wGoalSave').onclick = async ()=>{ const v=Math.round(num($('#wGoalIn').value)); if(v<16||v>300){ toast('Enter a goal between 16 and 300 oz'); return; } ns.waterGoal=v; await saveAccount(); rerender(); };
-  $('#mealForm').onsubmit = e=>{
-    e.preventDefault(); const f=new FormData(e.target); const name=String(f.get('name')||'').trim(); if(!name) return;
-    d.meals.push({name:name.slice(0,80), type:f.get('type')||'Snack', cal:Math.round(num(f.get('cal')))||0, protein:Math.round(num(f.get('protein')))||0, ts:Date.now()});
-    saveDaySoon(date); toast('Meal added'); rerender();
-  };
-  document.querySelectorAll('[data-delmeal]').forEach(b=>b.onclick=()=>{ d.meals.splice(+b.dataset.delmeal,1); saveDaySoon(date); rerender(); });
+  // supplements
   document.querySelectorAll('[data-supp]').forEach(c=>c.onchange=()=>{ if(c.checked) d.supps[c.dataset.supp]=true; else delete d.supps[c.dataset.supp]; saveDaySoon(date); rerender(); });
   $('#suppEditBtn').onclick = ()=>{ S.suppEdit = !S.suppEdit; rerender(); };
   $('#suppForm')?.addEventListener('submit', async e=>{
@@ -720,6 +781,140 @@ async function viewNutrition(){
   document.querySelectorAll('[data-delsupp]').forEach(b=>b.onclick=async ev=>{ ev.preventDefault(); ns.supplements = ns.supplements.filter(x=>x.id!==b.dataset.delsupp); await saveAccount(); rerender(); });
 }
 function guessMealType(){ const h=new Date().getHours(); return h<10.5?'Breakfast':h<15?'Lunch':h<17?'Snack':h<21?'Dinner':'Snack'; }
+
+// ----- favorites -----
+const favorites = () => { const n=nutritionSettings(); if(!Array.isArray(n.favorites)) n.favorites=[]; return n.favorites; };
+const favKey = m => String(m.name||'').trim().toLowerCase();
+const isFav = m => favorites().some(f=>favKey(f)===favKey(m));
+async function addFav(m){
+  if(isFav(m)) return;
+  favorites().unshift({id:'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:String(m.name).slice(0,80), cal:Math.round(num(m.cal))||0, protein:Math.round(num(m.protein))||0, ...(m.carbs?{carbs:Math.round(num(m.carbs))}:{}), ...(m.fat?{fat:Math.round(num(m.fat))}:{})});
+  nutritionSettings().favorites = favorites().slice(0,40);
+  await saveAccount(); toast('Saved to favorites ★');
+}
+async function removeFav(m){ nutritionSettings().favorites = favorites().filter(f=>favKey(f)!==favKey(m)); await saveAccount(); toast('Removed from favorites'); }
+function logMeal(d, date, m){
+  d.meals.push({name:String(m.name).slice(0,80), type:S.mealType||guessMealType(), cal:Math.round(num(m.cal))||0, protein:Math.round(num(m.protein))||0,
+    ...(m.carbs?{carbs:Math.round(num(m.carbs))}:{}), ...(m.fat?{fat:Math.round(num(m.fat))}:{}), ...(m.src?{src:m.src}:{}), ts:Date.now()});
+  saveDaySoon(date);
+}
+
+// ----- AI JSON helper -----
+function parseJSON(text){ const t=String(text||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/```$/,'').trim(); return JSON.parse(t); }
+function aiErrorMessage(e){
+  const m = String(e && e.message || e);
+  return /high demand|overloaded|\b50[0-9]\b|UNAVAILABLE/i.test(m) ? 'Google’s AI is busy right now — try again in a minute.' :
+         /no reply|timeout/i.test(m) ? 'The AI took too long — try again.' :
+         /quota|429|RESOURCE_EXHAUSTED/i.test(m) ? 'Free AI limit reached for now — try again later.' :
+         /app.?check/i.test(m) ? 'AI is blocked by App Check — check the Firebase setup.' :
+         'Couldn’t reach the AI — check your connection and try again.';
+}
+
+// ----- photo scanning -----
+async function shrinkImage(file, max=1024){
+  const url = URL.createObjectURL(file);
+  try{
+    const img = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error('Couldn’t read that image')); i.src=url; });
+    const scale = Math.min(1, max/Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth*scale); c.height = Math.round(img.naturalHeight*scale);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    const dataUrl = c.toDataURL('image/jpeg', 0.82);
+    return { dataUrl, b64: dataUrl.split(',')[1] };
+  } finally { URL.revokeObjectURL(url); }
+}
+const SCAN_PROMPT = `You estimate nutrition from a photo of food for a meal-tracking app.
+Identify each food item and estimate its portion size from visual cues (plate size, utensils, hands). Then estimate calories and macros for the portion shown.
+Be realistic, not optimistic: include cooking oils, sauces, dressings and drinks you can see.
+If the photo is not food, set "isFood" to false.
+Respond with ONLY JSON:
+{"isFood": true, "name": "<short meal name, e.g. Grilled chicken salad>", "items": [{"food": "...", "portion": "e.g. 1 cup / 6 oz", "cal": 0, "protein": 0}], "cal": <total>, "protein": <total g>, "carbs": <total g>, "fat": <total g>, "confidence": "low|medium|high", "note": "<one short sentence: what was hard to judge, or a tip>"}`;
+async function scanMeal(file){
+  S.scan = { status:'loading' }; S.rerenderNutrition?.();
+  try{
+    const img = await shrinkImage(file);
+    S.scan.preview = img.dataUrl; S.rerenderNutrition?.();
+    const text = await askAI([{role:'user', parts:[{text:'Estimate the nutrition of this meal.'}, {inlineData:{mimeType:'image/jpeg', data:img.b64}}]}], SCAN_PROMPT, 45000);
+    const r = parseJSON(text);
+    if(r.isFood===false){ S.scan = {status:'error', preview:img.dataUrl, msg:'That doesn’t look like food — try another photo.'}; }
+    else S.scan = { status:'done', preview:img.dataUrl, name:String(r.name||'Meal').slice(0,80), cal:Math.round(num(r.cal)), protein:Math.round(num(r.protein)), carbs:Math.round(num(r.carbs)), fat:Math.round(num(r.fat)),
+      items: Array.isArray(r.items)?r.items.slice(0,10):[], confidence:r.confidence||'medium', note:String(r.note||'').slice(0,200) };
+  }catch(e){ console.error(e); S.scan = { status:'error', preview:S.scan&&S.scan.preview, msg: e instanceof SyntaxError ? 'Couldn’t read the AI’s answer — try again.' : aiErrorMessage(e) }; }
+  if(location.hash==='#nutrition') S.rerenderNutrition?.();
+}
+function scanHtml(){
+  const s = S.scan; if(!s) return '';
+  const img = s.preview ? `<img src="${s.preview}" alt="Your meal photo" class="scanimg">` : '';
+  if(s.status==='loading') return `<div class="scan">${img}<div class="muted small" style="padding:10px 0">🔍 Looking at your meal…</div></div>`;
+  if(s.status==='error') return `<div class="scan">${img}<p class="small" style="color:var(--warn)">${esc(s.msg)}</p><button class="btn sm ghost" data-scan="close">Close</button></div>`;
+  return `<div class="scan">${img}
+    <div class="small muted" style="margin:8px 0 6px">Estimate · ${esc(s.confidence)} confidence — adjust anything that looks off.</div>
+    <input type="text" id="scName" value="${esc(s.name)}" aria-label="Meal name">
+    <div class="grid2" style="margin-top:8px">
+      <label class="small muted">Calories<input type="number" inputmode="numeric" id="scCal" value="${s.cal}"></label>
+      <label class="small muted">Protein (g)<input type="number" inputmode="numeric" id="scPro" value="${s.protein}"></label>
+    </div>
+    <div class="hint" style="margin-top:6px">${s.carbs?`${s.carbs} g carbs · `:''}${s.fat?`${s.fat} g fat`:''}</div>
+    ${s.items.length?`<details style="margin-top:6px"><summary class="small muted">What I saw (${s.items.length})</summary><div class="small" style="margin-top:6px">${s.items.map(i=>`<div>${esc(i.food)} <span class="muted">· ${esc(i.portion||'')} · ${Math.round(num(i.cal))} cal · ${Math.round(num(i.protein))} g</span></div>`).join('')}</div></details>`:''}
+    ${s.note?`<p class="hint" style="margin:6px 0 0">${esc(s.note)}</p>`:''}
+    <div class="grid2" style="margin-top:10px">
+      <button class="btn primary" data-scan="add">Add ${esc((S.mealType||'meal').toLowerCase())}</button>
+      <button class="btn" data-scan="addfav">Add + ★ favorite</button>
+    </div>
+    <button class="btn sm ghost" data-scan="close" style="margin-top:6px">Discard</button>
+  </div>`;
+}
+function bindScan(d, date){
+  document.querySelectorAll('[data-scan]').forEach(b=>b.onclick=async ()=>{
+    const act=b.dataset.scan;
+    if(act==='close'){ S.scan=null; S.rerenderNutrition(); return; }
+    const m = {...S.scan, name:($('#scName').value||S.scan.name).trim(), cal:num($('#scCal').value), protein:num($('#scPro').value), src:'photo'};
+    logMeal(d, date, m);
+    if(act==='addfav') await addFav(m);
+    S.scan=null; toast('Meal added'); S.rerenderNutrition();
+  });
+}
+
+// ----- meal ideas -----
+const FALLBACK_IDEAS = {
+  Breakfast:[{name:'Greek yogurt, berries & granola',cal:350,protein:25,minutes:3},{name:'Scrambled eggs on whole-grain toast',cal:400,protein:24,minutes:8},{name:'Overnight oats with protein powder',cal:420,protein:30,minutes:5}],
+  Lunch:[{name:'Turkey & avocado wrap',cal:480,protein:32,minutes:5},{name:'Chicken, rice & veggie bowl',cal:550,protein:40,minutes:10},{name:'Tuna salad on greens with crackers',cal:420,protein:35,minutes:5}],
+  Dinner:[{name:'Sheet-pan chicken, potatoes & broccoli',cal:600,protein:45,minutes:30},{name:'Turkey taco bowls',cal:580,protein:40,minutes:20},{name:'Salmon, rice & green beans',cal:620,protein:40,minutes:20}],
+  Snack:[{name:'Cottage cheese & pineapple',cal:200,protein:20,minutes:2},{name:'Apple with peanut butter',cal:250,protein:7,minutes:2},{name:'String cheese & turkey roll-ups',cal:180,protein:18,minutes:2}],
+};
+async function getMealIdeas(d, date){
+  const type = S.mealType || guessMealType();
+  if(!(FB && S.user)){ S.ideas = {type, list:FALLBACK_IDEAS[type], fallback:true}; S.rerenderNutrition(); return; }
+  S.ideasBusy = true; S.rerenderNutrition();
+  const p = profile(), st = p ? bodyStats(p) : null, t = dayTotals(d);
+  const calLeft = st ? Math.max(0, Math.round(st.target - t.cal)) : null, proLeft = st ? Math.max(0, st.proteinLo - t.protein) : null;
+  const system = `You suggest realistic meals for busy working parents using a meal-tracking app. Meals should be quick (most under 20 minutes, or use leftovers/store-bought shortcuts), affordable, and family-friendly when it's a main meal. Respect any preferences, allergies or dislikes in the user's notes. Never suggest supplements or extreme diets.
+Respond with ONLY JSON: {"ideas":[{"name":"...","description":"one short sentence: what's in it / how to make it fast","cal":0,"protein":0,"minutes":0}]} with exactly 3 ideas.`;
+  const ask = `Meal: ${type}.
+${st?`Daily target: ~${Math.round(st.target)} cal, ${st.proteinLo}-${st.proteinHi} g protein. Remaining today: ~${calLeft} cal, ${proLeft} g protein.`:''}
+Goal: ${p?GOALS[p.goal].label:'general health'}.
+Already eaten today: ${d.meals.map(m=>`${m.name} (${m.cal} cal)`).join('; ')||'nothing yet'}.
+Favorite meals (for taste): ${favorites().slice(0,8).map(f=>f.name).join('; ')||'none saved'}.
+User notes: ${p&&p.notes?p.notes:'none'}.
+Size each idea sensibly for a ${type.toLowerCase()} (don't put the whole remaining day into one snack), leaning toward higher protein.`;
+  try{
+    const r = parseJSON(await askAI([{role:'user', parts:[{text:ask}]}], system, 30000));
+    S.ideas = {type, list:(r.ideas||[]).slice(0,3).map(i=>({name:String(i.name||'').slice(0,80), description:String(i.description||'').slice(0,160), cal:Math.round(num(i.cal)), protein:Math.round(num(i.protein)), minutes:Math.round(num(i.minutes))})).filter(i=>i.name)};
+  }catch(e){ console.error(e); S.ideas = {type, list:FALLBACK_IDEAS[type], fallback:true, error:aiErrorMessage(e)}; }
+  S.ideasBusy = false;
+  if(location.hash==='#nutrition') S.rerenderNutrition();
+}
+function ideasHtml(){
+  const I = S.ideas; if(!I || !I.list || !I.list.length) return '';
+  return `${I.error?`<p class="hint" style="color:var(--warn)">${esc(I.error)} Here are some go-to ideas instead.</p>`:''}
+    ${I.list.map((m,i)=>`<div class="idea"><div style="font-weight:600">${esc(m.name)}</div>
+      ${m.description?`<div class="small muted">${esc(m.description)}</div>`:''}
+      <div class="hint">${m.cal} cal · ${m.protein} g protein${m.minutes?` · ${m.minutes} min`:''}</div>
+      <div class="row" style="margin-top:6px"><button class="btn sm" data-idea="${i}">+ Add</button><button class="btn sm ghost" data-ideafav="${i}">${isFav(m)?'★ Saved':'☆ Save'}</button></div></div>`).join('')}`;
+}
+function bindIdeas(d, date){
+  document.querySelectorAll('[data-idea]').forEach(b=>b.onclick=()=>{ const m=S.ideas.list[+b.dataset.idea]; logMeal(d, date, {...m, src:'idea'}); toast(`Added ${m.name}`); S.rerenderNutrition(); });
+  document.querySelectorAll('[data-ideafav]').forEach(b=>b.onclick=async ()=>{ const m=S.ideas.list[+b.dataset.ideafav]; if(!isFav(m)){ await addFav(m); S.rerenderNutrition(); } });
+}
 
 function profileFormSave(formEl, fields){
   const f = new FormData(formEl);
@@ -1265,15 +1460,16 @@ CURRENT USER DATA
 ${coachContext()}`;
 }
 
-async function getCoachModel(name){
+async function getCoachModel(name, system){
   if(!S.aiMod){ S.aiMod = await import(FB.base+'firebase-ai.js'); S.ai = S.aiMod.getAI(FB.app, {backend: new S.aiMod.GoogleAIBackend()}); }
   const generationConfig = { responseMimeType:'application/json', temperature:0.6 };
   // Gemini 3 "thinks" before answering; keep it low so replies come back fast.
   if(!S.noThinkCfg) generationConfig.thinkingConfig = { thinkingLevel: (S.aiMod.ThinkingLevel && S.aiMod.ThinkingLevel.LOW) || 'LOW' };
-  return S.aiMod.getGenerativeModel(S.ai, { model: name, systemInstruction: coachSystemPrompt(), generationConfig });
+  return S.aiMod.getGenerativeModel(S.ai, { model: name, systemInstruction: system ?? coachSystemPrompt(), generationConfig });
 }
-// Tries each model in COACH_MODELS until one exists; remembers the one that worked.
-async function askCoach(contents){
+const askCoach = contents => askAI(contents, coachSystemPrompt());
+// Sends a request to Gemini (any feature). Tries each model in COACH_MODELS until one answers; remembers the one that worked.
+async function askAI(contents, system, perModelMs=30000){
   S.stage = 'loading AI module';
   await getCoachModel(COACH_MODELS[0]);
   if(FB.appCheck && !S.appCheckOk){
@@ -1289,16 +1485,16 @@ async function askCoach(contents){
     const t0 = Date.now();
     S.stage = 'waiting for ' + name;
     try{
-      const model = await getCoachModel(name);
-      const res = await withTimeout(model.generateContent({contents}), 30000);
+      const model = await getCoachModel(name, system);
+      const res = await withTimeout(model.generateContent({contents}), perModelMs);
       S.goodModel = name; S.lastTimings = `${name} ${Math.round((Date.now()-t0)/1000)}s`;
       return res.response.text();
     }catch(e){
       const m = String(e&&e.message||e);
       const secs = Math.round((Date.now()-t0)/1000);
       // If this SDK/model rejects the thinking setting, retry once without it.
-      if(/thinking/i.test(m) && !S.noThinkCfg){ S.noThinkCfg = true; return askCoach(contents); }
-      log.push(`${name}: ${/timeout/.test(m)?'no reply in 30s':m.replace(/^.*?generateContent:\s*/,'').slice(0,90)} (${secs}s)`);
+      if(/thinking/i.test(m) && !S.noThinkCfg){ S.noThinkCfg = true; return askAI(contents, system, perModelMs); }
+      log.push(`${name}: ${/timeout/.test(m)?`no reply in ${perModelMs/1000}s`:m.replace(/^.*?generateContent:\s*/,'').slice(0,90)} (${secs}s)`);
       if(S.goodModel===name) S.goodModel = null;
       // anything other than slow / busy / missing model is a real error — stop here
       if(!/timeout|not found|404|is not supported|NOT_FOUND|\b50[0-9]\b|high demand|overloaded|UNAVAILABLE|try again later/i.test(m)) break;
