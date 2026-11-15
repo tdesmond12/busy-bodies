@@ -138,6 +138,27 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(198,244,50,.5);bo
 b.dw,b.dn{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:middle}
 b.dw{background:var(--accent)} b.dn{background:#7fb3ff}
 .cal-w{background:var(--panel2);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.cal-d{position:relative}
+.cal-d em{position:absolute;top:1px;right:3px;font-size:10px;font-style:normal}
+b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:middle;background:#ffb547}
+.msevent{background:rgba(255,181,71,.12);border-radius:10px;padding:8px 10px;margin-top:8px;font-size:14px}
+.msblock{margin:10px 16px 0;padding:10px 12px;border-radius:12px;background:rgba(255,181,71,.10);border:1px solid rgba(255,181,71,.35)}
+.logex.msx{border:1px solid rgba(255,181,71,.45)}
+.mscard h3{margin-bottom:2px}
+.ladder{display:flex;gap:5px;margin:12px 0 8px}
+.ladder span{flex:1;height:8px;border-radius:99px;background:var(--panel2)}
+.ladder span.done{background:var(--accent)}
+.ladder span.cur{background:#ffb547}
+.msopt{padding:12px 0;border-top:1px solid var(--line)}
+.msopt:first-of-type{border-top:0}
+.msopt.dim b,.msopt.dim .small{opacity:.6}
+.levelpick{display:grid;gap:6px}
+.levelpick label{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--panel2);font-size:14px;cursor:pointer}
+.levelpick input{accent-color:var(--accent)}
+.celebrate{text-align:center}
+.trophies{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.trophy{background:var(--panel2);border-radius:12px;padding:10px;text-align:center;display:flex;flex-direction:column;gap:2px}
+.trophy b{font-size:13px}.trophy span{font-size:12px;color:var(--muted)}
 .logex{background:var(--panel2);border-radius:12px;padding:12px;margin-bottom:10px}
 .logex .top{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
 .logex .top .t{flex:1}
@@ -221,7 +242,7 @@ const withTimeout = (p, ms) => Promise.race([p, new Promise((_,rej)=>setTimeout(
 // ---------- exercise library ----------
 // p = movement pattern, eq = none | db | gym, lvl = 1 beginner … 3 advanced, h = high impact, t = timed (seconds)
 const EX = [];
-function E(name,p,eq,lvl,cue,flags=''){ EX.push({id:name.toLowerCase().replace(/[^a-z0-9]+/g,'-'),name,p,eq,lvl,cue,h:flags.includes('h'),t:flags.includes('t')}); }
+function E(name,p,eq,lvl,cue,flags=''){ EX.push({id:name.toLowerCase().replace(/[^a-z0-9]+/g,'-'),name,p,eq,lvl,cue,h:flags.includes('h'),t:flags.includes('t'),ms:flags.includes('m')}); }
 // Squat
 E('Bodyweight Squat','squat','none',1,'Feet shoulder-width, sit hips back and down, chest up, drive through the whole foot.');
 E('Box Squat to Chair','squat','none',1,'Sit back to a sturdy chair, tap it lightly, and stand without rocking.');
@@ -337,6 +358,19 @@ E('Kettlebell Row','pull_h','kb',1,'Hinge forward with one hand on a bench or kn
 // Pull-up bar
 E('Negative Pull-Up','pull_v','bar',2,'Jump or step to the top, lower yourself slowly for 3–5 seconds.');
 E('Chin-Up','pull_v','bar',3,'Palms facing you, pull your chest to the bar.');
+// Milestone-only exercises (flag m: never picked for the weekly plan automatically)
+E('Wall Push-Up','push_h','none',1,'Hands on the wall at shoulder height, body straight, bring your chest to the wall.','m');
+E('Countertop Push-Up','push_h','none',1,'Hands on a kitchen counter (about 3 ft high), body in a straight line.','m');
+E('Waist-High Push-Up','push_h','none',1,'Hands on a sturdy table or desk around waist height.','m');
+E('Knee Push-Up','push_h','none',1,'On your knees, hips in line with your shoulders — no bending at the waist.','m');
+E('Knee-High Elevated Push-Up','push_h','none',2,'Hands on a step or low bench about knee height, full plank position.','m');
+E('Negative Push-Up','push_h','none',1,'Start at the top of a hard push-up and lower as slowly as you can (5+ seconds). Reset any way you like.','m');
+E('Dead Hang','pull_v','bar',1,'Hang from the bar with straight arms, shoulders active (not shrugged to your ears).','tm');
+E('Scapular Pull-Up','pull_v','bar',1,'From a dead hang, pull your shoulder blades down and back without bending your elbows.','m');
+E('Flexed-Arm Hang','pull_v','bar',2,'Jump or step up so your chin is over the bar, then hold as long as you can.','tm');
+E('Top-Half Pull-Up','pull_v','bar',2,'Start with elbows at 90°, pull your chin over the bar, lower back to 90°.','m');
+E('Run/Walk Intervals','cardio','none',1,'Alternate easy running and brisk walking as your milestone level says.','m');
+E('Mile Run','cardio','none',2,'Run one mile at an easy, steady pace — slow is fine, just keep running.','m');
 
 // ---------- equipment + activities ----------
 const GEAR = {
@@ -416,7 +450,7 @@ function pick(pattern, p, rng, used){
   const have = haveSet(p), lvl = +p.level;
   const maxEq = Math.max(0, ...[...have].map(n=>GEAR_RANK[n]||0));
   // only exercises the user has the equipment / activity for — never relaxed
-  const avail = EX.filter(e=>e.p===pattern && canDo(e,p,have) && e.id!=='cardio-of-your-choice');
+  const avail = EX.filter(e=>e.p===pattern && canDo(e,p,have) && e.id!=='cardio-of-your-choice' && !e.ms);
   let c = avail.filter(e=>!(p.lowImpact && e.h));
   if(!c.length) c = avail;
   if(!c.length) return pattern==='cardio' ? EXBY['cardio-of-your-choice'] : null;
@@ -944,7 +978,7 @@ function viewProfile(){
     </div>
     <div class="card">
       <h2>Start over</h2>
-      <p class="small muted" style="margin-top:0"><b style="color:var(--text)">Redo setup</b> clears your profile, plan and coach chat but keeps your logged workouts and nutrition. <b style="color:var(--text)">Erase everything</b> also deletes every workout and nutrition entry. Neither can be undone, so download a backup first if you might want it.</p>
+      <p class="small muted" style="margin-top:0"><b style="color:var(--text)">Redo setup</b> clears your profile, plan and coach chat but keeps your logged workouts, nutrition and milestones. <b style="color:var(--text)">Erase everything</b> also deletes every workout, nutrition entry and milestone. Neither can be undone, so download a backup first if you might want it.</p>
       <div class="grid2">
         <button class="btn" data-reset="setup">Redo setup</button>
         <button class="btn danger" data-reset="all">Erase everything</button>
@@ -1020,10 +1054,19 @@ function viewPlan(){
   const p = profile();
   if(!p){ $('#app').innerHTML = `<div class="card empty"><h2>No plan yet</h2><p>Add your details to get a plan built for you.</p><button class="btn primary" onclick="go('profile')">Set up profile</button></div>`; return; }
   const pl = plan();
+  const ptab = S.planTab || 'week';
+  const nActive = msState().active.length;
+  const tabsHtml = `<div class="seg ptabs" role="tablist">
+      <input type="radio" id="pl-week" name="pltab" value="week" ${ptab==='week'?'checked':''}><label for="pl-week">This week</label>
+      <input type="radio" id="pl-ms" name="pltab" value="milestones" ${ptab==='milestones'?'checked':''}><label for="pl-ms">Milestones${nActive?` (${nActive})`:''}</label>
+    </div>`;
+  const bindTabs = ()=>document.querySelectorAll('input[name=pltab]').forEach(r=>r.onchange=()=>{ S.planTab=r.value; viewPlan(); window.scrollTo(0,0); });
+  if(ptab==='milestones'){ $('#app').innerHTML = tabsHtml + viewMilestones(); bindTabs(); bindMilestones(); return; }
+  const msMap = msDayMap();
   const used = pl.days.map(d=>d.weekday), free = WEEK.filter(w=>!used.includes(w));
   const todayDow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];
-  const exOptions = day => Object.keys(PATTERN_LABEL).map(pat=>{ const opts = EX.filter(e=>e.p===pat && canDo(e,p) && e.id!=='cardio-of-your-choice' && !day.exercises.includes(e.id)); return opts.length ? `<optgroup label="${PATTERN_LABEL[pat]}">${opts.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>` : ''; }).join('');
-  $('#app').innerHTML = `
+  const exOptions = day => Object.keys(PATTERN_LABEL).map(pat=>{ const opts = EX.filter(e=>e.p===pat && canDo(e,p) && e.id!=='cardio-of-your-choice' && !e.ms && !day.exercises.includes(e.id)); return opts.length ? `<optgroup label="${PATTERN_LABEL[pat]}">${opts.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>` : ''; }).join('');
+  $('#app').innerHTML = tabsHtml + `
     <div class="card">
       <div class="row" style="justify-content:space-between"><h2 style="margin:0">${p.name?esc(p.name)+'’s':'Your'} week</h2>
       <button class="btn sm" id="shuffle">${ICON_SWAP.replace('<svg','<svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"')}New exercises</button></div>
@@ -1038,13 +1081,14 @@ function viewPlan(){
       <div class="card day">
         <div class="dayhead"><span class="dow">${d.weekday}</span><h3>${esc(d.name)}</h3>${d.weekday===todayDow?'<span class="chip on" style="margin-left:4px">Today</span>':''}
           <button class="iconbtn" data-delday="${di}" style="margin-left:auto" aria-label="Remove ${d.weekday}">${ICON_X}</button></div>
+        ${(msMap[di]||[]).map(msBlockHtml).join('')}
         ${d.exercises.length ? dayNotes(d,p).map(n=>`<div class="note">${n}</div>`).join('') : ''}
         ${d.exercises.map((id,ei)=>{ const ex=EXBY[id]; if(!ex) return ''; const r=rx(ex,p); return `
           <div class="ex"><div class="num">${ei+1}</div><div class="body">
             <div class="name">${esc(ex.name)}</div><div class="rx">${r.text}</div><div class="cue">${esc(ex.cue)}</div>
           </div><div class="exbtns"><button class="iconbtn" data-swap="${di}:${ei}" aria-label="Swap ${esc(ex.name)}">${ICON_SWAP}</button><button class="iconbtn" data-delex="${di}:${ei}" aria-label="Remove ${esc(ex.name)}">${ICON_X}</button></div></div>`; }).join('') || '<div class="note">No exercises yet — add some below.</div>'}
         <div class="addex" ${S.addExDay===di?'':'hidden'}><select data-addex="${di}"><option value="">Choose an exercise…</option>${exOptions(d)}</select></div>
-        <div class="dayfoot"><button class="btn" data-openadd="${di}">+ Exercise</button><button class="btn primary" style="flex:1" data-logday="${di}" ${d.exercises.length?'':'disabled'}>Log this workout</button></div>
+        <div class="dayfoot"><button class="btn" data-openadd="${di}">+ Exercise</button><button class="btn primary" style="flex:1" data-logday="${di}" ${d.exercises.length||(msMap[di]||[]).length?'':'disabled'}>Log this workout</button></div>
       </div>`).join('')}
     ${free.length ? `<div class="card">
       <h3 style="margin-bottom:8px">Add a day</h3>
@@ -1054,6 +1098,7 @@ function viewPlan(){
     </div>` : ''}
     <button class="btn ghost block" id="customLog">Log a workout that isn’t on your plan</button>`;
 
+  bindTabs();
   $('#shuffle').onclick = async e=>{
     const b=e.currentTarget;
     if(pl.edited && !b.dataset.armed){ b.dataset.armed='1'; b.textContent='Tap again — replaces your edits'; setTimeout(()=>{ if(b.isConnected) viewPlan(); },4000); return; }
@@ -1102,6 +1147,266 @@ function viewPlan(){
   $('#customLog').onclick = ()=>{ startDraft(null); go('workout'); };
 }
 
+// ---------- Milestones ----------
+// Built-in programs. Each level: exercise to practice, what a session looks like, and the goal that moves you up.
+//   goal.reps  → a logged set with at least that many reps
+//   goal.secs  → a logged hold of at least that many seconds
+//   goal.sessions → that many logged sessions at this level
+const MILESTONES = {
+  'first-pushup': {
+    title:'First push-up', icon:'💪', blurb:'Work your way from wall push-ups to your first full push-up.',
+    source:'Adapted from Nerd Fitness, “The Ultimate Guide to Getting Your First Push-up.”',
+    patterns:['push_h'], perWeek:3,
+    warmup:'Arm circles (10 each way) and wrist stretches (5 each side).',
+    extras:['2–3 slow negative push-ups at a harder level (5+ seconds down)','60-second plank at whatever height works'],
+    startHint:'Pick the level where 5–10 reps feel challenging.',
+    moveUp:'Get 10 clean reps in a set to move up. If the next level is under 5 reps, go back and keep adding reps — even 25+ reps of an easier level is real progress. Rest when you’re still sore; add a set if you weren’t sore at all.',
+    levels:[
+      {ex:'wall-push-up', name:'Wall push-up', sets:3, plan:'3–4 sets × 5–10', goal:{reps:10}},
+      {ex:'countertop-push-up', name:'Countertop push-up', sets:3, plan:'3–4 sets × 5–10', goal:{reps:10}},
+      {ex:'waist-high-push-up', name:'Waist-high push-up', sets:3, plan:'3–4 sets × 5–10', goal:{reps:10}},
+      {ex:'knee-push-up', name:'Knee push-up', sets:3, plan:'3–4 sets × 5–10', goal:{reps:10}},
+      {ex:'knee-high-elevated-push-up', name:'Knee-high elevated push-up', sets:3, plan:'3–4 sets × 5–10', goal:{reps:10}},
+      {ex:'push-up', name:'Your first full push-up', sets:3, plan:'3–4 attempts — one clean rep wins it', goal:{reps:1}},
+    ],
+    next:[{title:'10 push-ups in a row', exercise:'push-up', target:10},{title:'25 push-ups in a row', exercise:'push-up', target:25}],
+  },
+  'first-pullup': {
+    title:'First pull-up', icon:'🧗', blurb:'Build grip and pulling strength step by step until you can pull your chin over the bar.',
+    source:'Written for Busy Bodies.', requires:['pullup'],
+    patterns:['pull_v','pull_h'], perWeek:3,
+    warmup:'Arm circles, a doorway chest stretch, and 10 shoulder shrugs.',
+    extras:['Finish with one dead hang as long as you can'],
+    startHint:'Pick the first level you can’t yet pass.',
+    moveUp:'Hit the level’s goal in a single set or hold to move up. Rest 2 minutes between sets — quality beats quantity here.',
+    levels:[
+      {ex:'dead-hang', name:'Dead hang', sets:3, plan:'3 holds, as long as you can', goal:{secs:30}},
+      {ex:'scapular-pull-up', name:'Scapular pull-ups', sets:3, plan:'3 sets × 6–10', goal:{reps:10}},
+      {ex:'flexed-arm-hang', name:'Flexed-arm hang', sets:3, plan:'3 holds, chin over the bar', goal:{secs:20}},
+      {ex:'negative-pull-up', name:'Negative pull-ups', sets:3, plan:'3 sets × 3–5, 5 seconds down', goal:{reps:5}},
+      {ex:'top-half-pull-up', name:'Top-half pull-ups', sets:3, plan:'3 sets × 3–6', goal:{reps:5}},
+      {ex:'pull-up', name:'Your first full pull-up', sets:3, plan:'3 attempts — one clean rep wins it', goal:{reps:1}},
+    ],
+    next:[{title:'5 pull-ups in a row', exercise:'pull-up', target:5},{title:'10 pull-ups in a row', exercise:'pull-up', target:10}],
+  },
+  'run-mile': {
+    title:'Run a mile', icon:'🏃', blurb:'Go from walking to running a full mile without stopping, in short run/walk sessions.',
+    source:'Written for Busy Bodies — send Claude your favorite program to swap it in.', requiresAny:['run','treadmill'],
+    patterns:['cardio'], perWeek:3,
+    warmup:'5-minute brisk walk.', extras:['5-minute easy walk to cool down'],
+    startHint:'New to running? Start at level 1. Already jogging a bit? Skip ahead.',
+    moveUp:'Complete 3 sessions at a level to move up. Repeat a level any time it felt too hard — there’s no rush.',
+    levels:[
+      {ex:'run-walk-intervals', name:'Run 1 min / walk 2 min × 6', sets:1, plan:'about 18 minutes', goal:{sessions:3}},
+      {ex:'run-walk-intervals', name:'Run 2 min / walk 2 min × 5', sets:1, plan:'about 20 minutes', goal:{sessions:3}},
+      {ex:'run-walk-intervals', name:'Run 3 min / walk 1½ min × 4', sets:1, plan:'about 18 minutes', goal:{sessions:3}},
+      {ex:'run-walk-intervals', name:'Run 5 min / walk 2 min × 3', sets:1, plan:'about 21 minutes', goal:{sessions:3}},
+      {ex:'run-walk-intervals', name:'Run 8 min / walk 2 min × 2', sets:1, plan:'about 20 minutes', goal:{sessions:3}},
+      {ex:'mile-run', name:'Run one mile without stopping', sets:1, plan:'Easy pace — slow is fine', goal:{sessions:1}},
+    ],
+    next:[],
+  },
+};
+
+const relDay = d => { const t = prettyDate(d); return /^(Today|Yesterday)$/.test(t) ? t.toLowerCase() : t; };
+const msState = () => {
+  const m = S.account.milestones || (S.account.milestones = {});
+  m.active = m.active || []; m.done = m.done || []; m.custom = m.custom || {}; m.events = m.events || [];
+  return m;
+};
+const msDef = id => MILESTONES[id] || msState().custom[id];
+const msEligible = (def, p) => { const have = haveSet(p||{}); return (def.requires||[]).every(n=>have.has(n)) && (!def.requiresAny || def.requiresAny.some(n=>have.has(n))); };
+const needsLabel = def => [...(def.requires||[]).map(k=>GEAR[k]), ...(def.requiresAny?[def.requiresAny.map(k=>ACTIVITIES[k]).join(' or ')]:[])].join(', ');
+const goalText = g => g.reps ? `${g.reps} rep${g.reps===1?'':'s'} in one set` : g.secs ? `a ${g.secs}-second hold` : `${g.sessions} session${g.sessions===1?'':'s'}`;
+function msEvent(type, id, level){ const st=msState(); st.events.push({date:todayStr(), type, id, title:msDef(id)?.title||id, level}); st.events = st.events.slice(-200); }
+
+// Which plan days carry each milestone's practice block (matching days first, then others).
+function msDayMap(){
+  const pl = plan(), map = {};
+  if(!pl) return map;
+  for(const m of msState().active){
+    const def = msDef(m.id); if(!def) continue;
+    const scored = pl.days.map((d,i)=>({i, match: d.exercises.some(id=>def.patterns.includes(EXBY[id]?.p)) || (def.patterns.includes('cardio') && d.key==='cardio')}));
+    const chosen = [...scored.filter(x=>x.match), ...scored.filter(x=>!x.match)].slice(0, def.perWeek||3).map(x=>x.i);
+    for(const i of chosen) (map[i] = map[i] || []).push(m);
+  }
+  return map;
+}
+// Best set logged at the current level (for display).
+function msBestAtLevel(m){
+  const def = msDef(m.id), lv = def.levels[m.level];
+  let best = null, sessions = 0;
+  for(const w of S.workouts){ let counted=false;
+    for(const e of w.exercises) if(e.ms && e.ms.id===m.id && e.ms.level===m.level){ if(!counted){ sessions++; counted=true; } for(const s of e.sets) if(!best || s.r>best) best = s.r; } }
+  return {best, sessions, lv};
+}
+function msBlockHtml(m){
+  const def = msDef(m.id), lv = def.levels[m.level];
+  return `<div class="msblock"><div><b>${def.icon||'🎯'} ${esc(def.title)}</b> <span class="muted small">· Level ${m.level+1}/${def.levels.length}</span></div>
+    <div class="small">${esc(lv.name)} — ${esc(lv.plan)}</div>
+    ${def.extras&&def.extras.length?`<div class="hint">+ ${def.extras.map(esc).join(' · ')}</div>`:''}</div>`;
+}
+
+async function startMilestone(id, level=0){
+  const def = msDef(id); if(!def) return;
+  const st = msState();
+  if(st.active.some(m=>m.id===id)) return;
+  st.active.push({id, level:Math.max(0, Math.min(def.levels.length-1, level)), started:todayStr()});
+  msEvent('start', id, level);
+  await saveAccount();
+}
+async function setMilestoneLevel(id, level){
+  const def = msDef(id), m = msState().active.find(x=>x.id===id); if(!def || !m) return;
+  m.level = Math.max(0, Math.min(def.levels.length-1, level)); msEvent('set', id, m.level);
+  await saveAccount();
+}
+async function stopMilestone(id){ const st=msState(); st.active = st.active.filter(m=>m.id!==id); await saveAccount(); }
+// A custom "do N in a row" / "hold N seconds" milestone, with steps from your current best up to the target.
+function makeCustomMilestone({title, exercise, target}){
+  const ex = EXBY[exercise]; target = Math.round(num(target));
+  if(!ex || ex.p==='cardio' || !(target>0)) return null;
+  const unit = ex.t ? 'secs' : 'reps';
+  let best = 0; for(const w of S.workouts) for(const e of w.exercises) if(e.id===exercise) for(const s of e.sets) best = Math.max(best, s.r);
+  const start = Math.max(best, Math.ceil(target*0.3));
+  const steps = []; for(let i=1;i<=4;i++){ const v = Math.round(start + (target-start)*i/4); if(v>(steps[steps.length-1]||best) && v<=target) steps.push(v); }
+  if(!steps.length || steps[steps.length-1]!==target) steps.push(target);
+  const id = 'c-' + Date.now().toString(36);
+  const def = { title: String(title || `${target}${unit==='secs'?'-second '+ex.name.toLowerCase():' '+ex.name.toLowerCase()+'s in a row'}`).slice(0,60), icon:'🎯', custom:true,
+    blurb:`Build up to ${unit==='secs'?`a ${target}-second ${ex.name.toLowerCase()}`:`${target} ${ex.name.toLowerCase()}s in a row`}.`,
+    source:'Custom milestone.', patterns:[ex.p], perWeek:3, exercise, unit, target,
+    warmup:'A few easy reps or a short hold to warm up.', extras:[],
+    moveUp:`Hit the level’s number in your first (max-effort) set to move up. Leave a rest day between practice days.`,
+    levels: steps.map(v=>({ex:exercise, name:`${ex.name}: ${v}${unit==='secs'?' seconds':' in a row'}`, sets:4, plan: unit==='secs' ? `4 holds — first one as long as you can (aim for ${v} s), then 3 at about half` : `4 sets — first set max reps (aim for ${v}), then 3 sets at about half`, goal: unit==='secs'?{secs:v}:{reps:v}})) };
+  msState().custom[id] = def;
+  return id;
+}
+// After a workout is saved: move milestones up a level (or finish them) when a goal is met.
+async function checkMilestones(w){
+  const st = msState(); const msgs = []; let changed = false;
+  for(const m of [...st.active]){
+    const def = msDef(m.id); if(!def) continue;
+    const entries = w.exercises.filter(e=>e.ms && e.ms.id===m.id && e.ms.level===m.level);
+    if(!entries.length) continue;
+    const lv = def.levels[m.level], g = lv.goal;
+    let passed = false;
+    if(g.reps || g.secs){ const need = g.reps || g.secs; passed = entries.some(e=>e.sets.some(s=>s.r>=need)); }
+    else if(g.sessions){ passed = msBestAtLevel(m).sessions >= g.sessions; }
+    if(!passed) continue;
+    changed = true;
+    if(m.level >= def.levels.length-1){
+      st.active = st.active.filter(x=>x.id!==m.id);
+      st.done.push({id:m.id, title:def.title, icon:def.icon||'🎯', date:w.date, started:m.started});
+      msEvent('done', m.id, m.level);
+      S.msCelebrate = m.id; msgs.push(`🏆 ${def.title} — done!`);
+    } else {
+      m.level++; msEvent('level', m.id, m.level);
+      msgs.push(`⬆ ${def.title}: level ${m.level+1} — ${def.levels[m.level].name}`);
+    }
+  }
+  if(changed){ await saveAccount(); }
+  return msgs;
+}
+
+function viewMilestones(){
+  const p = profile(), st = msState();
+  if(!p){ $('#app').innerHTML += `<div class="card empty"><p>Set up your profile first.</p></div>`; return ''; }
+  const dayMap = msDayMap(), pl = plan();
+  const daysFor = id => Object.entries(dayMap).filter(([i,ms])=>ms.some(m=>m.id===id)).map(([i])=>pl.days[i]?.weekday).filter(Boolean);
+  const cele = S.msCelebrate && msDef(S.msCelebrate);
+  const builtins = Object.entries(MILESTONES).filter(([id])=>!st.active.some(m=>m.id===id));
+  const timedOrReps = EX.filter(e=>e.p!=='cardio' && canDo(e,p) && e.id!=='cardio-of-your-choice');
+  return `
+    ${cele ? `<div class="card hero celebrate">
+      <div style="font-size:40px">🏆</div><h2>${esc(cele.title)} — done!</h2>
+      <p class="muted" style="margin-top:0">That’s a real first. What’s next?</p>
+      <div style="display:grid;gap:8px">${(cele.next||[]).map((n,i)=>`<button class="btn" data-nextms="${i}">Start “${esc(n.title)}”</button>`).join('')}
+      ${S.user?`<button class="btn primary" id="askNext">Ask the coach for a next challenge</button>`:''}
+      <button class="btn ghost" id="closeCele">Maybe later</button></div>
+    </div>` : ''}
+    ${st.active.length>3 ? `<div class="card small" style="border-color:var(--warn)">You have ${st.active.length} milestones going. That works, but progress usually comes faster with three or fewer at a time.</div>` : ''}
+    ${st.active.length ? st.active.map(m=>{ const def=msDef(m.id); if(!def) return ''; const {best, sessions, lv} = msBestAtLevel(m); const days=daysFor(m.id);
+      return `<div class="card mscard">
+        <div class="row" style="justify-content:space-between;align-items:flex-start"><div><h3>${def.icon||'🎯'} ${esc(def.title)}</h3><div class="hint">Started ${relDay(m.started)}${days.length?` · on ${days.join(', ')}`:''}</div></div>
+          <button class="btn sm ghost danger" data-stopms="${esc(m.id)}" style="padding:2px 4px">Stop</button></div>
+        <div class="ladder">${def.levels.map((l,i)=>`<span class="${i<m.level?'done':i===m.level?'cur':''}" title="${esc(l.name)}"></span>`).join('')}</div>
+        <div style="font-weight:600">Level ${m.level+1} of ${def.levels.length}: ${esc(lv.name)}</div>
+        <div class="small" style="color:var(--accent)">${esc(lv.plan)}</div>
+        <div class="small muted" style="margin-top:4px">Move up: ${goalText(lv.goal)}${lv.goal.sessions?` (${sessions}/${lv.goal.sessions} done)`:best!=null?` · your best here: ${best}${lv.goal.secs?' s':''}`:''}</div>
+        <details style="margin-top:8px"><summary class="small muted">How it works</summary>
+          <div class="small" style="margin-top:6px;display:grid;gap:4px">
+            <div><b>Warm-up:</b> ${esc(def.warmup||'')}</div>
+            ${def.extras&&def.extras.length?`<div><b>Also:</b> ${def.extras.map(esc).join('; ')}</div>`:''}
+            <div><b>Moving up:</b> ${esc(def.moveUp||'')}</div>
+            <div class="muted">${def.levels.map((l,i)=>`${i+1}. ${esc(l.name)}`).join(' · ')}</div>
+            <div class="hint">${esc(def.source||'')}</div>
+          </div></details>
+        <div class="row" style="margin-top:10px"><button class="btn sm" data-mslevel="${esc(m.id)}:-1" ${m.level===0?'disabled':''}>‹ Back a level</button><button class="btn sm" data-mslevel="${esc(m.id)}:1" ${m.level>=def.levels.length-1?'disabled':''}>Skip ahead ›</button></div>
+      </div>`; }).join('') : `<div class="card"><h3>No milestones yet</h3><p class="small muted" style="margin:6px 0 0">Milestones are short programs toward a first — your first push-up, pull-up or mile. Practice blocks show up on your plan days automatically.</p></div>`}
+
+    <div class="card"><h3 style="margin-bottom:8px">Start a milestone</h3>
+      ${builtins.map(([id,def])=>{ const ok = msEligible(def,p), wasDone = st.done.some(d=>d.id===id), open = S.msStart===id;
+        return `<div class="msopt ${ok?'':'dim'}">
+          <div class="row" style="justify-content:space-between;align-items:flex-start"><div style="flex:1"><b>${def.icon} ${esc(def.title)}</b>${wasDone?' <span class="chip on">✓ done</span>':''}<div class="small muted">${esc(def.blurb)}</div>${ok?'':`<div class="hint">Needs: ${esc(needsLabel(def))} — add it in Profile → Workout settings</div>`}</div>
+          ${ok?`<button class="btn sm" data-msopen="${id}">${open?'Close':'Start'}</button>`:''}</div>
+          ${open?`<div class="small muted" style="margin:8px 0 6px">${esc(def.startHint||'Where are you starting?')}</div>
+            <div class="levelpick">${def.levels.map((l,i)=>`<label><input type="radio" name="startlv" value="${i}" ${i===0?'checked':''}><span>${i+1}. ${esc(l.name)}</span></label>`).join('')}</div>
+            <button class="btn primary block" data-msgo="${id}" style="margin-top:8px">Start ${esc(def.title.toLowerCase())}</button>`:''}
+        </div>`; }).join('')}
+      <div class="msopt">
+        <div class="row" style="justify-content:space-between"><div><b>🎯 Make your own</b><div class="small muted">Like “25 push-ups in a row” or “a 2-minute plank.”</div></div><button class="btn sm" data-msopen="custom">${S.msStart==='custom'?'Close':'Create'}</button></div>
+        ${S.msStart==='custom'?`<div class="grid2" style="margin-top:8px;grid-template-columns:1fr 90px">
+            <select id="cmEx">${timedOrReps.map(e=>`<option value="${e.id}" ${e.id==='push-up'?'selected':''}>${esc(e.name)}${e.t?' (hold)':''}</option>`).join('')}</select>
+            <input type="number" inputmode="numeric" id="cmTarget" placeholder="${'Target'}" min="1">
+          </div><div class="hint" style="margin-top:4px">Reps in a row, or seconds for holds.</div>
+          <button class="btn primary block" id="cmGo" style="margin-top:8px">Create milestone</button>
+          ${S.user?'<div class="hint" style="margin-top:6px">Or ask the coach — it can suggest one based on your progress.</div>':''}`:''}
+      </div>
+    </div>`;
+}
+function bindMilestones(){
+  const rer = ()=>{ const y=window.scrollY; viewPlan(); window.scrollTo(0,y); };
+  document.querySelectorAll('[data-msopen]').forEach(b=>b.onclick=()=>{ S.msStart = S.msStart===b.dataset.msopen ? null : b.dataset.msopen; rer(); });
+  document.querySelectorAll('[data-msgo]').forEach(b=>b.onclick=async ()=>{
+    const id=b.dataset.msgo, lv=+(document.querySelector('input[name=startlv]:checked')?.value||0);
+    await startMilestone(id, lv); S.msStart=null; toast(`Started ${msDef(id).title} — it’s on your plan days now`); rer();
+  });
+  $('#cmGo')?.addEventListener('click', async ()=>{
+    const ex=$('#cmEx').value, target=num($('#cmTarget').value);
+    if(!(target>0)){ toast('Enter a target number'); return; }
+    const id = makeCustomMilestone({exercise:ex, target}); if(!id){ toast('That one won’t work as a milestone'); return; }
+    await startMilestone(id, 0); S.msStart=null; toast(`Started ${msDef(id).title}`); rer();
+  });
+  document.querySelectorAll('[data-mslevel]').forEach(b=>b.onclick=async ()=>{
+    const [id,d]=b.dataset.mslevel.split(':'); const m=msState().active.find(x=>x.id===id); if(!m) return;
+    await setMilestoneLevel(id, m.level + +d); rer();
+  });
+  document.querySelectorAll('[data-stopms]').forEach(b=>b.onclick=async ()=>{
+    if(!b.dataset.armed){ b.dataset.armed='1'; b.textContent='Tap again to stop'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.armed; b.textContent='Stop'; } },3000); return; }
+    const t = msDef(b.dataset.stopms)?.title; await stopMilestone(b.dataset.stopms); toast(`Stopped ${t}`); rer();
+  });
+  document.querySelectorAll('[data-nextms]').forEach(b=>b.onclick=async ()=>{
+    const n = msDef(S.msCelebrate).next[+b.dataset.nextms];
+    const id = makeCustomMilestone(n); if(id){ await startMilestone(id,0); toast(`Started ${n.title}`); }
+    S.msCelebrate=null; rer();
+  });
+  $('#askNext')?.addEventListener('click', ()=>{ const t=msDef(S.msCelebrate).title; S.msCelebrate=null; go('coach'); setTimeout(()=>sendCoach(`I just completed my "${t}" milestone! What should my next milestone be?`), 50); });
+  $('#closeCele')?.addEventListener('click', ()=>{ S.msCelebrate=null; rer(); });
+}
+
+// Progress tab section
+function milestonesProgressHtml(){
+  const st = msState();
+  if(!st.active.length && !st.done.length) return '';
+  return `<div class="card"><div class="row" style="justify-content:space-between"><h3>Milestones</h3><a class="small" href="#plan" onclick="S.planTab='milestones'">Manage</a></div>
+    ${st.active.map(m=>{ const def=msDef(m.id); if(!def) return ''; const pct=Math.round(m.level/def.levels.length*100);
+      const ev = st.events.filter(e=>e.id===m.id && e.type==='level');
+      return `<div style="margin-top:12px"><div class="row" style="justify-content:space-between"><b>${def.icon||'🎯'} ${esc(def.title)}</b><span class="small muted">Level ${m.level+1}/${def.levels.length}</span></div>
+        <div class="nbar"><div class="track"><div class="fill" style="width:${Math.max(4,pct)}%"></div></div></div>
+        <div class="hint">${esc(def.levels[m.level].name)} · started ${relDay(m.started)}${ev.length?` · last level-up ${relDay(ev[ev.length-1].date)}`:''}</div></div>`; }).join('')}
+    ${st.done.length?`<div class="k small muted" style="font-weight:600;margin:16px 0 8px">TROPHIES</div><div class="trophies">${st.done.slice().reverse().map(d=>`<div class="trophy"><div style="font-size:26px">🏆</div><b>${esc(d.title)}</b><span>${parseYmd(d.date).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</span></div>`).join('')}</div>`:''}
+  </div>`;
+}
+
 // ----- calendar (Log tab) -----
 const ymOf = s => s.slice(0,7);
 async function loadMonthDays(ym){
@@ -1137,8 +1442,8 @@ async function viewLog(){
   for(let i=0;i<lead;i++) cells += '<div></div>';
   for(let dnum=1; dnum<=daysIn; dnum++){
     const ds = `${ym}-${String(dnum).padStart(2,'0')}`;
-    const hasW = !!wByDate[ds], hasN = hasNutrition(S.days[ds]);
-    cells += `<button class="cal-d ${ds===sel?'sel':''} ${ds===today?'today':''} ${ds>today?'future':''}" data-day="${ds}"><span>${dnum}</span><i>${hasW?'<b class="dw"></b>':''}${hasN?'<b class="dn"></b>':''}</i></button>`;
+    const hasW = !!wByDate[ds], hasN = hasNutrition(S.days[ds]), msE = msState().events.filter(e=>e.date===ds && (e.type==='done'||e.type==='level'));
+    cells += `<button class="cal-d ${ds===sel?'sel':''} ${ds===today?'today':''} ${ds>today?'future':''}" data-day="${ds}"><span>${dnum}</span><i>${hasW?'<b class="dw"></b>':''}${hasN?'<b class="dn"></b>':''}${msE.length?'<b class="dm"></b>':''}</i>${msE.some(e=>e.type==='done')?'<em>🏆</em>':''}</button>`;
   }
   const monthName = first.toLocaleDateString(undefined,{month:'long', year:'numeric'});
   const p = profile(), st = p ? bodyStats(p) : null;
@@ -1155,10 +1460,11 @@ async function viewLog(){
       </div>
       <div class="cal-grid cal-head">${WEEK.map(w=>`<div>${w[0]}</div>`).join('')}</div>
       <div class="cal-grid">${cells}</div>
-      <div class="row small muted" style="gap:14px;margin-top:10px;justify-content:center"><span><b class="dw"></b> Workout</span><span><b class="dn"></b> Nutrition</span></div>
+      <div class="row small muted" style="gap:14px;margin-top:10px;justify-content:center"><span><b class="dw"></b> Workout</span><span><b class="dn"></b> Nutrition</span><span><b class="dm"></b> Milestone</span></div>
     </div>
     <div class="card">
       <h3>${prettyDate(sel)}${sel!==today?` <span class="muted small" style="font-family:Inter;text-transform:none">${parseYmd(sel).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span>`:''}</h3>
+      ${msState().events.filter(e=>e.date===sel && (e.type==='done'||e.type==='level')).map(e=>{ const def=msDef(e.id); return `<div class="msevent">${e.type==='done'?`🏆 Completed <b>${esc(e.title)}</b>`:`⬆ <b>${esc(e.title)}</b>: reached level ${e.level+1}${def?` — ${esc(def.levels[e.level]?.name||'')}`:''}`}</div>`; }).join('')}
       <div class="k small muted" style="font-weight:600;margin:12px 0 6px">WORKOUT</div>
       ${ws.length ? ws.map(workoutSummaryHtml).join('') : `<p class="small muted" style="margin:0">${sel>today?'Nothing yet.':'No workout logged.'}${sel<=today?' Log workouts from the <a href="#plan">Plan</a> tab.':''}</p>`}
       <div class="k small muted" style="font-weight:600;margin:16px 0 6px">NUTRITION</div>
@@ -1193,7 +1499,11 @@ function startDraft(dayIdx, date){
   const day = dayIdx!=null && plan() ? plan().days[dayIdx] : null;
   S.draft = {
     dayIdx, dayName: day?day.name:'Custom workout', date: date || todayStr(),
-    exercises: day ? day.exercises.filter(id=>EXBY[id]).map(id=>({id, sets:blankSets(EXBY[id], rx(EXBY[id],p).sets), ...(canAddWeight(EXBY[id]) && lastHadWeight(id) ? {addWeight:true} : {})})) : [],
+    exercises: [
+      // milestone practice first (while you're fresh)
+      ...(dayIdx!=null ? (msDayMap()[dayIdx]||[]).map(m=>{ const lv=msDef(m.id).levels[m.level]; return {id:lv.ex, sets:blankSets(EXBY[lv.ex], lv.sets||3), ms:{id:m.id, level:m.level}}; }) : []),
+      ...(day ? day.exercises.filter(id=>EXBY[id]).map(id=>({id, sets:blankSets(EXBY[id], rx(EXBY[id],p).sets), ...(canAddWeight(EXBY[id]) && lastHadWeight(id) ? {addWeight:true} : {})})) : []),
+    ],
     cardioMin:'', effort:'', notes:'',
   };
 }
@@ -1205,7 +1515,7 @@ function fmtSet(s, ex){
   if(ex.p==='cardio') return `${s.r} min`;
   if(ex.t) return `${s.r}s`;
   if(s.w && !usesWeight(ex)) return `+${s.w} lb × ${s.r}`;   // weighted bodyweight move
-  return s.w ? `${s.w}×${s.r}` : `${s.r} reps`;
+  return s.w ? `${s.w}×${s.r}` : `${s.r} rep${s.r===1?'':'s'}`;
 }
 // Weight is only asked for when the exercise uses a weight (dumbbells, kettlebell, barbell, machines, cables).
 // Bodyweight, band and pull-up bar exercises just log reps.
@@ -1259,10 +1569,12 @@ function viewWorkout(){
 }
 function viewLogKeep(){ const y=window.scrollY; viewWorkout(); window.scrollTo(0,y); }
 function logExHtml(e, i, p){
-  const ex = EXBY[e.id], L = lastFor(e.id), fields = setFields(ex, e), target = p ? rx(ex,p).text : '';
-  return `<div class="logex">
+  const ex = EXBY[e.id], L = lastFor(e.id), fields = setFields(ex, e);
+  const msd = e.ms && msDef(e.ms.id), mlv = msd && msd.levels[e.ms.level];
+  const target = mlv ? `🎯 ${msd.title} · ${mlv.name}: ${mlv.plan} · move up at ${goalText(mlv.goal)}` : p ? rx(ex,p).text : '';
+  return `<div class="logex ${e.ms?'msx':''}">
     <div class="top"><div class="t"><div style="font-weight:600">${esc(ex.name)}</div>
-      <div class="hint">${target?`Target ${target}`:''}${L?`${target?' · ':''}Last (${L.date.slice(5).replace('-','/')}): ${L.sets.map(s=>fmtSet(s,ex)).join(', ')}`:''}</div></div>
+      <div class="hint">${target?(mlv?target:`Target ${target}`):''}${L?`${target?' · ':''}Last (${L.date.slice(5).replace('-','/')}): ${L.sets.map(s=>fmtSet(s,ex)).join(', ')}`:''}</div></div>
       <button class="iconbtn" data-act="delex" data-i="${i}" aria-label="Remove exercise">✕</button></div>
     <div class="sets">${e.sets.map((s,si)=>`<div class="setrow ${fields.length===1?'one':''}"><div class="n">${si+1}</div>
       ${fields.map(([f,ph])=>`<input type="number" inputmode="decimal" min="0" placeholder="${ph}" aria-label="Set ${si+1} ${ph}" data-i="${i}" data-s="${si}" data-f="${f}" value="${esc(s[f])}">`).join('')}
@@ -1272,7 +1584,7 @@ function logExHtml(e, i, p){
 }
 async function saveWorkout(){
   const d = S.draft;
-  const exercises = d.exercises.map(e=>({id:e.id, name:EXBY[e.id].name, pattern:EXBY[e.id].p,
+  const exercises = d.exercises.map(e=>({id:e.id, name:EXBY[e.id].name, pattern:EXBY[e.id].p, ...(e.ms?{ms:e.ms}:{}),
     sets:e.sets.filter(s=>num(s.r)>0).map(s=>{ const o={r:num(s.r)}; if((usesWeight(EXBY[e.id]) || e.addWeight) && num(s.w)>0) o.w=num(s.w); return o; })})).filter(e=>e.sets.length);
   const cardioMin = num(d.cardioMin);
   if(!exercises.length && !cardioMin){ $('#lerr').textContent = 'Enter reps (or time) for at least one set before saving.'; return; }
@@ -1281,14 +1593,17 @@ async function saveWorkout(){
   try{
     const id = await S.store.addWorkout(w);
     S.workouts.unshift({...w,id}); S.workouts.sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
-    S.draft = null; S.calSel = w.date; S.calMonth = ymOf(w.date); toast('Workout saved 💪'); go('log');
+    S.draft = null; S.calSel = w.date; S.calMonth = ymOf(w.date);
+    const msgs = await checkMilestones(w);
+    toast(msgs.length ? msgs.join(' · ') : 'Workout saved 💪');
+    if(S.msCelebrate){ S.planTab = 'milestones'; go('plan'); } else go('log');
   }catch(e){ console.error(e); btn.disabled=false; btn.textContent='Save workout'; $('#lerr').textContent = e && e.code==='quota_exceeded' ? 'Storage is full — delete some old workouts first.' : 'Couldn’t save — check your connection and try again.'; }
 }
 
 // ----- progress -----
 function viewProgress(){
   const p = profile(), W = S.workouts, target = p ? +p.days : 3;
-  if(!W.length){ $('#app').innerHTML = `<div class="card empty"><h2>No workouts yet</h2><p>Log your first session and your progress shows up here.</p><button class="btn primary" onclick="go('plan')">Go to your plan</button></div>`; return; }
+  if(!W.length){ $('#app').innerHTML = `<div class="card empty"><h2>No workouts yet</h2><p>Log your first session and your progress shows up here.</p><button class="btn primary" onclick="go('plan')">Go to your plan</button></div>` + milestonesProgressHtml(); return; }
   const now = new Date(), thisWk = weekStart(now).getTime();
   const weeks = []; for(let i=7;i>=0;i--){ const s=weekStart(now); s.setDate(s.getDate()-7*i); weeks.push({start:s, n:0}); }
   const byWeek = new Map(weeks.map(w=>[w.start.getTime(),w]));
@@ -1328,6 +1643,7 @@ function viewProgress(){
         <div class="stat"><div class="k">Volume (30 days)</div><div class="v">${vol>=10000?(vol/1000).toFixed(1)+'k':Math.round(vol).toLocaleString()}</div><div class="s">lb lifted</div></div>
       </div>
     </div>
+    ${milestonesProgressHtml()}
     <div class="card"><h3 style="margin-bottom:8px">Workouts per week</h3>${chart}</div>
     ${prs.length?`<div class="card"><h3 style="margin-bottom:6px">Personal bests</h3>
       <table class="pr"><thead><tr><th>Exercise</th><th class="n" style="text-align:right">Best set</th><th class="n" style="text-align:right">Est. max</th></tr></thead><tbody>
@@ -1336,7 +1652,7 @@ function viewProgress(){
     <div class="card"><h3 style="margin-bottom:4px">History</h3>
       ${W.map(w=>{ const dt=parseYmd(w.date); const sets=w.exercises.reduce((a,e)=>a+e.sets.length,0); return `
       <details class="hist"><summary><div class="d">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()]}<br><span class="muted" style="font-size:12px">${dt.getMonth()+1}/${dt.getDate()}</span></div>
-        <div style="flex:1"><div style="font-weight:600">${esc(w.dayName)}</div><div class="hint">${w.exercises.length} exercises · ${sets} sets${w.cardioMin?` · ${w.cardioMin} min cardio`:''}${w.effort?` · effort ${w.effort}/10`:''}</div></div></summary>
+        <div style="flex:1"><div style="font-weight:600">${esc(w.dayName)}</div><div class="hint">${w.exercises.length} exercise${w.exercises.length===1?'':'s'} · ${sets} set${sets===1?'':'s'}${w.cardioMin?` · ${w.cardioMin} min cardio`:''}${w.effort?` · effort ${w.effort}/10`:''}</div></div></summary>
         <div class="detail">${w.exercises.map(e=>`<div><b style="color:var(--text)">${esc(e.name)}</b> — ${e.sets.map(s=>fmtSet(s,EXBY[e.id]||{p:e.pattern})).join(', ')}</div>`).join('')}
           ${w.notes?`<div style="margin-top:6px">“${esc(w.notes)}”</div>`:''}
           <button class="btn sm ghost danger" data-del="${esc(w.id)}" style="margin-top:8px;padding-left:0">Delete workout</button></div>
@@ -1362,9 +1678,9 @@ async function resetAccount(b){
   document.querySelectorAll('[data-reset]').forEach(x=>x.disabled=true);
   try{
     if(all){ await S.store.replaceAll({}, []); await S.store.clearDays(); S.workouts = []; S.days = {}; S.monthsLoaded = {}; }
-    else { await S.store.saveAccount(S.account.nutrition ? {nutrition:S.account.nutrition} : {}); }
+    else { await S.store.saveAccount(clean({nutrition:S.account.nutrition, milestones:S.account.milestones})); }
     await S.store.saveChat([]);
-    S.account = all ? {} : (S.account.nutrition ? {nutrition:S.account.nutrition} : {}); S.chat = []; S.draft = null; S.profileTab = 'personal'; renderBadge();
+    S.account = all ? {} : clean({nutrition:S.account.nutrition, milestones:S.account.milestones}); S.chat = []; S.draft = null; S.profileTab = 'personal'; renderBadge();
     toast(all ? 'Everything erased — fresh start' : 'Setup cleared — let’s start again');
     go(S.user ? 'coach' : 'profile');
   }catch(e){
@@ -1515,6 +1831,10 @@ function coachContext(){
   const wk = weekStart(now).getTime();
   const nd = S.days[todayStr()];
   if(nd){ const t=dayTotals(nd); lines.push(`NUTRITION TODAY: ${t.cal} cal, ${t.protein} g protein, ${nd.water} oz water (goal ${waterGoal()} oz). Meals: ${nd.meals.map(m=>m.name).join('; ')||'none logged'}.${(S.account.nutrition?.supplements||[]).length?' Supplements taken: '+S.account.nutrition.supplements.filter(x=>nd.supps[x.id]).map(x=>x.name).join(', ')+' (of '+S.account.nutrition.supplements.map(x=>x.name).join(', ')+').':''}`); }
+  const mst = msState();
+  lines.push(mst.active.length ? 'ACTIVE MILESTONES:\n' + mst.active.map(m=>{ const def=msDef(m.id); if(!def) return ''; const {best,sessions,lv}=msBestAtLevel(m); return `- id ${m.id}: ${def.title}, level ${m.level+1} of ${def.levels.length} (${lv.name}; ${lv.plan}; moves up at ${goalText(lv.goal)}; ${lv.goal.sessions?`${sessions} sessions done`:`best at this level: ${best??'none yet'}`}). Levels: ${def.levels.map((l,i)=>`${i+1}=${l.name}`).join(', ')}`; }).join('\n') : 'ACTIVE MILESTONES: none.');
+  if(mst.done.length) lines.push('COMPLETED MILESTONES: ' + mst.done.map(d=>`${d.title} (${d.date})`).join('; '));
+  lines.push('BUILT-IN MILESTONES THEY CAN START: ' + Object.entries(MILESTONES).filter(([id,def])=>msEligible(def,p) && !mst.active.some(m=>m.id===id)).map(([id,def])=>`${id} = ${def.title} (levels: ${def.levels.map((l,i)=>`${i+1}=${l.name}`).join(', ')})`).join('; '));
   lines.push(`Workouts logged this week: ${S.workouts.filter(w=>weekStart(parseYmd(w.date)).getTime()===wk).length} of ${pl?pl.days.length:p.days} planned.`);
   return lines.join('\n');
 }
@@ -1538,6 +1858,11 @@ COACHING MODE (profile exists)
   {"type":"swap_exercise","day":<day index>,"from":"<exercise id in that day>","to":"<exercise id from the library>","label":"Swap X for Y on Monday"}
   {"type":"update_profile","changes":{<any of: days, minutes, gear, activities, goal, level, lowImpact, weight, notes>},"label":"..."}  (gear/activities are the FULL new arrays)
   {"type":"regenerate_plan","label":"Shuffle in new exercises"}
+  {"type":"start_milestone","id":"<built-in milestone id>","level":<starting level number, 1 = first>,"label":"Start First pull-up at level 2"}
+  {"type":"set_milestone_level","id":"<active milestone id>","level":<level number, 1 = first>,"label":"Go back to knee push-ups"}
+  {"type":"create_milestone","title":"25 push-ups in a row","exercise":"<exercise id from the library, reps or holds — not cardio>","target":<number of reps, or seconds for holds>,"label":"Start: 25 push-ups in a row"}
+  {"type":"stop_milestone","id":"<active milestone id>","label":"Stop the pull-up milestone"}
+- MILESTONES: short programs toward a goal (first push-up, first pull-up, run a mile, or custom "N in a row" / "hold N seconds"). Practice blocks are added to plan days automatically and level up when logged sets hit the goal. Use the ACTIVE MILESTONES data to coach them: technique, staying at a level, repeating a level (set_milestone_level), or skipping ahead. When they finish one (see COMPLETED MILESTONES) or ask what's next, suggest a realistic next challenge with create_milestone (e.g. after a first push-up: 10 then 25 in a row) or a built-in with start_milestone. Keep custom targets achievable in a few weeks.
 - EQUIPMENT RULE: only recommend exercises from the library below and cardio from AVAILABLE CARDIO — this applies to everything you write, not just actions. The library already contains only what this user can do. If the user wants something that needs equipment or an activity they don't have, say so and offer an update_profile action that adds it (e.g. they mention they joined a gym or bought a kettlebell).
 - For swaps, use the same movement pattern when possible. Use ONLY ids from the library.
 - When the user shares lasting info (new injury, schedule change, preference), propose an update_profile action with updated "notes" (keep the old notes and add the new info).
@@ -1637,12 +1962,21 @@ function validateAction(a){
     return {...a, changes, label: a.label || 'Update my profile'};
   }
   if(a.type==='regenerate_plan') return {...a, label: a.label || 'Shuffle in new exercises'};
+  const st = msState();
+  if(a.type==='start_milestone'){ const def=MILESTONES[a.id]; if(!def || !msEligible(def,p) || st.active.some(m=>m.id===a.id)) return null; const lv=Math.max(1,Math.min(def.levels.length, Math.round(num(a.level))||1)); return {...a, level:lv, label:a.label||`Start ${def.title}`}; }
+  if(a.type==='set_milestone_level'){ const m=st.active.find(x=>x.id===a.id), def=m&&msDef(m.id); if(!def) return null; const lv=Math.round(num(a.level)); if(!(lv>=1 && lv<=def.levels.length)) return null; return {...a, level:lv, label:a.label||`${def.title}: level ${lv}`}; }
+  if(a.type==='create_milestone'){ const ex=EXBY[a.exercise]; if(!ex || ex.p==='cardio' || !canDo(ex,p) || !(num(a.target)>0) || num(a.target)>500) return null; return {...a, label:a.label||`Start: ${a.title||'new milestone'}`}; }
+  if(a.type==='stop_milestone'){ const m=st.active.find(x=>x.id===a.id); if(!m) return null; return {...a, label:a.label||`Stop ${msDef(m.id)?.title}`}; }
   return null;
 }
 async function applyAction(a){
   const p = profile();
   if(a.type==='swap_exercise'){ const d = plan().days[+a.day]; d.exercises[d.exercises.indexOf(a.from)] = a.to; await saveAccount(); return `Swapped in ${EXBY[a.to].name}`; }
   if(a.type==='regenerate_plan'){ S.account.plan = buildPlan(p, Math.floor(Math.random()*1e9)); await saveAccount(); return 'New exercises are on your Plan tab'; }
+  if(a.type==='start_milestone'){ await startMilestone(a.id, a.level-1); return `Started ${MILESTONES[a.id].title} — see Plan → Milestones`; }
+  if(a.type==='set_milestone_level'){ await setMilestoneLevel(a.id, a.level-1); return `${msDef(a.id).title}: now level ${a.level}`; }
+  if(a.type==='create_milestone'){ const id = makeCustomMilestone({title:a.title, exercise:a.exercise, target:a.target}); if(!id) return 'Couldn’t create that milestone'; await startMilestone(id, 0); return `Started ${msDef(id).title}`; }
+  if(a.type==='stop_milestone'){ const t=msDef(a.id)?.title; await stopMilestone(a.id); return `Stopped ${t}`; }
   if(a.type==='update_profile'){
     const {p:np, err} = normalizeProfile({...p, ...a.changes});
     if(err.length) return 'That change didn’t look right, so I skipped it';
