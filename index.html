@@ -973,7 +973,10 @@ ${coachContext()}`;
 
 async function getCoachModel(name){
   if(!S.aiMod){ S.aiMod = await import(FB.base+'firebase-ai.js'); S.ai = S.aiMod.getAI(FB.app, {backend: new S.aiMod.GoogleAIBackend()}); }
-  return S.aiMod.getGenerativeModel(S.ai, { model: name, systemInstruction: coachSystemPrompt(), generationConfig: { responseMimeType:'application/json', temperature:0.6 } });
+  const generationConfig = { responseMimeType:'application/json', temperature:0.6 };
+  // Gemini 3 "thinks" before answering; keep it low so replies come back fast.
+  if(!S.noThinkCfg) generationConfig.thinkingConfig = { thinkingLevel: (S.aiMod.ThinkingLevel && S.aiMod.ThinkingLevel.LOW) || 'LOW' };
+  return S.aiMod.getGenerativeModel(S.ai, { model: name, systemInstruction: coachSystemPrompt(), generationConfig });
 }
 // Tries each model in COACH_MODELS until one exists; remembers the one that worked.
 async function askCoach(contents){
@@ -987,18 +990,27 @@ async function askCoach(contents){
   }
   S.stage = 'waiting for Gemini';
   const list = S.goodModel ? [S.goodModel, ...COACH_MODELS.filter(n=>n!==S.goodModel)] : COACH_MODELS;
-  let lastErr;
+  const log = [];
   for(const name of list){
-    try{ const model = await getCoachModel(name); const res = await model.generateContent({contents}); S.goodModel = name; return res.response.text(); }
-    catch(e){
-      lastErr = e;
-      const m = String(e&&e.message);
-      // model missing, overloaded or briefly unavailable → try the next model
-      if(!/not found|404|is not supported|NOT_FOUND|\b50[0-9]\b|high demand|overloaded|UNAVAILABLE|try again later/i.test(m)) throw e;
+    const t0 = Date.now();
+    S.stage = 'waiting for ' + name;
+    try{
+      const model = await getCoachModel(name);
+      const res = await withTimeout(model.generateContent({contents}), 30000);
+      S.goodModel = name; S.lastTimings = `${name} ${Math.round((Date.now()-t0)/1000)}s`;
+      return res.response.text();
+    }catch(e){
+      const m = String(e&&e.message||e);
+      const secs = Math.round((Date.now()-t0)/1000);
+      // If this SDK/model rejects the thinking setting, retry once without it.
+      if(/thinking/i.test(m) && !S.noThinkCfg){ S.noThinkCfg = true; return askCoach(contents); }
+      log.push(`${name}: ${/timeout/.test(m)?'no reply in 30s':m.replace(/^.*?generateContent:\s*/,'').slice(0,90)} (${secs}s)`);
       if(S.goodModel===name) S.goodModel = null;
+      // anything other than slow / busy / missing model is a real error — stop here
+      if(!/timeout|not found|404|is not supported|NOT_FOUND|\b50[0-9]\b|high demand|overloaded|UNAVAILABLE|try again later/i.test(m)) break;
     }
   }
-  throw lastErr;
+  const err = new Error(log.join(' | ')); err.attempts = log; throw err;
 }
 function parseCoach(text){
   let t = (text||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/```$/,'').trim();
@@ -1060,7 +1072,7 @@ function viewCoach(){
   const msgs = S.chat.length ? S.chat : [{role:'model', text:greeting(), ts:Date.now(), seed:true}];
   $('#app').innerHTML = `
     <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">Coach</h2>${S.chat.length?'<button class="btn sm ghost" id="clearChat">Clear chat</button>':''}</div>
-    <div class="chat" id="chat">${msgs.map((m,i)=>msgHtml(m,i)).join('')}${S.coachBusy?'<div class="typing">Coach is typing…</div>':''}</div>
+    <div class="chat" id="chat">${msgs.map((m,i)=>msgHtml(m,i)).join('')}${S.coachBusy?'<div class="typing" id="typing">Coach is typing…</div>':''}</div>
     <div class="composer"><div class="inner">
       ${profile()?`<div class="chips">${COACH_STARTERS.map(s=>`<span class="chip" data-q="${esc(s)}">${esc(s)}</span>`).join('')}</div>`:''}
       <form id="coachForm"><textarea id="coachIn" rows="1" placeholder="${profile()?'Ask your coach…':'Type your answer…'}" ${S.coachBusy?'disabled':''}></textarea>
@@ -1095,18 +1107,20 @@ async function sendCoach(text){
   if(!S.chat.length) S.chat.push({role:'model', text:greeting(), ts:Date.now()});
   S.chat.push({role:'user', text, ts:Date.now()});
   S.coachBusy = true; viewCoach();
+  const started = Date.now();
+  const tick = setInterval(()=>{ const el=$('#typing'); if(!el) return; const sec=Math.round((Date.now()-started)/1000); el.textContent = sec<8 ? 'Coach is typing…' : `Coach is typing… ${sec}s${S.stage&&S.stage.startsWith('waiting for gemini-')&&S.stage!=='waiting for '+COACH_MODELS[0]?' (trying a backup model)':''}`; }, 1000);
   let out;
   try{
     let hist = S.chat.slice(-24).map(m=>({role:m.role==='model'?'model':'user', parts:[{text:m.text}]}));
     while(hist.length && hist[0].role!=='user') hist.shift();
     // keep the coach's opening question in view so onboarding answers make sense
     if(S.chat.length<=24 && S.chat[0].role==='model') hist.unshift({role:'user',parts:[{text:'(Opened the coach.)'}]},{role:'model',parts:[{text:S.chat[0].text}]});
-    out = parseCoach(await withTimeout(askCoach(hist), 40000));
+    out = parseCoach(await withTimeout(askCoach(hist), 100000));
   }catch(e){
     console.error(e);
     const m = String(e && (e.message||e.code)||'');
-    const detail = (m + (S.stage?` (step: ${S.stage})`:'')).slice(0,260);
-    const reply = /timeout/i.test(m) ? 'I didn’t get an answer in time. If this keeps happening, the AI connection isn’t finishing — usually an App Check or AI Logic setup issue.' :
+    const detail = (e && e.attempts ? m : m + (S.stage?` (step: ${S.stage})`:'')).slice(0,400);
+    const reply = /no reply in 30s|timeout/i.test(m) && !/high demand|50[0-9]/.test(m) ? 'Gemini is being slow right now and didn’t answer in time.' :
                   /app.?check|attestation|unauthenticated|401/i.test(m) ? 'I’m almost ready — Firebase is blocking me until **App Check** is set up for this site.' :
                   /api-not-enabled|not been used|PERMISSION_DENIED|403/i.test(m) ? 'I’m not switched on yet — in the Firebase console, open **AI Logic** and click **Get started** with the Gemini Developer API.' :
                   /high demand|overloaded|\b50[0-9]\b|UNAVAILABLE/i.test(m) ? 'Google’s AI is really busy right now — give it a minute and try again.' :
@@ -1124,6 +1138,7 @@ async function sendCoach(text){
   }
   const acts = out.actions.map(validateAction).filter(Boolean).map(a=>({...a, applied:false}));
   if(acts.length) msg.actions = acts;
+  clearInterval(tick);
   S.chat.push(msg);
   S.coachBusy = false;
   if(out.error){ S.chat.splice(-2, 2); S.chat.push({...msg, text: out.reply + '\n\nYour message is back in the box — tap send to try again.', transient:true}); S.lastFailed = text; }
