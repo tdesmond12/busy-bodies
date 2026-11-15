@@ -156,6 +156,20 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick label{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--panel2);font-size:14px;cursor:pointer}
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
+.section-h{margin:18px 2px 10px}
+.prblock{margin:10px 16px 0;padding:10px 12px;border-radius:12px;background:rgba(127,179,255,.10);border:1px solid rgba(127,179,255,.35)}
+.logex.prx{border:1px solid rgba(127,179,255,.45)}
+.tracks{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.trk{background:var(--panel2);border-radius:12px;padding:10px}
+.daypick label{min-width:0;padding:8px 4px;font-size:13px}
+.seg input[type=checkbox]{position:absolute;opacity:0;pointer-events:none}
+.player{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.pl-inner{max-width:560px;margin:0 auto;width:100%;padding:18px;display:flex;flex-direction:column;gap:14px}
+.pl-pose{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:10px}
+.pl-name{font:800 34px "Barlow Condensed";text-transform:uppercase;letter-spacing:.02em}
+.pl-side{color:#7fb3ff;font-weight:600;text-transform:capitalize}
+.pl-time{font:800 72px "Barlow Condensed";color:var(--accent)}
+.pl-cue{color:var(--muted);max-width:420px;font-size:16px}
 .trophies{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
 .trophy{background:var(--panel2);border-radius:12px;padding:10px;text-align:center;display:flex;flex-direction:column;gap:2px}
 .trophy b{font-size:13px}.trophy span{font-size:12px;color:var(--muted)}
@@ -371,6 +385,14 @@ E('Flexed-Arm Hang','pull_v','bar',2,'Jump or step up so your chin is over the b
 E('Top-Half Pull-Up','pull_v','bar',2,'Start with elbows at 90°, pull your chin over the bar, lower back to 90°.','m');
 E('Run/Walk Intervals','cardio','none',1,'Alternate easy running and brisk walking as your milestone level says.','m');
 E('Mile Run','cardio','none',2,'Run one mile at an easy, steady pace — slow is fine, just keep running.','m');
+// Program-only exercises
+E('Archer Push-Up','push_h','none',3,'Wide hands; lower toward one hand while the other arm stays straight. Alternate sides.','m');
+E('Feet-Elevated Table Row','pull_h','none',3,'Like a table row, but with your feet up on a chair so your body is level.','m');
+E('Bodyweight Bulgarian Split Squat','lunge','none',2,'Rear foot on a couch or chair, lower straight down on the front leg.','m');
+E('Assisted Pistol Squat','squat','none',2,'Hold a door frame or post, sit down on one leg with the other leg out front, use your hands as little as possible.','m');
+E('Box Pistol Squat','squat','none',3,'One-leg squat down to a chair or couch, tap, and stand back up without the other foot touching down.','m');
+E('Tuck L-Sit','core','none',3,'Hands on the floor or two sturdy chairs, push down and lift your hips and tucked knees off the ground.','tm');
+E('Yoga Flow','mobility','none',1,'Move slowly, breathe through your nose, never force a stretch.','m');
 
 // ---------- equipment + activities ----------
 const GEAR = {
@@ -416,7 +438,7 @@ const gearSummary = p => { const g=(p.gear||[]).map(k=>GEAR[k]).filter(Boolean);
 
 const EXBY = Object.fromEntries(EX.map(e=>[e.id,e]));
 const COMPOUND = new Set(['squat','hinge','lunge','push_h','push_v','pull_h','pull_v']);
-const PATTERN_LABEL = {squat:'Squat',hinge:'Hinge',lunge:'Single-leg',push_h:'Chest push',push_v:'Overhead push',pull_h:'Row',pull_v:'Vertical pull',shoulders:'Shoulders',biceps:'Biceps',triceps:'Triceps',calves:'Calves',core:'Core',cardio:'Cardio'};
+const PATTERN_LABEL = {squat:'Squat',hinge:'Hinge',lunge:'Single-leg',push_h:'Chest push',push_v:'Overhead push',pull_h:'Row',pull_v:'Vertical pull',shoulders:'Shoulders',biceps:'Biceps',triceps:'Triceps',calves:'Calves',core:'Core',cardio:'Cardio',mobility:'Mobility'};
 
 // ---------- plan engine ----------
 const GOALS = {
@@ -641,11 +663,13 @@ function normalizeProfile(raw){
   return {p, err};
 }
 // Saves a profile and rebuilds the plan if anything plan-related changed.
+// While a program replaces the plan, a regenerated plan is stored as the one that comes back when the program stops.
+function setGeneratedPlan(pl){ const ps = S.account.programs; if(ps && (ps.active||[]).some(e=>e.mode==='replace')) ps.savedPlan = pl; else S.account.plan = pl; }
 async function applyProfile(np){
   const hadPlan = !!plan();
   const changed = !hadPlan || plan().sig !== planSig(np);
   S.account.profile = {...np, updatedAt:Date.now()};
-  if(changed) S.account.plan = buildPlan(np, hadPlan ? plan().seed : Math.floor(Math.random()*1e9));
+  if(changed) setGeneratedPlan(buildPlan(np, hadPlan ? plan().seed : Math.floor(Math.random()*1e9)));
   await saveAccount();
   renderBadge();
   return {hadPlan, changed};
@@ -1055,13 +1079,15 @@ function viewPlan(){
   if(!p){ $('#app').innerHTML = `<div class="card empty"><h2>No plan yet</h2><p>Add your details to get a plan built for you.</p><button class="btn primary" onclick="go('profile')">Set up profile</button></div>`; return; }
   const pl = plan();
   const ptab = S.planTab || 'week';
-  const nActive = msState().active.length;
+  const nActive = msState().active.length + prState().active.length;
+  if(S.planTab==='milestones') S.planTab = 'programs';
   const tabsHtml = `<div class="seg ptabs" role="tablist">
       <input type="radio" id="pl-week" name="pltab" value="week" ${ptab==='week'?'checked':''}><label for="pl-week">This week</label>
-      <input type="radio" id="pl-ms" name="pltab" value="milestones" ${ptab==='milestones'?'checked':''}><label for="pl-ms">Milestones${nActive?` (${nActive})`:''}</label>
+      <input type="radio" id="pl-ms" name="pltab" value="programs" ${ptab==='programs'?'checked':''}><label for="pl-ms">Programs${nActive?` (${nActive})`:''}</label>
     </div>`;
   const bindTabs = ()=>document.querySelectorAll('input[name=pltab]').forEach(r=>r.onchange=()=>{ S.planTab=r.value; viewPlan(); window.scrollTo(0,0); });
-  if(ptab==='milestones'){ $('#app').innerHTML = tabsHtml + viewMilestones(); bindTabs(); bindMilestones(); return; }
+  if(ptab==='programs'){ $('#app').innerHTML = tabsHtml + programsSectionHtml() + `<h2 class="section-h">Milestones</h2>` + viewMilestones(); bindTabs(); bindPrograms(); bindMilestones(); return; }
+  const replacing = prState().active.find(e=>e.mode==='replace');
   const msMap = msDayMap();
   const used = pl.days.map(d=>d.weekday), free = WEEK.filter(w=>!used.includes(w));
   const todayDow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];
@@ -1069,26 +1095,32 @@ function viewPlan(){
   $('#app').innerHTML = tabsHtml + `
     <div class="card">
       <div class="row" style="justify-content:space-between"><h2 style="margin:0">${p.name?esc(p.name)+'’s':'Your'} week</h2>
-      <button class="btn sm" id="shuffle">${ICON_SWAP.replace('<svg','<svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"')}New exercises</button></div>
+      ${replacing?'':`<button class="btn sm" id="shuffle">${ICON_SWAP.replace('<svg','<svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"')}New exercises</button>`}</div>
       <div class="chips" style="margin-top:10px">
         <span class="chip on">${GOALS[p.goal].label}</span><span class="chip">${LEVELS[p.level]}</span>
         <span class="chip">${pl.days.length}×/week</span><span class="chip">${p.minutes} min</span><span class="chip">${esc(gearSummary(p))}</span>
         ${p.lowImpact?'<span class="chip">Low impact</span>':''}
       </div>
-      <p class="small muted" style="margin:10px 0 0">Tap <b>↻</b> to swap an exercise or <b>✕</b> to remove it. ${free.length?`Rest days: ${free.join(', ')} — light walking counts.`:''}</p>
+      <p class="small muted" style="margin:10px 0 0">${replacing?`<b>${esc(prDef(replacing.id).title)}</b> is your plan right now. `:''}Tap <b>↻</b> to swap an exercise or <b>✕</b> to remove it. ${free.length?`Rest days: ${free.filter(w=>!progsOn(w).length).join(', ')||'none'} — light walking counts.`:''}</p>
     </div>
-    ${pl.days.map((d,di)=>`
+    ${[...pl.days.map((d,di)=>({d,di,w:d.weekday})), ...free.filter(w=>progsOn(w).length).map(w=>({rest:true,w}))].sort((a,b)=>WEEK.indexOf(a.w)-WEEK.indexOf(b.w)).map(({d,di,rest,w})=> rest ? `
+      <div class="card day">
+        <div class="dayhead"><span class="dow">${w}</span><h3>${progsOn(w).map(e=>esc(prDef(e.id).title)).join(' + ')}</h3>${w===todayDow?'<span class="chip on" style="margin-left:4px">Today</span>':''}</div>
+        ${progsOn(w).map(progBlockHtml).join('')}
+        <div class="dayfoot"><button class="btn primary block" data-logrest="${w}">Log this session</button></div>
+      </div>` : `
       <div class="card day">
         <div class="dayhead"><span class="dow">${d.weekday}</span><h3>${esc(d.name)}</h3>${d.weekday===todayDow?'<span class="chip on" style="margin-left:4px">Today</span>':''}
           <button class="iconbtn" data-delday="${di}" style="margin-left:auto" aria-label="Remove ${d.weekday}">${ICON_X}</button></div>
+        ${progsOn(d.weekday).filter(e=>e.mode==='addon' || d.prog===e.id).map(progBlockHtml).join('')}
         ${(msMap[di]||[]).map(msBlockHtml).join('')}
         ${d.exercises.length ? dayNotes(d,p).map(n=>`<div class="note">${n}</div>`).join('') : ''}
         ${d.exercises.map((id,ei)=>{ const ex=EXBY[id]; if(!ex) return ''; const r=rx(ex,p); return `
           <div class="ex"><div class="num">${ei+1}</div><div class="body">
             <div class="name">${esc(ex.name)}</div><div class="rx">${r.text}</div><div class="cue">${esc(ex.cue)}</div>
-          </div><div class="exbtns"><button class="iconbtn" data-swap="${di}:${ei}" aria-label="Swap ${esc(ex.name)}">${ICON_SWAP}</button><button class="iconbtn" data-delex="${di}:${ei}" aria-label="Remove ${esc(ex.name)}">${ICON_X}</button></div></div>`; }).join('') || '<div class="note">No exercises yet — add some below.</div>'}
+          </div><div class="exbtns"><button class="iconbtn" data-swap="${di}:${ei}" aria-label="Swap ${esc(ex.name)}">${ICON_SWAP}</button><button class="iconbtn" data-delex="${di}:${ei}" aria-label="Remove ${esc(ex.name)}">${ICON_X}</button></div></div>`; }).join('') || (d.prog ? '' : '<div class="note">No exercises yet — add some below.</div>')}
         <div class="addex" ${S.addExDay===di?'':'hidden'}><select data-addex="${di}"><option value="">Choose an exercise…</option>${exOptions(d)}</select></div>
-        <div class="dayfoot"><button class="btn" data-openadd="${di}">+ Exercise</button><button class="btn primary" style="flex:1" data-logday="${di}" ${d.exercises.length||(msMap[di]||[]).length?'':'disabled'}>Log this workout</button></div>
+        <div class="dayfoot"><button class="btn" data-openadd="${di}">+ Exercise</button><button class="btn primary" style="flex:1" data-logday="${di}" ${d.exercises.length||(msMap[di]||[]).length||progsOn(d.weekday).length?'':'disabled'}>Log this workout</button></div>
       </div>`).join('')}
     ${free.length ? `<div class="card">
       <h3 style="margin-bottom:8px">Add a day</h3>
@@ -1099,11 +1131,11 @@ function viewPlan(){
     <button class="btn ghost block" id="customLog">Log a workout that isn’t on your plan</button>`;
 
   bindTabs();
-  $('#shuffle').onclick = async e=>{
+  $('#shuffle')?.addEventListener('click', async e=>{
     const b=e.currentTarget;
     if(pl.edited && !b.dataset.armed){ b.dataset.armed='1'; b.textContent='Tap again — replaces your edits'; setTimeout(()=>{ if(b.isConnected) viewPlan(); },4000); return; }
     S.account.plan = buildPlan(p, Math.floor(Math.random()*1e9)); await saveAccount(); viewPlan(); toast('Fresh set of exercises');
-  };
+  });
   $('#app').querySelectorAll('[data-swap]').forEach(b=>b.onclick = async ()=>{
     const [di,ei] = b.dataset.swap.split(':').map(Number);
     const day = plan().days[di], cur = EXBY[day.exercises[ei]];
@@ -1144,7 +1176,324 @@ function viewPlan(){
     await savePlanEdit(`Added ${dow}`);
   });
   $('#app').querySelectorAll('[data-logday]').forEach(b=>b.onclick = ()=>{ startDraft(+b.dataset.logday); go('workout'); });
+  $('#app').querySelectorAll('[data-logrest]').forEach(b=>b.onclick = ()=>{ startDraft(null, null, b.dataset.logrest); go('workout'); });
+  $('#app').querySelectorAll('[data-flow]').forEach(b=>b.onclick = ()=>{ const [id,f]=b.dataset.flow.split(':'); playFlow(id,f); });
   $('#customLog').onclick = ()=>{ startDraft(null); go('workout'); };
+}
+
+// ---------- Programs (multi-week routines) ----------
+// kind 'tracks': each movement has its own ladder (levels move up separately).
+// kind 'flows': guided routines (yoga) logged as minutes.
+const P = (name, secs, cue, side) => ({name, secs, cue, ...(side?{side}:{})});
+const PROGRAMS = {
+  'calisthenics': {
+    title:'Calisthenics Foundations', icon:'🤸', kind:'tracks', perWeek:3, total:24, minutes:30, defaultMode:'replace',
+    blurb:'Bodyweight strength in about 30 minutes, 3 times a week. Push, pull, legs and core each level up on their own.',
+    source:'Written for Busy Bodies.',
+    warmup:'5 minutes: march or jumping jacks, arm circles, leg swings, 5 slow squats.',
+    howTo:'Do 3 sets of each movement, resting 60–90 seconds between sets. When you hit the top number on all 3 sets, that movement moves up a level. Leave at least a day between sessions.',
+    tracks:{
+      push:{label:'Push', levels:[
+        {ex:'incline-push-up', name:'Incline push-up', sets:3, plan:'3 × 8–12', goal:{reps:12, sets:3}},
+        {ex:'push-up', name:'Push-up', sets:3, plan:'3 × 6–12', goal:{reps:12, sets:3}},
+        {ex:'decline-push-up', name:'Decline push-up', sets:3, plan:'3 × 6–12', goal:{reps:12, sets:3}},
+        {ex:'close-grip-push-up', name:'Close-grip push-up', sets:3, plan:'3 × 6–12', goal:{reps:12, sets:3}},
+        {ex:'archer-push-up', name:'Archer push-up', sets:3, plan:'3 × 4–8 per side', goal:{reps:8, sets:3}},
+      ]},
+      pull:{label:'Pull', variants:{
+        bar:[
+          {ex:'scapular-pull-up', name:'Scapular pull-up', sets:3, plan:'3 × 6–10', goal:{reps:10, sets:3}},
+          {ex:'negative-pull-up', name:'Negative pull-up', sets:3, plan:'3 × 3–5, 5 s down', goal:{reps:5, sets:3}},
+          {ex:'pull-up', name:'Pull-up', sets:3, plan:'3 × 1–5', goal:{reps:5, sets:3}},
+          {ex:'pull-up', name:'Pull-up (volume)', sets:3, plan:'3 × 5–8', goal:{reps:8, sets:3}},
+        ],
+        nobar:[
+          {ex:'floor-lat-pull-superman-', name:'Floor lat pull', sets:3, plan:'3 × 10–15', goal:{reps:15, sets:3}},
+          {ex:'inverted-table-row', name:'Table row', sets:3, plan:'3 × 6–12', goal:{reps:12, sets:3}},
+          {ex:'feet-elevated-table-row', name:'Feet-elevated table row', sets:3, plan:'3 × 6–10', goal:{reps:10, sets:3}},
+        ]}},
+      legs:{label:'Legs', levels:[
+        {ex:'bodyweight-squat', name:'Bodyweight squat', sets:3, plan:'3 × 12–20', goal:{reps:20, sets:3}},
+        {ex:'split-squat', name:'Split squat', sets:3, plan:'3 × 8–12 per leg', goal:{reps:12, sets:3}},
+        {ex:'bodyweight-bulgarian-split-squat', name:'Bulgarian split squat', sets:3, plan:'3 × 8–12 per leg', goal:{reps:12, sets:3}},
+        {ex:'assisted-pistol-squat', name:'Assisted pistol squat', sets:3, plan:'3 × 5–8 per leg', goal:{reps:8, sets:3}},
+        {ex:'box-pistol-squat', name:'Box pistol squat', sets:3, plan:'3 × 3–6 per leg', goal:{reps:6, sets:3}},
+      ]},
+      core:{label:'Core', levels:[
+        {ex:'plank', name:'Plank', sets:3, plan:'3 holds × 30–60 s', goal:{secs:60, sets:3}},
+        {ex:'side-plank', name:'Side plank', sets:3, plan:'3 holds × 20–45 s per side', goal:{secs:45, sets:3}},
+        {ex:'hollow-body-hold', name:'Hollow body hold', sets:3, plan:'3 holds × 15–30 s', goal:{secs:30, sets:3}},
+        {ex:'tuck-l-sit', name:'Tuck L-sit', sets:3, plan:'3 holds × 5–20 s', goal:{secs:20, sets:3}},
+      ]},
+    },
+  },
+  'yoga': {
+    title:'Yoga for Busy Parents', icon:'🧘', kind:'flows', perWeek:3, total:12, defaultMode:'addon',
+    blurb:'Short guided flows for mornings, desk breaks, after workouts and bedtime. Great on rest days.',
+    source:'Written for Busy Bodies. Move gently and skip anything that hurts.',
+    howTo:'Pick any flow, tap Start, and follow along — the app counts down each pose. Breathe slowly through your nose and never force a stretch.',
+    flows:[
+      {id:'morning', name:'Morning wake-up', poses:[
+        P('Child’s pose',45,'Knees wide, big toes together, arms long, forehead down. Breathe into your back.'),
+        P('Cat-cow',60,'On hands and knees, arch as you breathe in, round as you breathe out.'),
+        P('Downward dog',45,'Hips up and back, pedal your heels, let your head hang.'),
+        P('Low lunge',40,'Back knee down, sink your hips forward, reach your arms up.','right'),
+        P('Low lunge',40,'Back knee down, sink your hips forward, reach your arms up.','left'),
+        P('Standing forward fold',40,'Soft knees, let your upper body hang heavy, nod yes and no.'),
+        P('Mountain with overhead reach',30,'Stand tall, reach up and lean gently side to side.'),
+        P('Chair pose',30,'Sit back like into a chair, arms up, weight in your heels.'),
+        P('Warrior II',40,'Front knee over ankle, arms long, gaze over your front hand.','right'),
+        P('Warrior II',40,'Front knee over ankle, arms long, gaze over your front hand.','left'),
+        P('Tree pose',30,'Foot on calf or inner thigh (not the knee), hands at your chest.','right'),
+        P('Tree pose',30,'Foot on calf or inner thigh (not the knee), hands at your chest.','left'),
+        P('Standing breath',30,'Feet hip-width, eyes closed, three slow breaths.'),
+      ]},
+      {id:'desk', name:'Desk reset', poses:[
+        P('Seated neck release',30,'Ear toward shoulder, the other hand reaching down.','right'),
+        P('Seated neck release',30,'Ear toward shoulder, the other hand reaching down.','left'),
+        P('Seated cat-cow',45,'Hands on knees, arch and round your spine with your breath.'),
+        P('Seated twist',30,'Sit tall, rotate from your ribs, hand on the chair back.','right'),
+        P('Seated twist',30,'Sit tall, rotate from your ribs, hand on the chair back.','left'),
+        P('Eagle arms',30,'Wrap your arms, lift your elbows, breathe into your upper back.'),
+        P('Chest opener',40,'Clasp your hands behind you, lift your chest, squeeze your shoulder blades.'),
+        P('Standing forward fold',40,'Soft knees, hang heavy, let your neck relax.'),
+        P('Standing quad stretch',30,'Hold your ankle behind you, knees together, hand on a wall.','right'),
+        P('Standing quad stretch',30,'Hold your ankle behind you, knees together, hand on a wall.','left'),
+        P('Wrist circles and stretch',40,'Circle both ways, then gently stretch each palm back.'),
+        P('Box breathing',60,'In for 4, hold for 4, out for 4, hold for 4.'),
+      ]},
+      {id:'post', name:'Post-workout stretch', poses:[
+        P('Downward dog',45,'Hips up and back, long spine, heels toward the floor.'),
+        P('Low lunge',45,'Back knee down, hips forward — feel the front of the back hip.','right'),
+        P('Half split',45,'Shift hips back, front leg straight, fold over it.','right'),
+        P('Low lunge',45,'Back knee down, hips forward — feel the front of the back hip.','left'),
+        P('Half split',45,'Shift hips back, front leg straight, fold over it.','left'),
+        P('Pigeon or figure-4',60,'Shin across in front (or on your back, ankle over knee). Breathe into the hip.','right'),
+        P('Pigeon or figure-4',60,'Shin across in front (or on your back, ankle over knee). Breathe into the hip.','left'),
+        P('Seated forward fold',60,'Legs long, soft knees, fold from the hips.'),
+        P('Supine twist',45,'On your back, knees to one side, arms wide.','right'),
+        P('Supine twist',45,'On your back, knees to one side, arms wide.','left'),
+        P('Child’s pose',60,'Knees wide, arms long, slow breaths.'),
+      ]},
+      {id:'evening', name:'Evening wind-down', poses:[
+        P('Child’s pose',60,'Knees wide, forehead down, let your breath slow.'),
+        P('Cat-cow',60,'Slow and easy, following your breath.'),
+        P('Thread the needle',45,'From hands and knees, slide one arm under, shoulder and cheek down.','right'),
+        P('Thread the needle',45,'From hands and knees, slide one arm under, shoulder and cheek down.','left'),
+        P('Sphinx',60,'On your belly, forearms down, gentle lift through your chest.'),
+        P('Happy baby',60,'On your back, hold your feet or shins, rock side to side.'),
+        P('Supine twist',60,'Knees to one side, arms wide, look the other way.','right'),
+        P('Supine twist',60,'Knees to one side, arms wide, look the other way.','left'),
+        P('Reclined butterfly',90,'Soles of the feet together, knees wide, hands on your belly.'),
+        P('Legs up the wall',120,'Lie close to a wall with your legs up it. Let everything go heavy.'),
+        P('Rest',120,'Lie flat, eyes closed, breathe normally.'),
+      ]},
+    ],
+  },
+};
+const flowMinutes = f => Math.max(1, Math.round(f.poses.reduce((a,p)=>a+p.secs,0)/60));
+
+const prState = () => {
+  const s = S.account.programs || (S.account.programs = {});
+  s.active = s.active || []; s.done = s.done || [];
+  return s;
+};
+const prDef = id => PROGRAMS[id];
+const trackLevels = (entry, track) => { const t = PROGRAMS[entry.id].tracks[track]; return t.levels || t.variants[(entry.variant||{})[track] || 'bar']; };
+function prSessions(entry){ return S.workouts.filter(w=>w.date>=entry.started && w.exercises.some(e=>e.prog && e.prog.id===entry.id)).length; }
+function suggestedDays(def, mode){
+  const pl = plan(), used = pl ? pl.days.map(d=>d.weekday) : [];
+  const spread = {2:['Mon','Thu'],3:['Mon','Wed','Fri'],4:['Mon','Tue','Thu','Fri']}[def.perWeek] || ['Mon','Wed','Fri'];
+  if(mode==='replace') return used.length>=def.perWeek ? used.slice(0, def.perWeek) : spread;
+  const rest = WEEK.filter(w=>!used.includes(w));
+  // add-on: rest days first, then plan days
+  return [...rest.filter(w=>w!=='Sun'), ...(rest.includes('Sun')?['Sun']:[]), ...used].slice(0, def.perWeek).sort((a,b)=>WEEK.indexOf(a)-WEEK.indexOf(b));
+}
+async function startProgram(id, mode, days){
+  const def = prDef(id), st = prState(), p = profile();
+  if(st.active.some(e=>e.id===id)) return;
+  const entry = { id, mode, days:[...days].sort((a,b)=>WEEK.indexOf(a)-WEEK.indexOf(b)), started: todayStr() };
+  if(def.kind==='tracks'){
+    entry.tracks = Object.fromEntries(Object.keys(def.tracks).map(k=>[k,0]));
+    entry.variant = { pull: haveSet(p).has('pullup') ? 'bar' : 'nobar' };
+  }
+  if(mode==='replace'){
+    if(st.active.some(e=>e.mode==='replace')) return toast('Only one program can replace your plan at a time');
+    st.savedPlan = clean(S.account.plan);
+    S.account.plan = { ...(S.account.plan||{}), edited:true, days: entry.days.map(wd=>({key:'program', prog:id, name:def.title, weekday:wd, exercises:[]})) };
+  }
+  st.active.push(entry);
+  msEvent('start', 'prog:'+id, 0); msState().events[msState().events.length-1].title = def.title;
+  await saveAccount();
+}
+async function stopProgram(id, restore=true){
+  const st = prState(), entry = st.active.find(e=>e.id===id); if(!entry) return;
+  st.active = st.active.filter(e=>e.id!==id);
+  if(entry.mode==='replace' && restore && st.savedPlan){ S.account.plan = st.savedPlan; delete st.savedPlan; }
+  else if(entry.mode==='replace'){ S.account.plan.days = S.account.plan.days.filter(d=>d.prog!==id); }
+  await saveAccount();
+}
+// Program sessions on a given weekday (add-on programs on any day; replace programs live in plan days already).
+const progsOn = wd => prState().active.filter(e=>e.days.includes(wd));
+function nextFlow(entry){ const def=prDef(entry.id); return def.flows[prSessions(entry) % def.flows.length]; }
+function progBlockHtml(entry){
+  const def = prDef(entry.id), n = prSessions(entry);
+  if(def.kind==='flows'){ const f = nextFlow(entry);
+    return `<div class="prblock"><div><b>${def.icon} ${esc(def.title)}</b> <span class="muted small">· session ${Math.min(n+1,def.total)} of ${def.total}</span></div>
+      <div class="small">Suggested: ${esc(f.name)} · ${flowMinutes(f)} min</div>
+      <div class="row" style="margin-top:8px;gap:6px">${def.flows.map(fl=>`<button class="btn sm ${fl.id===f.id?'primary':''}" data-flow="${entry.id}:${fl.id}">▶ ${esc(fl.name)}</button>`).join('')}</div></div>`; }
+  return `<div class="prblock"><div><b>${def.icon} ${esc(def.title)}</b> <span class="muted small">· session ${Math.min(n+1,def.total)} of ${def.total}</span></div>
+    <div class="small" style="margin-top:4px;display:grid;gap:2px">${Object.entries(def.tracks).map(([k,t])=>{ const lv=trackLevels(entry,k)[entry.tracks[k]]; return `<div><span class="muted">${t.label}:</span> ${esc(lv.name)} — ${esc(lv.plan)}</div>`; }).join('')}</div>
+    <div class="hint">Warm-up: ${esc(def.warmup)}</div></div>`;
+}
+// Draft entries for a program session (calisthenics → one exercise per movement; yoga → minutes).
+function progDraftEntries(entry, flowId){
+  const def = prDef(entry.id);
+  if(def.kind==='flows'){ const f = def.flows.find(x=>x.id===flowId) || nextFlow(entry); return [{id:'yoga-flow', sets:[{w:'', r:String(flowMinutes(f))}], prog:{id:entry.id, flow:f.id}, label:`${def.title}: ${f.name}`}]; }
+  return Object.keys(def.tracks).map(k=>{ const lv = trackLevels(entry,k)[entry.tracks[k]]; return {id:lv.ex, sets:blankSets(EXBY[lv.ex], lv.sets||3), prog:{id:entry.id, track:k, level:entry.tracks[k]}}; });
+}
+// After saving: level up program movements and mark programs complete.
+async function checkPrograms(w){
+  const st = prState(); const msgs = []; let changed = false;
+  for(const entry of st.active){
+    const def = prDef(entry.id); if(!def) continue;
+    if(def.kind==='tracks') for(const e of w.exercises){
+      if(!e.prog || e.prog.id!==entry.id || !e.prog.track) continue;
+      const k = e.prog.track, levels = trackLevels(entry,k);
+      if(entry.tracks[k]!==e.prog.level || entry.tracks[k]>=levels.length-1) continue;
+      const g = levels[entry.tracks[k]].goal, need = g.reps||g.secs;
+      if(e.sets.filter(s=>s.r>=need).length >= (g.sets||1)){
+        entry.tracks[k]++; changed = true;
+        const nl = levels[entry.tracks[k]];
+        msgs.push(`⬆ ${def.tracks[k].label}: ${nl.name}`);
+        msEvent('level', 'prog:'+entry.id, entry.tracks[k]); const ev = msState().events[msState().events.length-1]; ev.title = `${def.title} · ${def.tracks[k].label}`; ev.levelName = nl.name;
+      }
+    }
+    if(!entry.completed && w.exercises.some(e=>e.prog && e.prog.id===entry.id) && prSessions(entry) >= def.total){
+      entry.completed = todayStr(); changed = true;
+      st.done.push({id:entry.id, title:def.title, icon:def.icon, date:w.date, started:entry.started});
+      msEvent('done', 'prog:'+entry.id, 0); msState().events[msState().events.length-1].title = def.title;
+      S.prCelebrate = entry.id; msgs.push(`🏆 ${def.title} complete!`);
+    }
+  }
+  if(changed) await saveAccount();
+  return msgs;
+}
+
+// ----- guided yoga player -----
+async function playFlow(progId, flowId){
+  const def = prDef(progId), flow = def.flows.find(f=>f.id===flowId); if(!flow) return;
+  const total = flow.poses.reduce((a,p)=>a+p.secs,0);
+  let i = 0, left = flow.poses[0].secs, paused = false, elapsed = 0, timer = null, lock = null;
+  try{ lock = await navigator.wakeLock?.request('screen'); }catch(e){}
+  const el = document.createElement('div'); el.className = 'player'; document.body.appendChild(el);
+  const end = () => { clearInterval(timer); try{ lock && lock.release(); }catch(e){} };
+  const finishScreen = (early) => {
+    end();
+    const mins = Math.max(1, Math.round(elapsed/60));
+    el.innerHTML = `<div class="pl-inner" style="justify-content:center;text-align:center">
+      <div style="font-size:54px">${early?'👏':'🧘'}</div><h2>${early?'Nice — every minute counts':'Flow complete'}</h2>
+      <p class="muted">${esc(flow.name)} · ${mins} min</p>
+      <button class="btn primary block" id="plLog">Log this session</button>
+      <button class="btn ghost block" id="plClose" style="margin-top:8px">Close without logging</button></div>`;
+    $('#plClose').onclick = ()=>el.remove();
+    $('#plLog').onclick = async ()=>{
+      $('#plLog').disabled = true;
+      const w = { date: todayStr(), dayName:`${def.title}: ${flow.name}`, exercises:[{id:'yoga-flow', name:`Yoga: ${flow.name}`, pattern:'mobility', sets:[{r:mins}], prog:{id:progId, flow:flow.id}}], cardioMin:0, effort:null, notes:'', createdAt:Date.now() };
+      try{
+        const id = await S.store.addWorkout(w); S.workouts.unshift({...w,id}); S.workouts.sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
+        const msgs = await checkPrograms(w); el.remove(); toast(msgs.length?msgs.join(' · '):'Yoga session logged 🧘');
+        if(S.prCelebrate){ S.planTab='programs'; } go('plan');
+      }catch(e){ console.error(e); $('#plLog').disabled=false; toast('Couldn’t save — try again'); }
+    };
+  };
+  const render = () => {
+    const p = flow.poses[i], nx = flow.poses[i+1];
+    const doneSecs = flow.poses.slice(0,i).reduce((a,q)=>a+q.secs,0) + (p.secs-left);
+    el.innerHTML = `<div class="pl-inner">
+      <div class="row" style="justify-content:space-between"><span class="small muted">${esc(flow.name)} · ${i+1}/${flow.poses.length}</span><button class="iconbtn" id="plX" aria-label="End">✕</button></div>
+      <div class="nbar"><div class="track"><div class="fill" style="width:${Math.round(doneSecs/total*100)}%"></div></div></div>
+      <div class="pl-pose"><div class="pl-name">${esc(p.name)}</div>${p.side?`<div class="pl-side">${p.side} side</div>`:''}
+        <div class="pl-time">${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</div>
+        <div class="pl-cue">${esc(p.cue)}</div></div>
+      <div class="small muted" style="text-align:center;min-height:20px">${nx?`Next: ${esc(nx.name)}${nx.side?` (${nx.side})`:''}`:'Last pose'}</div>
+      <div class="grid3"><button class="btn" id="plBack" ${i===0?'disabled':''}>‹ Back</button><button class="btn primary" id="plPause">${paused?'▶ Resume':'❚❚ Pause'}</button><button class="btn" id="plSkip">Skip ›</button></div>
+    </div>`;
+    $('#plX').onclick = ()=>{ if(elapsed>=60) finishScreen(true); else { end(); el.remove(); } };
+    $('#plPause').onclick = ()=>{ paused=!paused; render(); };
+    $('#plSkip').onclick = ()=>advance();
+    $('#plBack').onclick = ()=>{ if(i>0){ i--; left=flow.poses[i].secs; render(); } };
+  };
+  const advance = () => { i++; if(i>=flow.poses.length){ finishScreen(false); return; } left = flow.poses[i].secs; render(); };
+  timer = setInterval(()=>{ if(paused) return; left--; elapsed++; if(left<=0) advance(); else { const t=el.querySelector('.pl-time'); if(t) t.textContent=`${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}`; const f=el.querySelector('.fill'); if(f){ const doneSecs = flow.poses.slice(0,i).reduce((a,q)=>a+q.secs,0) + (flow.poses[i].secs-left); f.style.width=Math.round(doneSecs/total*100)+'%'; } } }, 1000);
+  render();
+}
+
+// ----- Programs section (Plan → Programs) -----
+function programsSectionHtml(){
+  const st = prState(), p = profile();
+  const cele = S.prCelebrate && prDef(S.prCelebrate);
+  const avail = Object.entries(PROGRAMS).filter(([id])=>!st.active.some(e=>e.id===id));
+  const hasReplace = st.active.some(e=>e.mode==='replace');
+  return `
+    ${cele ? `<div class="card hero celebrate"><div style="font-size:40px">🏆</div><h2>${esc(cele.title)} — complete!</h2>
+      <p class="muted" style="margin-top:0">${cele.total} sessions done. You can keep going with it, or stop it from its card below.</p>
+      <button class="btn ghost" id="closePrCele">Nice</button></div>` : ''}
+    <h2 class="section-h">Programs</h2>
+    ${st.active.map(entry=>{ const def=prDef(entry.id); const n=prSessions(entry);
+      return `<div class="card mscard">
+        <div class="row" style="justify-content:space-between;align-items:flex-start"><div><h3>${def.icon} ${esc(def.title)}</h3>
+          <div class="hint">${entry.mode==='replace'?'Replacing your plan':'Added on top of your plan'} · ${entry.days.join(', ')} · started ${relDay(entry.started)}</div></div>
+          <button class="btn sm ghost danger" data-stoppr="${entry.id}" style="padding:2px 4px">Stop</button></div>
+        <div class="nbar" style="margin-top:10px"><div class="row" style="justify-content:space-between"><span class="k">Sessions</span><span><b>${n}</b><span class="muted"> / ${def.total}${entry.completed?' ✓':''}</span></span></div><div class="track"><div class="fill ${n>=def.total?'done':''}" style="width:${Math.min(100,Math.round(n/def.total*100))}%"></div></div></div>
+        ${def.kind==='tracks' ? `<div class="tracks">${Object.entries(def.tracks).map(([k,t])=>{ const levels=trackLevels(entry,k), lv=levels[entry.tracks[k]];
+            return `<div class="trk"><div class="row" style="justify-content:space-between"><b>${t.label}</b><span class="hint">Level ${entry.tracks[k]+1}/${levels.length}</span></div>
+              <div class="ladder" style="margin:6px 0">${levels.map((l,i)=>`<span class="${i<entry.tracks[k]?'done':i===entry.tracks[k]?'cur':''}"></span>`).join('')}</div>
+              <div class="small">${esc(lv.name)} <span class="muted">· ${esc(lv.plan)}</span></div>
+              <div class="row" style="margin-top:6px;gap:6px"><button class="btn sm ghost" data-trk="${entry.id}:${k}:-1" ${entry.tracks[k]===0?'disabled':''} style="padding:2px 8px">‹</button><button class="btn sm ghost" data-trk="${entry.id}:${k}:1" ${entry.tracks[k]>=levels.length-1?'disabled':''} style="padding:2px 8px">›</button></div></div>`; }).join('')}</div>`
+          : `<div style="display:grid;gap:6px;margin-top:10px">${def.flows.map(f=>`<button class="btn" data-flow="${entry.id}:${f.id}" style="display:flex;justify-content:space-between"><span>▶ ${esc(f.name)}</span><span class="muted">${flowMinutes(f)} min</span></button>`).join('')}</div>`}
+        <details style="margin-top:8px"><summary class="small muted">How it works</summary><div class="small" style="margin-top:6px;display:grid;gap:4px">
+          ${def.warmup?`<div><b>Warm-up:</b> ${esc(def.warmup)}</div>`:''}<div>${esc(def.howTo)}</div><div class="hint">${esc(def.source)}</div></div></details>
+      </div>`; }).join('')}
+    ${avail.length ? `<div class="card">${avail.map(([id,def])=>{ const open = S.prStart===id; const mode = S.prMode || def.defaultMode; const days = S.prDays || suggestedDays(def, mode);
+      return `<div class="msopt"><div class="row" style="justify-content:space-between;align-items:flex-start"><div style="flex:1"><b>${def.icon} ${esc(def.title)}</b>${st.done.some(d=>d.id===id)?' <span class="chip on">✓ done</span>':''}
+          <div class="small muted">${esc(def.blurb)}</div><div class="hint">${def.perWeek}×/week · ${def.total} sessions</div></div>
+          <button class="btn sm" data-propen="${id}">${open?'Close':'Start'}</button></div>
+        ${open ? `<div style="margin-top:10px">
+          <div class="seg">
+            <input type="radio" id="pm-add" name="prmode" value="addon" ${mode==='addon'?'checked':''}><label for="pm-add">Add on top</label>
+            <input type="radio" id="pm-rep" name="prmode" value="replace" ${mode==='replace'?'checked':''} ${hasReplace?'disabled':''}><label for="pm-rep">Replace my plan</label>
+          </div>
+          <div class="hint" style="margin:6px 0">${mode==='replace'?'Your current plan is saved and comes back if you stop the program.':'Your plan stays as it is; program sessions are added on the days you pick.'}${hasReplace?' (Another program is already replacing your plan.)':''}</div>
+          <div class="small muted" style="margin:8px 0 4px">Which days? (${def.perWeek} recommended)</div>
+          <div class="seg daypick">${WEEK.map(w=>`<input type="checkbox" id="pd-${w}" value="${w}" ${days.includes(w)?'checked':''}><label for="pd-${w}">${w}</label>`).join('')}</div>
+          <button class="btn primary block" data-prgo="${id}" style="margin-top:10px">Start ${esc(def.title)}</button></div>` : ''}
+      </div>`; }).join('')}</div>` : ''}
+  `;
+}
+function bindPrograms(){
+  const rer = ()=>{ const y=window.scrollY; viewPlan(); window.scrollTo(0,y); };
+  document.querySelectorAll('[data-propen]').forEach(b=>b.onclick=()=>{ S.prStart = S.prStart===b.dataset.propen ? null : b.dataset.propen; S.prMode=null; S.prDays=null; rer(); });
+  document.querySelectorAll('input[name=prmode]').forEach(r=>r.onchange=()=>{ S.prMode=r.value; S.prDays=null; rer(); });
+  document.querySelectorAll('.daypick input').forEach(c=>c.onchange=()=>{ S.prDays=[...document.querySelectorAll('.daypick input:checked')].map(x=>x.value); });
+  document.querySelectorAll('[data-prgo]').forEach(b=>b.onclick=async ()=>{
+    const id=b.dataset.prgo, def=prDef(id), mode=S.prMode||def.defaultMode;
+    const days=[...document.querySelectorAll('.daypick input:checked')].map(x=>x.value);
+    if(!days.length){ toast('Pick at least one day'); return; }
+    await startProgram(id, mode, days); S.prStart=null; S.prMode=null; S.prDays=null;
+    toast(`Started ${def.title}`); rer();
+  });
+  document.querySelectorAll('[data-stoppr]').forEach(b=>b.onclick=async ()=>{
+    if(!b.dataset.armed){ b.dataset.armed='1'; b.textContent='Tap again to stop'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.armed; b.textContent='Stop'; } },3000); return; }
+    const entry = prState().active.find(e=>e.id===b.dataset.stoppr);
+    await stopProgram(b.dataset.stoppr); toast(entry && entry.mode==='replace' ? 'Program stopped — your previous plan is back' : 'Program stopped'); rer();
+  });
+  document.querySelectorAll('[data-trk]').forEach(b=>b.onclick=async ()=>{
+    const [id,k,d]=b.dataset.trk.split(':'); const entry=prState().active.find(e=>e.id===id); if(!entry) return;
+    const max = trackLevels(entry,k).length-1; entry.tracks[k] = Math.max(0, Math.min(max, entry.tracks[k] + +d)); await saveAccount(); rer();
+  });
+  document.querySelectorAll('[data-flow]').forEach(b=>b.onclick=()=>{ const [id,f]=b.dataset.flow.split(':'); playFlow(id,f); });
+  $('#closePrCele')?.addEventListener('click', ()=>{ S.prCelebrate=null; rer(); });
 }
 
 // ---------- Milestones ----------
@@ -1297,7 +1646,7 @@ async function checkMilestones(w){
       st.active = st.active.filter(x=>x.id!==m.id);
       st.done.push({id:m.id, title:def.title, icon:def.icon||'🎯', date:w.date, started:m.started});
       msEvent('done', m.id, m.level);
-      S.msCelebrate = m.id; msgs.push(`🏆 ${def.title} — done!`);
+      S.msCelebrate = m.id; S.planTab = 'programs'; msgs.push(`🏆 ${def.title} — done!`);
     } else {
       m.level++; msEvent('level', m.id, m.level);
       msgs.push(`⬆ ${def.title}: level ${m.level+1} — ${def.levels[m.level].name}`);
@@ -1395,15 +1744,20 @@ function bindMilestones(){
 
 // Progress tab section
 function milestonesProgressHtml(){
-  const st = msState();
-  if(!st.active.length && !st.done.length) return '';
-  return `<div class="card"><div class="row" style="justify-content:space-between"><h3>Milestones</h3><a class="small" href="#plan" onclick="S.planTab='milestones'">Manage</a></div>
+  const st = msState(), ps = prState();
+  if(!st.active.length && !st.done.length && !ps.active.length && !ps.done.length) return '';
+  const trophies = [...st.done, ...ps.done].sort((a,b)=>b.date.localeCompare(a.date));
+  return `<div class="card"><div class="row" style="justify-content:space-between"><h3>Programs & milestones</h3><a class="small" href="#plan" onclick="S.planTab='programs'">Manage</a></div>
+    ${ps.active.map(e=>{ const def=prDef(e.id), n=prSessions(e);
+      return `<div style="margin-top:12px"><div class="row" style="justify-content:space-between"><b>${def.icon} ${esc(def.title)}</b><span class="small muted">${n}/${def.total} sessions</span></div>
+        <div class="nbar"><div class="track"><div class="fill ${n>=def.total?'done':''}" style="width:${Math.max(4,Math.min(100,Math.round(n/def.total*100)))}%"></div></div></div>
+        <div class="hint">${def.kind==='tracks' ? Object.entries(def.tracks).map(([k,t])=>`${t.label} L${e.tracks[k]+1}`).join(' · ') : 'Started '+relDay(e.started)}</div></div>`; }).join('')}
     ${st.active.map(m=>{ const def=msDef(m.id); if(!def) return ''; const pct=Math.round(m.level/def.levels.length*100);
       const ev = st.events.filter(e=>e.id===m.id && e.type==='level');
       return `<div style="margin-top:12px"><div class="row" style="justify-content:space-between"><b>${def.icon||'🎯'} ${esc(def.title)}</b><span class="small muted">Level ${m.level+1}/${def.levels.length}</span></div>
         <div class="nbar"><div class="track"><div class="fill" style="width:${Math.max(4,pct)}%"></div></div></div>
         <div class="hint">${esc(def.levels[m.level].name)} · started ${relDay(m.started)}${ev.length?` · last level-up ${relDay(ev[ev.length-1].date)}`:''}</div></div>`; }).join('')}
-    ${st.done.length?`<div class="k small muted" style="font-weight:600;margin:16px 0 8px">TROPHIES</div><div class="trophies">${st.done.slice().reverse().map(d=>`<div class="trophy"><div style="font-size:26px">🏆</div><b>${esc(d.title)}</b><span>${parseYmd(d.date).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</span></div>`).join('')}</div>`:''}
+    ${trophies.length?`<div class="k small muted" style="font-weight:600;margin:16px 0 8px">TROPHIES</div><div class="trophies">${trophies.map(d=>`<div class="trophy"><div style="font-size:26px">🏆</div><b>${esc(d.title)}</b><span>${parseYmd(d.date).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</span></div>`).join('')}</div>`:''}
   </div>`;
 }
 
@@ -1464,7 +1818,7 @@ async function viewLog(){
     </div>
     <div class="card">
       <h3>${prettyDate(sel)}${sel!==today?` <span class="muted small" style="font-family:Inter;text-transform:none">${parseYmd(sel).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span>`:''}</h3>
-      ${msState().events.filter(e=>e.date===sel && (e.type==='done'||e.type==='level')).map(e=>{ const def=msDef(e.id); return `<div class="msevent">${e.type==='done'?`🏆 Completed <b>${esc(e.title)}</b>`:`⬆ <b>${esc(e.title)}</b>: reached level ${e.level+1}${def?` — ${esc(def.levels[e.level]?.name||'')}`:''}`}</div>`; }).join('')}
+      ${msState().events.filter(e=>e.date===sel && (e.type==='done'||e.type==='level')).map(e=>{ const def=msDef(e.id); return `<div class="msevent">${e.type==='done'?`🏆 Completed <b>${esc(e.title)}</b>`:`⬆ <b>${esc(e.title)}</b>: reached level ${e.level+1}${def?` — ${esc(def.levels[e.level]?.name||'')}`:e.levelName?` — ${esc(e.levelName)}`:''}`}</div>`; }).join('')}
       <div class="k small muted" style="font-weight:600;margin:12px 0 6px">WORKOUT</div>
       ${ws.length ? ws.map(workoutSummaryHtml).join('') : `<p class="small muted" style="margin:0">${sel>today?'Nothing yet.':'No workout logged.'}${sel<=today?' Log workouts from the <a href="#plan">Plan</a> tab.':''}</p>`}
       <div class="k small muted" style="font-weight:600;margin:16px 0 6px">NUTRITION</div>
@@ -1494,12 +1848,15 @@ async function viewLog(){
 
 // ----- logging -----
 function blankSets(ex, n){ return Array.from({length:n},()=>({w:'',r:''})); }
-function startDraft(dayIdx, date){
+function startDraft(dayIdx, date, restWeekday){
   const p = profile();
   const day = dayIdx!=null && plan() ? plan().days[dayIdx] : null;
+  const wd = day ? day.weekday : restWeekday;
+  const progs = wd ? progsOn(wd).filter(e=>e.mode==='addon' || (day && day.prog===e.id)) : [];
   S.draft = {
-    dayIdx, dayName: day?day.name:'Custom workout', date: date || todayStr(),
+    dayIdx, dayName: day ? day.name : progs.length ? progs.map(e=>prDef(e.id).title).join(' + ') : 'Custom workout', date: date || todayStr(),
     exercises: [
+      ...progs.flatMap(e=>progDraftEntries(e)),
       // milestone practice first (while you're fresh)
       ...(dayIdx!=null ? (msDayMap()[dayIdx]||[]).map(m=>{ const lv=msDef(m.id).levels[m.level]; return {id:lv.ex, sets:blankSets(EXBY[lv.ex], lv.sets||3), ms:{id:m.id, level:m.level}}; }) : []),
       ...(day ? day.exercises.filter(id=>EXBY[id]).map(id=>({id, sets:blankSets(EXBY[id], rx(EXBY[id],p).sets), ...(canAddWeight(EXBY[id]) && lastHadWeight(id) ? {addWeight:true} : {})})) : []),
@@ -1512,7 +1869,7 @@ function lastFor(id){
   return null;
 }
 function fmtSet(s, ex){
-  if(ex.p==='cardio') return `${s.r} min`;
+  if(ex.p==='cardio'||ex.p==='mobility') return `${s.r} min`;
   if(ex.t) return `${s.r}s`;
   if(s.w && !usesWeight(ex)) return `+${s.w} lb × ${s.r}`;   // weighted bodyweight move
   return s.w ? `${s.w}×${s.r}` : `${s.r} rep${s.r===1?'':'s'}`;
@@ -1522,8 +1879,8 @@ function fmtSet(s, ex){
 const WEIGHTED_GEAR = ['dumbbells','kettlebell','barbell','machines','cable'];
 const usesWeight = ex => !!ex && (ex.needs||[]).some(n=>WEIGHTED_GEAR.includes(n));
 // For bodyweight moves, weight can be switched on per exercise (weighted vest, dumbbell, belt).
-const canAddWeight = ex => !!ex && ex.p!=='cardio' && !ex.t && !usesWeight(ex);
-function setFields(ex, entry){ return ex.p==='cardio' ? [['r','min']] : ex.t ? [['r','sec']] : (usesWeight(ex) || (entry && entry.addWeight)) ? [['w', usesWeight(ex)?'lb':'+ lb'],['r','reps']] : [['r','reps']]; }
+const canAddWeight = ex => !!ex && ex.p!=='cardio' && ex.p!=='mobility' && !ex.t && !usesWeight(ex);
+function setFields(ex, entry){ return (ex.p==='cardio'||ex.p==='mobility') ? [['r','min']] : ex.t ? [['r','sec']] : (usesWeight(ex) || (entry && entry.addWeight)) ? [['w', usesWeight(ex)?'lb':'+ lb'],['r','reps']] : [['r','reps']]; }
 const lastHadWeight = id => { const L = lastFor(id); return !!(L && L.sets.some(s=>s.w)); };
 
 function viewWorkout(){
@@ -1571,10 +1928,14 @@ function viewLogKeep(){ const y=window.scrollY; viewWorkout(); window.scrollTo(0
 function logExHtml(e, i, p){
   const ex = EXBY[e.id], L = lastFor(e.id), fields = setFields(ex, e);
   const msd = e.ms && msDef(e.ms.id), mlv = msd && msd.levels[e.ms.level];
-  const target = mlv ? `🎯 ${msd.title} · ${mlv.name}: ${mlv.plan} · move up at ${goalText(mlv.goal)}` : p ? rx(ex,p).text : '';
-  return `<div class="logex ${e.ms?'msx':''}">
+  const prd = e.prog && prDef(e.prog.id);
+  const plv = prd && e.prog.track ? (()=>{ const en = prState().active.find(x=>x.id===e.prog.id); return en ? trackLevels(en, e.prog.track)[e.prog.level] : null; })() : null;
+  const target = mlv ? `🎯 ${msd.title} · ${mlv.name}: ${mlv.plan} · move up at ${goalText(mlv.goal)}`
+    : prd ? (plv ? `${prd.icon} ${prd.tracks[e.prog.track].label}: ${plv.plan} · move up at ${plv.goal.reps||plv.goal.secs}${plv.goal.secs?' s':''} on all ${plv.goal.sets||1} sets` : `${prd.icon} ${esc(e.label||prd.title)} — minutes`)
+    : p && ex.p!=='mobility' ? rx(ex,p).text : '';
+  return `<div class="logex ${e.ms?'msx':''} ${e.prog?'prx':''}">
     <div class="top"><div class="t"><div style="font-weight:600">${esc(ex.name)}</div>
-      <div class="hint">${target?(mlv?target:`Target ${target}`):''}${L?`${target?' · ':''}Last (${L.date.slice(5).replace('-','/')}): ${L.sets.map(s=>fmtSet(s,ex)).join(', ')}`:''}</div></div>
+      <div class="hint">${target?(mlv||prd?target:`Target ${target}`):''}${L?`${target?' · ':''}Last (${L.date.slice(5).replace('-','/')}): ${L.sets.map(s=>fmtSet(s,ex)).join(', ')}`:''}</div></div>
       <button class="iconbtn" data-act="delex" data-i="${i}" aria-label="Remove exercise">✕</button></div>
     <div class="sets">${e.sets.map((s,si)=>`<div class="setrow ${fields.length===1?'one':''}"><div class="n">${si+1}</div>
       ${fields.map(([f,ph])=>`<input type="number" inputmode="decimal" min="0" placeholder="${ph}" aria-label="Set ${si+1} ${ph}" data-i="${i}" data-s="${si}" data-f="${f}" value="${esc(s[f])}">`).join('')}
@@ -1584,7 +1945,7 @@ function logExHtml(e, i, p){
 }
 async function saveWorkout(){
   const d = S.draft;
-  const exercises = d.exercises.map(e=>({id:e.id, name:EXBY[e.id].name, pattern:EXBY[e.id].p, ...(e.ms?{ms:e.ms}:{}),
+  const exercises = d.exercises.map(e=>({id:e.id, name:e.prog&&e.prog.flow ? `Yoga: ${prDef(e.prog.id).flows.find(f=>f.id===e.prog.flow)?.name||'flow'}` : EXBY[e.id].name, pattern:EXBY[e.id].p, ...(e.ms?{ms:e.ms}:{}), ...(e.prog?{prog:e.prog}:{}),
     sets:e.sets.filter(s=>num(s.r)>0).map(s=>{ const o={r:num(s.r)}; if((usesWeight(EXBY[e.id]) || e.addWeight) && num(s.w)>0) o.w=num(s.w); return o; })})).filter(e=>e.sets.length);
   const cardioMin = num(d.cardioMin);
   if(!exercises.length && !cardioMin){ $('#lerr').textContent = 'Enter reps (or time) for at least one set before saving.'; return; }
@@ -1594,9 +1955,9 @@ async function saveWorkout(){
     const id = await S.store.addWorkout(w);
     S.workouts.unshift({...w,id}); S.workouts.sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
     S.draft = null; S.calSel = w.date; S.calMonth = ymOf(w.date);
-    const msgs = await checkMilestones(w);
+    const msgs = [...await checkMilestones(w), ...await checkPrograms(w)];
     toast(msgs.length ? msgs.join(' · ') : 'Workout saved 💪');
-    if(S.msCelebrate){ S.planTab = 'milestones'; go('plan'); } else go('log');
+    if(S.msCelebrate || S.prCelebrate){ S.planTab = 'programs'; go('plan'); } else go('log');
   }catch(e){ console.error(e); btn.disabled=false; btn.textContent='Save workout'; $('#lerr').textContent = e && e.code==='quota_exceeded' ? 'Storage is full — delete some old workouts first.' : 'Couldn’t save — check your connection and try again.'; }
 }
 
@@ -1678,9 +2039,9 @@ async function resetAccount(b){
   document.querySelectorAll('[data-reset]').forEach(x=>x.disabled=true);
   try{
     if(all){ await S.store.replaceAll({}, []); await S.store.clearDays(); S.workouts = []; S.days = {}; S.monthsLoaded = {}; }
-    else { await S.store.saveAccount(clean({nutrition:S.account.nutrition, milestones:S.account.milestones})); }
+    else { await S.store.saveAccount(clean({nutrition:S.account.nutrition, milestones:S.account.milestones, programs:{done:(S.account.programs||{}).done||[]}})); }
     await S.store.saveChat([]);
-    S.account = all ? {} : clean({nutrition:S.account.nutrition, milestones:S.account.milestones}); S.chat = []; S.draft = null; S.profileTab = 'personal'; renderBadge();
+    S.account = all ? {} : clean({nutrition:S.account.nutrition, milestones:S.account.milestones, programs:{done:(S.account.programs||{}).done||[]}}); S.chat = []; S.draft = null; S.profileTab = 'personal'; renderBadge();
     toast(all ? 'Everything erased — fresh start' : 'Setup cleared — let’s start again');
     go(S.user ? 'coach' : 'profile');
   }catch(e){
@@ -1834,6 +2195,9 @@ function coachContext(){
   const mst = msState();
   lines.push(mst.active.length ? 'ACTIVE MILESTONES:\n' + mst.active.map(m=>{ const def=msDef(m.id); if(!def) return ''; const {best,sessions,lv}=msBestAtLevel(m); return `- id ${m.id}: ${def.title}, level ${m.level+1} of ${def.levels.length} (${lv.name}; ${lv.plan}; moves up at ${goalText(lv.goal)}; ${lv.goal.sessions?`${sessions} sessions done`:`best at this level: ${best??'none yet'}`}). Levels: ${def.levels.map((l,i)=>`${i+1}=${l.name}`).join(', ')}`; }).join('\n') : 'ACTIVE MILESTONES: none.');
   if(mst.done.length) lines.push('COMPLETED MILESTONES: ' + mst.done.map(d=>`${d.title} (${d.date})`).join('; '));
+  const ps = prState();
+  lines.push(ps.active.length ? 'ACTIVE PROGRAMS:\n' + ps.active.map(e=>{ const def=prDef(e.id); return `- ${e.id}: ${def.title} (${e.mode==='replace'?'replaces their plan':'added on top of their plan'}, on ${e.days.join('/')}, ${prSessions(e)}/${def.total} sessions)` + (def.kind==='tracks' ? ': ' + Object.entries(def.tracks).map(([k,t])=>`${t.label} level ${e.tracks[k]+1} (${trackLevels(e,k)[e.tracks[k]].name})`).join(', ') : `: flows ${def.flows.map(f=>`${f.name} ${flowMinutes(f)} min`).join(', ')}`); }).join('\n') : 'ACTIVE PROGRAMS: none.');
+  lines.push('PROGRAMS THEY CAN START: ' + Object.entries(PROGRAMS).filter(([id])=>!ps.active.some(e=>e.id===id)).map(([id,def])=>`${id} = ${def.title} (${def.perWeek}x/week, ${def.total} sessions)`).join('; '));
   lines.push('BUILT-IN MILESTONES THEY CAN START: ' + Object.entries(MILESTONES).filter(([id,def])=>msEligible(def,p) && !mst.active.some(m=>m.id===id)).map(([id,def])=>`${id} = ${def.title} (levels: ${def.levels.map((l,i)=>`${i+1}=${l.name}`).join(', ')})`).join('; '));
   lines.push(`Workouts logged this week: ${S.workouts.filter(w=>weekStart(parseYmd(w.date)).getTime()===wk).length} of ${pl?pl.days.length:p.days} planned.`);
   return lines.join('\n');
@@ -1862,6 +2226,9 @@ COACHING MODE (profile exists)
   {"type":"set_milestone_level","id":"<active milestone id>","level":<level number, 1 = first>,"label":"Go back to knee push-ups"}
   {"type":"create_milestone","title":"25 push-ups in a row","exercise":"<exercise id from the library, reps or holds — not cardio>","target":<number of reps, or seconds for holds>,"label":"Start: 25 push-ups in a row"}
   {"type":"stop_milestone","id":"<active milestone id>","label":"Stop the pull-up milestone"}
+  {"type":"start_program","id":"calisthenics|yoga","mode":"addon|replace","days":["Mon","Wed","Fri"],"label":"Add yoga on your rest days"}
+  {"type":"stop_program","id":"<active program id>","label":"Stop calisthenics"}
+- PROGRAMS: multi-week routines. "calisthenics" = Calisthenics Foundations (bodyweight push/pull/legs/core, each levels up separately; good as a replacement plan for bodyweight or home users). "yoga" = Yoga for Busy Parents (short guided flows: morning, desk reset, post-workout, evening; great on rest days, as an add-on). "addon" keeps their plan and adds sessions on the chosen days; "replace" swaps their plan for the program (their old plan comes back if they stop it).
 - MILESTONES: short programs toward a goal (first push-up, first pull-up, run a mile, or custom "N in a row" / "hold N seconds"). Practice blocks are added to plan days automatically and level up when logged sets hit the goal. Use the ACTIVE MILESTONES data to coach them: technique, staying at a level, repeating a level (set_milestone_level), or skipping ahead. When they finish one (see COMPLETED MILESTONES) or ask what's next, suggest a realistic next challenge with create_milestone (e.g. after a first push-up: 10 then 25 in a row) or a built-in with start_milestone. Keep custom targets achievable in a few weeks.
 - EQUIPMENT RULE: only recommend exercises from the library below and cardio from AVAILABLE CARDIO — this applies to everything you write, not just actions. The library already contains only what this user can do. If the user wants something that needs equipment or an activity they don't have, say so and offer an update_profile action that adds it (e.g. they mention they joined a gym or bought a kettlebell).
 - For swaps, use the same movement pattern when possible. Use ONLY ids from the library.
@@ -1967,16 +2334,22 @@ function validateAction(a){
   if(a.type==='set_milestone_level'){ const m=st.active.find(x=>x.id===a.id), def=m&&msDef(m.id); if(!def) return null; const lv=Math.round(num(a.level)); if(!(lv>=1 && lv<=def.levels.length)) return null; return {...a, level:lv, label:a.label||`${def.title}: level ${lv}`}; }
   if(a.type==='create_milestone'){ const ex=EXBY[a.exercise]; if(!ex || ex.p==='cardio' || !canDo(ex,p) || !(num(a.target)>0) || num(a.target)>500) return null; return {...a, label:a.label||`Start: ${a.title||'new milestone'}`}; }
   if(a.type==='stop_milestone'){ const m=st.active.find(x=>x.id===a.id); if(!m) return null; return {...a, label:a.label||`Stop ${msDef(m.id)?.title}`}; }
+  const pst = prState();
+  if(a.type==='start_program'){ const def=PROGRAMS[a.id]; if(!def || pst.active.some(e=>e.id===a.id)) return null; let mode = a.mode==='replace'?'replace':'addon'; if(mode==='replace' && pst.active.some(e=>e.mode==='replace')) mode='addon';
+    const days = Array.isArray(a.days) ? a.days.filter(d=>WEEK.includes(d)) : []; return {...a, mode, days: days.length?days:suggestedDays(def,mode), label:a.label||`Start ${def.title}`}; }
+  if(a.type==='stop_program'){ const e=pst.active.find(x=>x.id===a.id); if(!e) return null; return {...a, label:a.label||`Stop ${prDef(a.id).title}`}; }
   return null;
 }
 async function applyAction(a){
   const p = profile();
   if(a.type==='swap_exercise'){ const d = plan().days[+a.day]; d.exercises[d.exercises.indexOf(a.from)] = a.to; await saveAccount(); return `Swapped in ${EXBY[a.to].name}`; }
-  if(a.type==='regenerate_plan'){ S.account.plan = buildPlan(p, Math.floor(Math.random()*1e9)); await saveAccount(); return 'New exercises are on your Plan tab'; }
+  if(a.type==='regenerate_plan'){ setGeneratedPlan(buildPlan(p, Math.floor(Math.random()*1e9))); await saveAccount(); return 'New exercises are on your Plan tab'; }
   if(a.type==='start_milestone'){ await startMilestone(a.id, a.level-1); return `Started ${MILESTONES[a.id].title} — see Plan → Milestones`; }
   if(a.type==='set_milestone_level'){ await setMilestoneLevel(a.id, a.level-1); return `${msDef(a.id).title}: now level ${a.level}`; }
   if(a.type==='create_milestone'){ const id = makeCustomMilestone({title:a.title, exercise:a.exercise, target:a.target}); if(!id) return 'Couldn’t create that milestone'; await startMilestone(id, 0); return `Started ${msDef(id).title}`; }
   if(a.type==='stop_milestone'){ const t=msDef(a.id)?.title; await stopMilestone(a.id); return `Stopped ${t}`; }
+  if(a.type==='start_program'){ await startProgram(a.id, a.mode, a.days); return `Started ${prDef(a.id).title} — see your Plan`; }
+  if(a.type==='stop_program'){ await stopProgram(a.id); return `Stopped ${prDef(a.id).title}`; }
   if(a.type==='update_profile'){
     const {p:np, err} = normalizeProfile({...p, ...a.changes});
     if(err.length) return 'That change didn’t look right, so I skipped it';
