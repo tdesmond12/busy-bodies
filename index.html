@@ -852,11 +852,12 @@ async function loadFirebase(){
   const base = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/`;
   const [appM, A, F] = await Promise.all([import(base+'firebase-app.js'), import(base+'firebase-auth.js'), import(base+'firebase-firestore.js')]);
   const app = appM.initializeApp(FIREBASE_CONFIG);
+  let AC = null, appCheck = null;
   if(APPCHECK_SITE_KEY){
-    try{ const AC = await import(base+'firebase-app-check.js'); AC.initializeAppCheck(app, { provider: new AC.ReCaptchaEnterpriseProvider(APPCHECK_SITE_KEY), isTokenAutoRefreshEnabled: true }); }
+    try{ AC = await import(base+'firebase-app-check.js'); appCheck = AC.initializeAppCheck(app, { provider: new AC.ReCaptchaEnterpriseProvider(APPCHECK_SITE_KEY), isTokenAutoRefreshEnabled: true }); }
     catch(e){ console.warn('App Check failed to start', e); }
   }
-  return { base, app, A, F, auth: A.getAuth(app), db: F.getFirestore(app) };
+  return { AC, appCheck, base, app, A, F, auth: A.getAuth(app), db: F.getFirestore(app) };
 }
 async function doSignIn(){
   if(!FB) return;
@@ -976,6 +977,15 @@ async function getCoachModel(name){
 }
 // Tries each model in COACH_MODELS until one exists; remembers the one that worked.
 async function askCoach(contents){
+  S.stage = 'loading AI module';
+  await getCoachModel(COACH_MODELS[0]);
+  if(FB.appCheck && !S.appCheckOk){
+    S.stage = 'App Check token';
+    const t = await withTimeout(FB.AC.getToken(FB.appCheck, false), 15000).catch(e=>{ throw new Error('App Check: '+(e.message||e)); });
+    if(t && t.error) throw new Error('App Check: '+(t.error.message||t.error));
+    S.appCheckOk = true;
+  }
+  S.stage = 'waiting for Gemini';
   const list = S.goodModel ? [S.goodModel] : COACH_MODELS;
   let lastErr;
   for(const name of list){
@@ -1089,7 +1099,7 @@ async function sendCoach(text){
   }catch(e){
     console.error(e);
     const m = String(e && (e.message||e.code)||'');
-    const detail = m.slice(0,220);
+    const detail = (m + (S.stage?` (step: ${S.stage})`:'')).slice(0,260);
     const reply = /timeout/i.test(m) ? 'I didn’t get an answer in time. If this keeps happening, the AI connection isn’t finishing — usually an App Check or AI Logic setup issue.' :
                   /app.?check|attestation|unauthenticated|401/i.test(m) ? 'I’m almost ready — Firebase is blocking me until **App Check** is set up for this site.' :
                   /api-not-enabled|not been used|PERMISSION_DENIED|403/i.test(m) ? 'I’m not switched on yet — in the Firebase console, open **AI Logic** and click **Get started** with the Gemini Developer API.' :
