@@ -9,11 +9,18 @@ A workout tracker for working parents. Enter your height, weight, age, goal, sch
 - **Plan** – weekly split based on goal, experience, days per week, time and equipment; swap any exercise
 - **Log** – sets, reps and weight, with your last performance shown
 - **Progress** – weekly goal tracking, streaks, volume, personal bests and history
+- **Coach** – an AI coach (Gemini via Firebase AI Logic) that sets up your profile by chatting, answers questions, and can swap exercises or adjust your plan with one tap
 
 ## Data
-Everything is saved in your browser (localStorage). Use **Profile → Your data** to download a backup or restore one.
-Storage is isolated in one place in the code (`localBackend`) so Firestore can be added later.
+- **Signed in (Google):** saved in Firestore — `users/{uid}` (profile + plan), `users/{uid}/workouts/{id}`, `users/{uid}/coach/chat`. Security rules are in `firestore.rules`.
+- **Signed out:** saved in the browser (localStorage). Anything saved there moves into your account the first time you sign in.
+- **Profile → Your data** downloads or restores a backup.
+
+## Firebase setup
+- Authentication → Google provider on; `tdesmond12.github.io` in Authorized domains
+- Firestore database with the rules in `firestore.rules`
+- AI Logic → Gemini Developer API
+- App Check → reCAPTCHA Enterprise; site key goes in `APPCHECK_SITE_KEY` in `index.html`
 
 ## Coming next
 - Meal tracking and recommendations
-- User logins + Firestore

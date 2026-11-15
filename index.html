@@ -23,11 +23,12 @@ a{color:var(--accent)}
 header{position:sticky;top:0;z-index:5;background:rgba(15,17,19,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
 .bar{max-width:760px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:10px}
 .logo{width:30px;height:30px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:var(--accent-ink);font:800 16px "Barlow Condensed"}
+button.badge{background:none;font:inherit;font-size:12px;cursor:pointer}
 .badge{margin-left:auto;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:3px 10px;white-space:nowrap}
 .badge.cloud{color:var(--accent);border-color:rgba(198,244,50,.35)}
 main{max-width:760px;margin:0 auto;padding:16px 16px 110px}
 nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:6;background:rgba(20,23,26,.97);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
-nav.tabs .inner{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+nav.tabs .inner{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
 nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px 11px;color:var(--muted);text-decoration:none;font-size:12px;font-weight:600}
 nav.tabs a svg{width:22px;height:22px}
 nav.tabs a.on{color:var(--accent)}
@@ -114,15 +115,35 @@ table.pr td.n{text-align:right;font-variant-numeric:tabular-nums}
 .loading{display:grid;place-items:center;min-height:50vh;color:var(--muted)}
 .disclaimer{font-size:12px;color:var(--muted);margin-top:8px}
 .hero{background:linear-gradient(135deg,#1c2410,#181b1f 60%);border-color:#2f3a17}
+/* coach */
+.chat{display:flex;flex-direction:column;gap:10px;padding-bottom:150px}
+.msg{max-width:88%;padding:10px 13px;border-radius:16px;line-height:1.45;font-size:15px;word-wrap:break-word}
+.msg.model{background:var(--panel);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:5px}
+.msg.user{background:var(--accent);color:var(--accent-ink);align-self:flex-end;border-bottom-right-radius:5px}
+.msg ul{margin:6px 0;padding-left:18px}
+.msg .acts{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.msg .acts .btn{text-align:left}
+.msg .acts .done{font-size:13px;color:var(--accent)}
+.typing{align-self:flex-start;color:var(--muted);font-size:13px;padding:4px 6px}
+.composer{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));z-index:6;background:linear-gradient(transparent,var(--bg) 18%);padding:14px 12px 10px}
+.composer .inner{max-width:760px;margin:0 auto}
+.composer .chips{margin-bottom:8px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.composer .chip{cursor:pointer;white-space:nowrap;background:var(--panel)}
+.composer form{display:flex;gap:8px;align-items:flex-end}
+.composer textarea{min-height:44px;max-height:120px;border-radius:22px;padding:11px 16px;resize:none}
+.composer button{border-radius:50%;width:44px;height:44px;padding:0;display:grid;place-items:center;flex:none}
+.signin{text-align:center;padding:28px 18px}
+.gbtn{display:inline-flex;align-items:center;gap:10px;background:#fff;color:#1f1f1f;border-color:#fff}
 </style>
 </head>
 <body>
-<header><div class="bar"><div class="logo">BB</div><h1>Busy Bodies</h1><span class="badge" id="badge">Loading…</span></div></header>
+<header><div class="bar"><div class="logo">BB</div><h1>Busy Bodies</h1><button class="badge" id="badge" type="button">Loading…</button></div></header>
 <main id="app"><div class="loading">Loading your data…</div></main>
 <nav class="tabs"><div class="inner">
   <a href="#profile" data-tab="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Profile</a>
   <a href="#plan" data-tab="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Plan</a>
   <a href="#log" data-tab="log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/></svg>Log</a>
+  <a href="#coach" data-tab="coach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/></svg>Coach</a>
   <a href="#progress" data-tab="progress"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Progress</a>
 </div></nav>
 <div class="toast" id="toast"></div>
@@ -353,10 +374,11 @@ function bodyStats(p){
 
 // ---------- storage ----------
 // Every read/write goes through `store`, so the app never touches storage directly.
-// Today: localBackend → saves in this browser (localStorage).
-// Later: add a firestoreBackend with the same methods (getAccount, saveAccount,
-// listWorkouts, addWorkout, deleteWorkout) and switch it on in init().
-// Suggested Firestore layout: users/{uid} (profile + plan) and users/{uid}/workouts/{id}.
+//   localBackend     → this browser only (used when signed out)
+//   firestoreBackend → the signed-in user's Firestore data:
+//                      users/{uid}                 profile + plan
+//                      users/{uid}/workouts/{id}   one doc per workout
+//                      users/{uid}/coach/chat      coach conversation
 function localBackend(){
   const get = k => { try{ return JSON.parse(localStorage.getItem(k)); }catch{ return null; } };
   const set = (k,v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} };
@@ -369,10 +391,35 @@ function localBackend(){
     async addWorkout(w){ const all=get('rr.workouts')||[]; const id='w'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); all.push({...w,id}); set('rr.workouts',all); return id; },
     async deleteWorkout(id){ set('rr.workouts',(get('rr.workouts')||[]).filter(w=>w.id!==id)); },
     async replaceAll(account, workouts){ set('rr.account', account); set('rr.workouts', workouts); },
+    async getChat(){ return []; },
+    async saveChat(){},
+  };
+}
+const clean = o => JSON.parse(JSON.stringify(o ?? null)); // Firestore rejects undefined
+function firestoreBackend(F, db, uid){
+  const userRef = F.doc(db,'users',uid);
+  const wCol = F.collection(db,'users',uid,'workouts');
+  const chatRef = F.doc(db,'users',uid,'coach','chat');
+  const sortW = a => a.sort((x,y)=>y.date.localeCompare(x.date)||y.createdAt-x.createdAt);
+  return {
+    kind:'cloud',
+    async getAccount(){ const s=await F.getDoc(userRef); return s.exists() ? s.data() : {}; },
+    async saveAccount(a){ await F.setDoc(userRef, clean(a)); },
+    async listWorkouts(){ const s=await F.getDocs(wCol); return sortW(s.docs.map(d=>({...d.data(), id:d.id}))); },
+    async addWorkout(w){ const {id, ...rest} = w; const r=await F.addDoc(wCol, clean(rest)); return r.id; },
+    async deleteWorkout(id){ await F.deleteDoc(F.doc(wCol,id)); },
+    async replaceAll(account, workouts){
+      const old = await F.getDocs(wCol);
+      const ops = [...old.docs.map(d=>b=>b.delete(d.ref)), ...workouts.map(w=>b=>{ const {id,...rest}=w; b.set(F.doc(wCol), clean(rest)); })];
+      for(let i=0;i<ops.length;i+=400){ const b=F.writeBatch(db); ops.slice(i,i+400).forEach(op=>op(b)); await b.commit(); }
+      await F.setDoc(userRef, clean(account));
+    },
+    async getChat(){ const s=await F.getDoc(chatRef); return s.exists() ? (s.data().messages||[]) : []; },
+    async saveChat(m){ await F.setDoc(chatRef, {messages: clean(m.slice(-60))}); },
   };
 }
 // ---------- state ----------
-const S = { store:null, account:{}, workouts:[], draft:null, ready:false };
+const S = { store:null, account:{}, workouts:[], draft:null, ready:false, user:null, chat:[], coachBusy:false };
 const profile = () => S.account.profile;
 const plan = () => S.account.plan;
 
@@ -382,14 +429,15 @@ async function saveAccount(){
 }
 
 // ---------- views ----------
-const TABS = ['profile','plan','log','progress'];
+const TABS = ['profile','plan','log','coach','progress'];
 function route(){
   if(!S.ready) return;
   let tab = location.hash.slice(1);
-  if(!TABS.includes(tab)) tab = profile() ? 'plan' : 'profile';
+  if(!TABS.includes(tab)) tab = profile() ? 'plan' : (S.user ? 'coach' : 'profile');
   document.querySelectorAll('nav.tabs a').forEach(a=>a.classList.toggle('on',a.dataset.tab===tab));
-  ({profile:viewProfile, plan:viewPlan, log:viewLog, progress:viewProgress})[tab]();
-  window.scrollTo(0,0);
+  document.body.classList.toggle('coach-open', tab==='coach');
+  ({profile:viewProfile, plan:viewPlan, log:viewLog, coach:viewCoach, progress:viewProgress})[tab]();
+  if(tab!=='coach') window.scrollTo(0,0);
 }
 const go = tab => { if(location.hash==='#'+tab) route(); else location.hash = tab; };
 
@@ -400,10 +448,56 @@ function choiceCards(name, map, val){
   return `<div class="choices">${Object.entries(map).map(([v,o],i)=>`<div><input type="radio" id="${name}-${i}" name="${name}" value="${v}" ${v===val?'checked':''}><label for="${name}-${i}"><b>${o.label}</b><span>${o.sub}</span></label></div>`).join('')}</div>`;
 }
 
+const PROFILE_DEFAULTS = {sex:'male',goal:'general',level:1,days:3,minutes:45,equipment:'gym',lowImpact:false,heightFt:5,heightIn:9};
+// Validates and normalizes a profile (used by the form and by the coach).
+function normalizeProfile(raw){
+  const r = {...PROFILE_DEFAULTS, ...(raw||{})};
+  const pickOne = (v, allowed, d) => allowed.includes(v) ? v : d;
+  const p = {
+    name: String(r.name||'').trim().slice(0,40),
+    age: Math.round(num(r.age)), weight: Math.round(num(r.weight)),
+    heightFt: Math.round(num(r.heightFt)), heightIn: Math.round(num(r.heightIn)),
+    sex: pickOne(String(r.sex).toLowerCase(), ['male','female'], 'male'),
+    goal: pickOne(r.goal, Object.keys(GOALS), 'general'),
+    level: pickOne(+r.level, [1,2,3], 1),
+    days: pickOne(+r.days, [2,3,4,5,6], 3),
+    minutes: pickOne(+r.minutes, [30,45,60], 45),
+    equipment: pickOne(r.equipment, ['none','db','gym'], 'gym'),
+    lowImpact: r.lowImpact===true || r.lowImpact==='true' || r.lowImpact==='on',
+    notes: String(r.notes||'').trim().slice(0,600),
+  };
+  if(p.heightIn>11){ p.heightFt += Math.floor(p.heightIn/12); p.heightIn %= 12; }
+  const err = [];
+  if(!(p.age>=16 && p.age<=90)) err.push('age (16–90)');
+  if(!(p.weight>=70 && p.weight<=600)) err.push('weight in pounds');
+  if(!(p.heightFt>=4 && p.heightFt<=7)) err.push('height');
+  return {p, err};
+}
+// Saves a profile and rebuilds the plan if anything plan-related changed.
+async function applyProfile(np){
+  const hadPlan = !!plan();
+  const changed = !hadPlan || plan().sig !== planSig(np);
+  S.account.profile = {...np, updatedAt:Date.now()};
+  if(changed) S.account.plan = buildPlan(np, hadPlan ? plan().seed : Math.floor(Math.random()*1e9));
+  await saveAccount();
+  return {hadPlan, changed};
+}
+
+function accountCard(){
+  if(!FB) return '';
+  if(S.user) return `<div class="card row" style="justify-content:space-between"><div><div style="font-weight:600">${esc(S.user.displayName||'Signed in')}</div><div class="small muted">${esc(S.user.email||'')} · synced to your account</div></div><button class="btn sm" id="signOutBtn">Sign out</button></div>`;
+  return `<div class="card"><div style="font-weight:600">Sign in to sync and use your coach</div><p class="small muted" style="margin:4px 0 12px">Right now everything is saved only in this browser. Sign in to keep it on every device. Anything you've saved here moves to your account.</p><button class="btn gbtn" data-signin>${GOOGLE_G} Sign in with Google</button></div>`;
+}
+function bindAccountCard(){
+  $('#signOutBtn')?.addEventListener('click', doSignOut);
+  document.querySelectorAll('[data-signin]').forEach(b=>b.onclick=doSignIn);
+}
+
 function viewProfile(){
-  const p = profile() || {sex:'male',goal:'general',level:1,days:3,minutes:45,equipment:'gym',lowImpact:false};
+  const p = profile() || PROFILE_DEFAULTS;
   const st = profile() ? bodyStats(p) : null;
   $('#app').innerHTML = `
+    ${accountCard()}
     ${st ? `<div class="card hero">
       <h2>Your numbers</h2>
       <div class="stats">
@@ -413,7 +507,7 @@ function viewProfile(){
         <div class="stat"><div class="k">Goal calories</div><div class="v">${Math.round(st.target/10)*10}</div><div class="s">${st.proteinLo}–${st.proteinHi} g protein</div></div>
       </div>
       <div class="disclaimer">Estimates from the Mifflin-St Jeor formula. Meal recommendations will build on these numbers. Check with a doctor before starting a new program.</div>
-    </div>`:`<div class="card hero"><h2>Let’s build your plan</h2><p class="muted" style="margin:0">Fill in your details and Busy Bodies will put together a weekly workout plan for your body, goal and equipment.</p></div>`}
+    </div>`:`<div class="card hero"><h2>Let’s build your plan</h2><p class="muted" style="margin:0">Fill in your details and Busy Bodies will put together a weekly workout plan for your body, goal and equipment.${S.user?' Or <a href="#coach">set it up by chatting with your coach</a>.':''}</p></div>`}
     <form class="card" id="pf" novalidate>
       <h2>Profile</h2>
       <label class="f" for="name">Name (optional)</label>
@@ -440,38 +534,30 @@ function viewProfile(){
       <label class="f">Equipment</label>
       ${choiceCards('equipment',EQUIP,p.equipment)}
       <label class="toggle"><input type="checkbox" name="lowImpact" ${p.lowImpact?'checked':''}><span>Low-impact only <span class="muted small">— no jumping or running, easier on joints</span></span></label>
+      <label class="f" for="notes">Anything your coach should know?</label>
+      <textarea id="notes" name="notes" placeholder="e.g. two kids with evening practices, mornings work best, old shoulder injury">${esc(p.notes)}</textarea>
       <div id="perr" class="small" style="color:var(--danger);margin-top:12px"></div>
       <button class="btn primary block" style="margin-top:12px">${profile()?'Save profile':'Build my plan'}</button>
     </form>
     <div class="card">
       <h2>Your data</h2>
-      <p class="small muted" style="margin-top:0">Everything is saved in this browser on this device. Download a backup now and then. You can restore it here or on another device.</p>
+      <p class="small muted" style="margin-top:0">${S.user?'Your data is saved to your account. You can still download a backup copy.':'Everything is saved in this browser on this device. Download a backup now and then. You can restore it here or on another device.'}</p>
       <div class="grid2">
         <button class="btn" id="exportBtn" ${profile()||S.workouts.length?'':'disabled'}>Download backup</button>
         <label class="btn" style="text-align:center">Restore backup<input type="file" id="importFile" accept=".json,application/json" hidden></label>
       </div>
       <div id="dataMsg" class="small" style="margin-top:10px"></div>
     </div>`;
+  bindAccountCard();
   $('#exportBtn').onclick = exportData;
   $('#importFile').onchange = importData;
   $('#pf').addEventListener('submit', async e=>{
     e.preventDefault();
     const f = new FormData(e.target);
-    const np = {
-      name:(f.get('name')||'').trim(), age:num(f.get('age')), weight:num(f.get('weight')),
-      heightFt:+f.get('heightFt'), heightIn:+f.get('heightIn'), sex:f.get('sex'), goal:f.get('goal'),
-      level:+f.get('level'), days:+f.get('days'), minutes:+f.get('minutes'), equipment:f.get('equipment'), lowImpact:!!f.get('lowImpact'),
-    };
-    const err = [];
-    if(np.age<16||np.age>90) err.push('age (16–90)');
-    if(np.weight<70||np.weight>600) err.push('weight in pounds');
+    const {p:np, err} = normalizeProfile({...Object.fromEntries(f.entries()), lowImpact:!!f.get('lowImpact')});
     if(err.length){ $('#perr').textContent = 'Please enter your '+err.join(' and ')+'.'; return; }
-    const hadPlan = !!plan();
-    const changed = !hadPlan || plan().sig !== planSig(np);
-    S.account.profile = {...np, updatedAt:Date.now()};
-    if(changed) S.account.plan = buildPlan(np, Math.floor(Math.random()*1e9));
-    e.target.querySelector('button').disabled = true;
-    await saveAccount();
+    e.target.querySelector('button[type=submit],button:not([type])').disabled = true;
+    const {hadPlan, changed} = await applyProfile(np);
     toast(changed ? (hadPlan?'Profile saved — plan updated':'Your plan is ready') : 'Profile saved');
     go(changed?'plan':'profile');
   });
@@ -704,7 +790,7 @@ async function importData(e){
     const data = JSON.parse(await file.text());
     if(!data || typeof data.account!=='object' || !Array.isArray(data.workouts)) throw new Error('bad');
     pendingImport = data;
-    msg.innerHTML = `Backup has ${data.workouts.length} workouts${data.account.profile?' and a profile':''}. Restoring replaces what’s on this device. <button class="btn sm primary" id="confirmImport" style="margin-left:6px">Replace my data</button>`;
+    msg.innerHTML = `Backup has ${data.workouts.length} workouts${data.account.profile?' and a profile':''}. Restoring replaces your current data. <button class="btn sm primary" id="confirmImport" style="margin-left:6px">Replace my data</button>`;
     $('#confirmImport').onclick = async ()=>{
       await S.store.replaceAll(pendingImport.account, pendingImport.workouts);
       S.account = await S.store.getAccount(); S.workouts = await S.store.listWorkouts(); pendingImport = null;
@@ -713,15 +799,296 @@ async function importData(e){
   }catch(err){ pendingImport = null; msg.textContent = 'That file isn’t a valid backup.'; }
 }
 
+// ---------- Firebase (sign-in, Firestore, AI) ----------
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCOE3XTi14rnp8mQYdb7Xfl1kmTm_i8X6I",
+  authDomain: "busy-bodies-c3449.firebaseapp.com",
+  projectId: "busy-bodies-c3449",
+  storageBucket: "busy-bodies-c3449.firebasestorage.app",
+  messagingSenderId: "110083496082",
+  appId: "1:110083496082:web:6c5e21e8c76e3e6c8d6e4b",
+};
+const FIREBASE_VERSION = '12.15.0';
+const COACH_MODELS = ['gemini-3.8-flash','gemini-3.7-flash','gemini-3.5-flash']; // tried in order
+// App Check protects the coach's AI quota (Firebase now requires it for AI Logic).
+// Paste the reCAPTCHA Enterprise site key from Firebase → App Check here:
+const APPCHECK_SITE_KEY = '';
+const GOOGLE_G = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>';
+let FB = null;
+
+async function loadFirebase(){
+  const base = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/`;
+  const [appM, A, F] = await Promise.all([import(base+'firebase-app.js'), import(base+'firebase-auth.js'), import(base+'firebase-firestore.js')]);
+  const app = appM.initializeApp(FIREBASE_CONFIG);
+  if(APPCHECK_SITE_KEY){
+    try{ const AC = await import(base+'firebase-app-check.js'); AC.initializeAppCheck(app, { provider: new AC.ReCaptchaEnterpriseProvider(APPCHECK_SITE_KEY), isTokenAutoRefreshEnabled: true }); }
+    catch(e){ console.warn('App Check failed to start', e); }
+  }
+  return { base, app, A, F, auth: A.getAuth(app), db: F.getFirestore(app) };
+}
+async function doSignIn(){
+  if(!FB) return;
+  const provider = new FB.A.GoogleAuthProvider();
+  try{ await FB.A.signInWithPopup(FB.auth, provider); }
+  catch(e){
+    console.warn(e);
+    if(e.code==='auth/popup-blocked' || e.code==='auth/operation-not-supported-in-this-environment'){ await FB.A.signInWithRedirect(FB.auth, provider); return; }
+    if(e.code==='auth/unauthorized-domain') toast('Add this site to Firebase → Authentication → Authorized domains');
+    else if(e.code==='auth/operation-not-allowed') toast('Turn on Google sign-in in Firebase → Authentication');
+    else if(e.code!=='auth/popup-closed-by-user' && e.code!=='auth/cancelled-popup-request') toast('Sign-in didn’t work — try again');
+  }
+}
+async function doSignOut(){ if(FB){ await FB.A.signOut(FB.auth); toast('Signed out'); } }
+
+async function useLocal(){
+  S.user = null; S.store = localBackend(); S.draft = null;
+  S.account = await S.store.getAccount(); S.workouts = await S.store.listWorkouts(); S.chat = [];
+  S.ready = true; renderBadge(); route();
+}
+async function useCloud(user){
+  S.user = user; S.ready = false;
+  $('#app').innerHTML = '<div class="loading">Loading your account…</div>';
+  const cloud = firestoreBackend(FB.F, FB.db, user.uid);
+  try{
+    let account = await cloud.getAccount();
+    let workouts = await cloud.listWorkouts();
+    // First sign-in: move anything saved in this browser into the account.
+    const local = localBackend();
+    const lAcc = await local.getAccount(), lW = await local.listWorkouts();
+    let migrated = false;
+    if(!account.profile && !workouts.length && (lAcc.profile || lW.length)){
+      await cloud.replaceAll(lAcc, lW);
+      account = await cloud.getAccount(); workouts = await cloud.listWorkouts(); migrated = true;
+    }
+    S.store = cloud; S.account = account; S.workouts = workouts; S.draft = null;
+    S.chat = await cloud.getChat();
+    S.ready = true; renderBadge(); route();
+    if(migrated) toast('Moved your saved workouts into your account');
+  }catch(e){
+    console.error(e);
+    const msg = e.code==='permission-denied' ? 'Firestore blocked access — check the security rules in Firebase.' :
+                (e.code==='failed-precondition'||e.code==='not-found') ? 'Firestore isn’t set up yet — create the database in Firebase.' :
+                'Couldn’t reach your account. Check your connection.';
+    $('#app').innerHTML = `<div class="card empty"><h2>Can’t load your account</h2><p>${esc(msg)}</p><button class="btn" id="retryBtn">Try again</button> <button class="btn ghost" id="soBtn">Sign out</button></div>`;
+    $('#retryBtn').onclick = ()=>useCloud(user); $('#soBtn').onclick = doSignOut;
+  }
+}
+function renderBadge(){
+  const b = $('#badge');
+  if(S.user){ b.textContent = '● ' + (S.user.displayName||'Signed in').split(' ')[0]; b.classList.add('cloud'); b.onclick = ()=>go('profile'); }
+  else if(FB){ b.textContent = 'Sign in'; b.classList.remove('cloud'); b.onclick = doSignIn; }
+  else { b.textContent = 'Saved in this browser'; b.classList.remove('cloud'); b.onclick = null; }
+}
+
+// ---------- Coach ----------
+const COACH_STARTERS = ['I only have 20 minutes today','Something hurts','How did my week go?','Make my plan easier','Make my plan harder','What should I do today?'];
+const LIB_FOR_PROMPT = EX.map(e=>`${e.id} | ${e.name} | ${e.p} | ${e.eq} | lvl${e.lvl}${e.h?' | high-impact':''}`).join('\n');
+
+function coachContext(){
+  const p = profile(), pl = plan();
+  const now = new Date();
+  const lines = [`Today: ${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][now.getDay()]}, ${todayStr()}.`];
+  if(!p){ lines.push('The user has NO profile yet. You are in ONBOARDING mode.'); return lines.join('\n'); }
+  const st = bodyStats(p);
+  lines.push('PROFILE: '+JSON.stringify(p));
+  lines.push(`ESTIMATES: BMI ${st.bmi.toFixed(1)} (${st.bmiCat}), maintenance ~${Math.round(st.tdee)} cal/day, goal ~${Math.round(st.target)} cal/day, protein ${st.proteinLo}-${st.proteinHi} g/day.`);
+  if(pl) lines.push('CURRENT PLAN (day index: weekday name — exercise ids with prescription):\n' + pl.days.map((d,i)=>`${i}: ${d.weekday} ${d.name} — ` + d.exercises.map(id=>EXBY[id]?`${id} (${rx(EXBY[id],p).text})`:id).join('; ')).join('\n'));
+  const recent = S.workouts.slice(0,12);
+  lines.push(recent.length ? 'RECENT WORKOUTS (newest first):\n' + recent.map(w=>`${w.date} ${w.dayName}${w.effort?` effort ${w.effort}/10`:''}${w.cardioMin?` +${w.cardioMin}min cardio`:''}: ` + w.exercises.map(e=>`${e.name} ${e.sets.map(s=>s.w?`${s.w}x${s.r}`:s.r).join(',')}`).join('; ') + (w.notes?` | notes: "${w.notes}"`:'')).join('\n') : 'RECENT WORKOUTS: none logged yet.');
+  const wk = weekStart(now).getTime();
+  lines.push(`Workouts logged this week: ${S.workouts.filter(w=>weekStart(parseYmd(w.date)).getTime()===wk).length} of ${p.days} planned.`);
+  return lines.join('\n');
+}
+
+function coachSystemPrompt(){
+  return `You are the Busy Bodies coach: a friendly, practical fitness coach inside a workout-tracker web app for busy working parents. You are talking with the app's user on their phone.
+
+STYLE
+- Warm, encouraging, direct. Short answers: usually 2–5 sentences or a short bullet list. Use **bold** sparingly and "- " for bullets.
+- Respect that time and energy are limited: offer quick versions (10–20 min), home options, and ways to fit workouts around kids and work.
+- Use the user's name occasionally if known.
+
+ONBOARDING MODE (when there is no profile)
+- Collect, one or two questions at a time, in a natural conversation: name; age; sex (male/female, only used for the calorie formula — explain briefly if asked); height (feet + inches); weight (lb); main goal; experience; workouts per week; minutes per workout; equipment; whether they need low-impact (no jumping/running); and helpful context (work schedule, kids, best times to train, injuries, likes/dislikes).
+- Map answers to allowed values: goal ∈ fat_loss | muscle | strength | endurance | general; level ∈ 1 (beginner) | 2 (intermediate) | 3 (advanced); days ∈ 2–6; minutes ∈ 30 | 45 | 60 (round to nearest); equipment ∈ none (bodyweight at home) | db (dumbbells at home) | gym (full gym); lowImpact true/false. If an answer is unclear, ask. Suggest a sensible default if they're unsure (e.g. 3 days, 30–45 minutes for busy parents).
+- When you have everything required, put the complete profile in "profile" (fields: name, age, sex, heightFt, heightIn, weight, goal, level, days, minutes, equipment, lowImpact, notes). "notes" is a short summary of their context (schedule, kids, injuries, preferences). In "reply", briefly summarize and say their plan is ready on the Plan tab. Until then, "profile" must be null.
+
+COACHING MODE (profile exists)
+- Use the PROFILE, PLAN and RECENT WORKOUTS below to give specific advice: what to do today, quick swaps, progression (when they hit the top of the rep range, add 5 lb or reps), recovery, consistency, motivation.
+- You may propose changes as "actions" the user can tap to apply. Only propose an action when it clearly helps; explain it in "reply". Allowed actions:
+  {"type":"swap_exercise","day":<day index>,"from":"<exercise id in that day>","to":"<exercise id from the library>","label":"Swap X for Y on Monday"}
+  {"type":"update_profile","changes":{<any of: days, minutes, equipment, goal, level, lowImpact, weight, notes>},"label":"..."}
+  {"type":"regenerate_plan","label":"Shuffle in new exercises"}
+- For swaps, use the same movement pattern when possible and only exercises the user's equipment allows (none ⊂ db ⊂ gym). Use ONLY ids from the library.
+- When the user shares lasting info (new injury, schedule change, preference), propose an update_profile action with updated "notes" (keep the old notes and add the new info).
+- Nutrition: give general, sensible guidance (protein, simple meals, the calorie estimate). A full meal planner is coming later to the app.
+
+SAFETY
+- You are not a doctor. For pain: tell them to stop any movement that hurts, offer a pain-free alternative, and recommend seeing a doctor or physical therapist for sharp, worsening, or lasting pain, or any chest pain, dizziness or shortness of breath (urgent care for those).
+- Never recommend extreme diets, very low calories, or training through injury.
+
+OUTPUT
+Respond with ONLY a JSON object, no markdown fences:
+{"reply": "<message to the user>", "profile": <object or null>, "actions": [<zero or more actions>]}
+
+EXERCISE LIBRARY (id | name | pattern | equipment | level):
+${LIB_FOR_PROMPT}
+
+CURRENT USER DATA
+${coachContext()}`;
+}
+
+async function getCoachModel(name){
+  if(!S.aiMod){ S.aiMod = await import(FB.base+'firebase-ai.js'); S.ai = S.aiMod.getAI(FB.app, {backend: new S.aiMod.GoogleAIBackend()}); }
+  return S.aiMod.getGenerativeModel(S.ai, { model: name, systemInstruction: coachSystemPrompt(), generationConfig: { responseMimeType:'application/json', temperature:0.6 } });
+}
+// Tries each model in COACH_MODELS until one exists; remembers the one that worked.
+async function askCoach(contents){
+  const list = S.goodModel ? [S.goodModel] : COACH_MODELS;
+  let lastErr;
+  for(const name of list){
+    try{ const model = await getCoachModel(name); const res = await model.generateContent({contents}); S.goodModel = name; return res.response.text(); }
+    catch(e){ lastErr = e; if(!/not found|404|is not supported|NOT_FOUND/i.test(String(e&&e.message))) throw e; }
+  }
+  throw lastErr;
+}
+function parseCoach(text){
+  let t = (text||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/```$/,'').trim();
+  try{ const o = JSON.parse(t); return { reply: String(o.reply||'').trim() || '…', profile: o.profile && typeof o.profile==='object' ? o.profile : null, actions: Array.isArray(o.actions) ? o.actions.slice(0,4) : [] }; }
+  catch{ return { reply: t || 'Sorry, I lost my train of thought — could you say that again?', profile:null, actions:[] }; }
+}
+function greeting(){
+  const p = profile();
+  if(!p) return `Hi! I'm your Busy Bodies coach. 👋 I'll ask a few quick questions and build a workout plan that fits your schedule.\n\nFirst up — **what should I call you, and how old are you?**`;
+  return `Hey${p.name?' '+p.name:''}! Ask me anything — what to do today, a quick workout when time is tight, a swap for something that hurts, or how your week is going.`;
+}
+function mdLite(s){
+  const lines = esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').split('\n');
+  let out='', inList=false;
+  for(const l of lines){
+    const m = l.match(/^\s*[-•*]\s+(.*)/);
+    if(m){ if(!inList){ out+='<ul>'; inList=true; } out+=`<li>${m[1]}</li>`; }
+    else { if(inList){ out+='</ul>'; inList=false; } out += l ? l+'<br>' : '<br>'; }
+  }
+  if(inList) out+='</ul>';
+  return out.replace(/(<br>)+$/,'');
+}
+
+function validateAction(a){
+  const p = profile(), pl = plan();
+  if(!a || !p || !pl) return null;
+  if(a.type==='swap_exercise'){
+    const d = pl.days[+a.day], to = EXBY[a.to];
+    if(!d || !d.exercises.includes(a.from) || !to || !allowedEq(p.equipment).includes(to.eq) || d.exercises.includes(a.to)) return null;
+    return {...a, label: a.label || `Swap ${EXBY[a.from].name} for ${to.name} (${d.weekday})`};
+  }
+  if(a.type==='update_profile' && a.changes && typeof a.changes==='object'){
+    const allowed = ['days','minutes','equipment','goal','level','lowImpact','weight','notes'];
+    const changes = Object.fromEntries(Object.entries(a.changes).filter(([k])=>allowed.includes(k)));
+    if(!Object.keys(changes).length) return null;
+    return {...a, changes, label: a.label || 'Update my profile'};
+  }
+  if(a.type==='regenerate_plan') return {...a, label: a.label || 'Shuffle in new exercises'};
+  return null;
+}
+async function applyAction(a){
+  const p = profile();
+  if(a.type==='swap_exercise'){ const d = plan().days[+a.day]; d.exercises[d.exercises.indexOf(a.from)] = a.to; await saveAccount(); return `Swapped in ${EXBY[a.to].name}`; }
+  if(a.type==='regenerate_plan'){ S.account.plan = buildPlan(p, Math.floor(Math.random()*1e9)); await saveAccount(); return 'New exercises are on your Plan tab'; }
+  if(a.type==='update_profile'){
+    const {p:np, err} = normalizeProfile({...p, ...a.changes});
+    if(err.length) return 'That change didn’t look right, so I skipped it';
+    const {changed} = await applyProfile(np);
+    return changed ? 'Profile updated — your plan was adjusted' : 'Profile updated';
+  }
+}
+
+function viewCoach(){
+  if(!FB){ $('#app').innerHTML = `<div class="card empty"><h2>Coach is offline</h2><p>The coach needs an internet connection. Check your connection and reload.</p></div>`; return; }
+  if(!S.user){
+    $('#app').innerHTML = `<div class="card signin"><h2>Meet your coach</h2><p class="muted">Sign in to chat with your Busy Bodies coach. It can set up your plan for you, answer questions, and adjust your workouts around your week.</p><button class="btn gbtn" data-signin>${GOOGLE_G} Sign in with Google</button></div>`;
+    bindAccountCard(); return;
+  }
+  const msgs = S.chat.length ? S.chat : [{role:'model', text:greeting(), ts:Date.now(), seed:true}];
+  $('#app').innerHTML = `
+    <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">Coach</h2>${S.chat.length?'<button class="btn sm ghost" id="clearChat">Clear chat</button>':''}</div>
+    <div class="chat" id="chat">${msgs.map((m,i)=>msgHtml(m,i)).join('')}${S.coachBusy?'<div class="typing">Coach is typing…</div>':''}</div>
+    <div class="composer"><div class="inner">
+      ${profile()?`<div class="chips">${COACH_STARTERS.map(s=>`<span class="chip" data-q="${esc(s)}">${esc(s)}</span>`).join('')}</div>`:''}
+      <form id="coachForm"><textarea id="coachIn" rows="1" placeholder="${profile()?'Ask your coach…':'Type your answer…'}" ${S.coachBusy?'disabled':''}></textarea>
+      <button class="btn primary" aria-label="Send" ${S.coachBusy?'disabled':''}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>
+    </div></div>`;
+  const ta = $('#coachIn');
+  ta.addEventListener('input', ()=>{ ta.style.height='auto'; ta.style.height=Math.min(ta.scrollHeight,120)+'px'; });
+  ta.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey && window.matchMedia('(pointer:fine)').matches){ e.preventDefault(); $('#coachForm').requestSubmit(); } });
+  $('#coachForm').onsubmit = e=>{ e.preventDefault(); const t=ta.value.trim(); if(t) sendCoach(t); };
+  document.querySelectorAll('[data-q]').forEach(c=>c.onclick=()=>sendCoach(c.dataset.q));
+  $('#clearChat')?.addEventListener('click', async e=>{
+    const b=e.currentTarget; if(!b.dataset.armed){ b.dataset.armed='1'; b.textContent='Tap again to clear'; return; }
+    S.chat=[]; await S.store.saveChat([]); viewCoach();
+  });
+  $('#chat').querySelectorAll('[data-act]').forEach(b=>b.onclick=async ()=>{
+    const [mi,ai] = b.dataset.act.split(':').map(Number); const a = S.chat[mi]?.actions?.[ai]; if(!a || a.applied) return;
+    b.disabled = true;
+    const v = validateAction(a); if(!v){ toast('That change no longer fits your plan'); b.disabled=false; return; }
+    const msg = await applyAction(v); a.applied = true; await S.store.saveChat(S.chat).catch(()=>{}); toast(msg); viewCoach();
+  });
+  window.scrollTo(0, document.body.scrollHeight);
+}
+function msgHtml(m, i){
+  const acts = (m.actions||[]).map((a,ai)=> a.applied ? `<div class="done">✓ ${esc(a.label)}</div>` : `<button class="btn sm" data-act="${i}:${ai}">Apply: ${esc(a.label)}</button>`).join('');
+  return `<div class="msg ${m.role}">${m.role==='model'?mdLite(m.text):esc(m.text).replace(/\n/g,'<br>')}${acts?`<div class="acts">${acts}</div>`:''}</div>`;
+}
+
+async function sendCoach(text){
+  if(S.coachBusy) return;
+  if(!S.chat.length) S.chat.push({role:'model', text:greeting(), ts:Date.now()});
+  S.chat.push({role:'user', text, ts:Date.now()});
+  S.coachBusy = true; viewCoach();
+  let out;
+  try{
+    let hist = S.chat.slice(-24).map(m=>({role:m.role==='model'?'model':'user', parts:[{text:m.text}]}));
+    while(hist.length && hist[0].role!=='user') hist.shift();
+    // keep the coach's opening question in view so onboarding answers make sense
+    if(S.chat.length<=24 && S.chat[0].role==='model') hist.unshift({role:'user',parts:[{text:'(Opened the coach.)'}]},{role:'model',parts:[{text:S.chat[0].text}]});
+    out = parseCoach(await askCoach(hist));
+  }catch(e){
+    console.error(e);
+    const m = String(e && (e.message||e.code)||'');
+    const reply = /app.?check|attestation|unauthenticated|401/i.test(m) ? 'I’m almost ready — Firebase is blocking me until **App Check** is set up for this site.' :
+                  /api-not-enabled|not been used|PERMISSION_DENIED|403/i.test(m) ? 'I’m not switched on yet — in the Firebase console, open **AI Logic** and click **Get started** with the Gemini Developer API.' :
+                  /quota|429|RESOURCE_EXHAUSTED/i.test(m) ? 'I’ve hit my free usage limit for now — try again in a little while.' :
+                  /not found|404/i.test(m) ? 'The AI model I use isn’t available right now. (Developer note: update COACH_MODELS.)' :
+                  'Sorry — I couldn’t connect just now. Check your connection and try again.';
+    out = {reply, profile:null, actions:[], error:true};
+  }
+  const msg = {role:'model', text:out.reply, ts:Date.now()};
+  // onboarding: coach collected a full profile
+  if(out.profile && !profile()){
+    const {p, err} = normalizeProfile(out.profile);
+    if(!err.length){ await applyProfile(p); msg.text += '\n\n✓ **Your plan is ready** — check the Plan tab.'; toast('Your plan is ready'); }
+    else msg.text += `\n\n(I still need your ${err.join(' and ')}.)`;
+  }
+  const acts = out.actions.map(validateAction).filter(Boolean).map(a=>({...a, applied:false}));
+  if(acts.length) msg.actions = acts;
+  S.chat.push(msg);
+  S.coachBusy = false;
+  try{ await S.store.saveChat(S.chat); }catch(e){ console.warn(e); }
+  if(location.hash==='#coach') viewCoach();
+}
+
 // ---------- init ----------
 async function init(){
-  S.store = localBackend();   // ← swap for firestoreBackend(...) later
-  S.account = await S.store.getAccount();
-  S.workouts = await S.store.listWorkouts();
-  $('#badge').textContent = 'Saved in this browser';
-  S.ready = true;
-  route();
+  try{ FB = await withTimeout(loadFirebase(), 12000); }catch(e){ console.warn('Firebase unavailable — saving in this browser', e); FB = null; }
+  if(!FB){ await useLocal(); return; }
+  let first = true;
+  FB.A.onAuthStateChanged(FB.auth, async user=>{
+    if(user) await useCloud(user);
+    else await useLocal();
+    first = false;
+  });
 }
+window.go = go;
 window.addEventListener('hashchange', route);
 init();
 </script>
