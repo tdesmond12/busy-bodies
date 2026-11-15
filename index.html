@@ -57,8 +57,7 @@ button.badge.on{border-color:var(--accent)}
 .scan{margin-top:12px;padding:12px;border-radius:12px;background:var(--panel2)}
 .scan input[type=text],.scan input[type=number]{background:var(--panel);margin-top:4px}
 .scanimg{width:100%;max-height:220px;object-fit:cover;border-radius:10px;display:block}
-.idea{padding:10px 0;border-bottom:1px solid var(--line)}
-.idea:last-child{border-bottom:0}
+
 .badge{margin-left:auto;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:3px 10px;white-space:nowrap}
 .badge.cloud{color:var(--accent);border-color:rgba(198,244,50,.35)}
 main{max-width:760px;margin:0 auto;padding:16px 16px 110px}
@@ -693,7 +692,7 @@ async function viewNutrition(){
         <label class="btn photo-btn ${aiOK?'':'disabled'}">📷 Snap a meal<input type="file" id="mealPhoto" accept="image/*" hidden ${aiOK?'':'disabled'}></label>
         <button class="btn" id="showManual">${S.manualOpen?'Hide form':'✎ Type it in'}</button>
       </div>
-      ${aiOK?'':'<p class="hint" style="margin:6px 0 0">Sign in to scan meal photos and get personalized meal ideas.</p>'}
+      ${aiOK?'':'<p class="hint" style="margin:6px 0 0">Sign in to scan meal photos.</p>'}
       <div id="scanBox">${scanHtml()}</div>
       ${S.manualOpen ? `<form id="mealForm" style="margin-top:10px">
         <input type="text" name="name" placeholder="What did you eat? e.g. turkey sandwich" required>
@@ -704,12 +703,6 @@ async function viewNutrition(){
         <label class="toggle" style="margin-top:8px"><input type="checkbox" name="fav"><span class="small">Also save as a favorite</span></label>
         <button class="btn primary block" style="margin-top:8px">Add ${esc(mealType.toLowerCase())}</button>
       </form>` : ''}
-    </div>
-
-    <div class="card">
-      <div class="row" style="justify-content:space-between"><h3>Meal ideas</h3><button class="btn sm primary" id="ideasBtn" ${S.ideasBusy?'disabled':''}>${S.ideasBusy?'Thinking…':`Ideas for ${esc(mealType.toLowerCase())}`}</button></div>
-      <p class="hint" style="margin:6px 0 0">${date===todayStr() && st ? `${Math.max(0,calGoal-t.cal)} cal and ${Math.max(0,proGoal-t.protein)} g protein left today.` : 'Quick, family-friendly ideas that fit your targets.'}</p>
-      <div id="ideasBox">${ideasHtml()}</div>
     </div>
 
     <div class="card">
@@ -740,7 +733,7 @@ async function viewNutrition(){
   $('#nPrev').onclick = ()=>{ S.nDate = shiftDate(date,-1); viewNutrition(); };
   $('#nNext').onclick = ()=>{ if(date<todayStr()){ S.nDate = shiftDate(date,1); viewNutrition(); } };
   $('#nToday')?.addEventListener('click', ()=>{ S.nDate = todayStr(); viewNutrition(); });
-  document.querySelectorAll('input[name=mtype]').forEach(r=>r.onchange=()=>{ S.mealType=r.value; S.ideas=null; rerender(); });
+  document.querySelectorAll('input[name=mtype]').forEach(r=>r.onchange=()=>{ S.mealType=r.value; rerender(); });
   // meals
   document.querySelectorAll('[data-delmeal]').forEach(b=>b.onclick=()=>{ d.meals.splice(+b.dataset.delmeal,1); saveDaySoon(date); rerender(); });
   document.querySelectorAll('[data-favmeal]').forEach(b=>b.onclick=async ()=>{ const m=d.meals[+b.dataset.favmeal]; if(isFav(m)) await removeFav(m); else await addFav(m); rerender(); });
@@ -763,9 +756,6 @@ async function viewNutrition(){
   // photo
   $('#mealPhoto')?.addEventListener('change', e=>{ const file=e.target.files[0]; e.target.value=''; if(file) scanMeal(file); });
   bindScan(d, date);
-  // ideas
-  $('#ideasBtn').onclick = ()=>getMealIdeas(d, date);
-  bindIdeas(d, date);
   // water
   document.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{ d.water = Math.max(0, d.water + +b.dataset.w); saveDaySoon(date); rerender(); });
   $('#wGoalBtn').onclick = ()=>{ $('#wGoalEdit').hidden = !$('#wGoalEdit').hidden; };
@@ -872,48 +862,6 @@ function bindScan(d, date){
     if(act==='addfav') await addFav(m);
     S.scan=null; toast('Meal added'); S.rerenderNutrition();
   });
-}
-
-// ----- meal ideas -----
-const FALLBACK_IDEAS = {
-  Breakfast:[{name:'Greek yogurt, berries & granola',cal:350,protein:25,minutes:3},{name:'Scrambled eggs on whole-grain toast',cal:400,protein:24,minutes:8},{name:'Overnight oats with protein powder',cal:420,protein:30,minutes:5}],
-  Lunch:[{name:'Turkey & avocado wrap',cal:480,protein:32,minutes:5},{name:'Chicken, rice & veggie bowl',cal:550,protein:40,minutes:10},{name:'Tuna salad on greens with crackers',cal:420,protein:35,minutes:5}],
-  Dinner:[{name:'Sheet-pan chicken, potatoes & broccoli',cal:600,protein:45,minutes:30},{name:'Turkey taco bowls',cal:580,protein:40,minutes:20},{name:'Salmon, rice & green beans',cal:620,protein:40,minutes:20}],
-  Snack:[{name:'Cottage cheese & pineapple',cal:200,protein:20,minutes:2},{name:'Apple with peanut butter',cal:250,protein:7,minutes:2},{name:'String cheese & turkey roll-ups',cal:180,protein:18,minutes:2}],
-};
-async function getMealIdeas(d, date){
-  const type = S.mealType || guessMealType();
-  if(!(FB && S.user)){ S.ideas = {type, list:FALLBACK_IDEAS[type], fallback:true}; S.rerenderNutrition(); return; }
-  S.ideasBusy = true; S.rerenderNutrition();
-  const p = profile(), st = p ? bodyStats(p) : null, t = dayTotals(d);
-  const calLeft = st ? Math.max(0, Math.round(st.target - t.cal)) : null, proLeft = st ? Math.max(0, st.proteinLo - t.protein) : null;
-  const system = `You suggest realistic meals for busy working parents using a meal-tracking app. Meals should be quick (most under 20 minutes, or use leftovers/store-bought shortcuts), affordable, and family-friendly when it's a main meal. Respect any preferences, allergies or dislikes in the user's notes. Never suggest supplements or extreme diets.
-Respond with ONLY JSON: {"ideas":[{"name":"...","description":"one short sentence: what's in it / how to make it fast","cal":0,"protein":0,"minutes":0}]} with exactly 3 ideas.`;
-  const ask = `Meal: ${type}.
-${st?`Daily target: ~${Math.round(st.target)} cal, ${st.proteinLo}-${st.proteinHi} g protein. Remaining today: ~${calLeft} cal, ${proLeft} g protein.`:''}
-Goal: ${p?GOALS[p.goal].label:'general health'}.
-Already eaten today: ${d.meals.map(m=>`${m.name} (${m.cal} cal)`).join('; ')||'nothing yet'}.
-Favorite meals (for taste): ${favorites().slice(0,8).map(f=>f.name).join('; ')||'none saved'}.
-User notes: ${p&&p.notes?p.notes:'none'}.
-Size each idea sensibly for a ${type.toLowerCase()} (don't put the whole remaining day into one snack), leaning toward higher protein.`;
-  try{
-    const r = parseJSON(await askAI([{role:'user', parts:[{text:ask}]}], system, 30000));
-    S.ideas = {type, list:(r.ideas||[]).slice(0,3).map(i=>({name:String(i.name||'').slice(0,80), description:String(i.description||'').slice(0,160), cal:Math.round(num(i.cal)), protein:Math.round(num(i.protein)), minutes:Math.round(num(i.minutes))})).filter(i=>i.name)};
-  }catch(e){ console.error(e); S.ideas = {type, list:FALLBACK_IDEAS[type], fallback:true, error:aiErrorMessage(e)}; }
-  S.ideasBusy = false;
-  if(location.hash==='#nutrition') S.rerenderNutrition();
-}
-function ideasHtml(){
-  const I = S.ideas; if(!I || !I.list || !I.list.length) return '';
-  return `${I.error?`<p class="hint" style="color:var(--warn)">${esc(I.error)} Here are some go-to ideas instead.</p>`:''}
-    ${I.list.map((m,i)=>`<div class="idea"><div style="font-weight:600">${esc(m.name)}</div>
-      ${m.description?`<div class="small muted">${esc(m.description)}</div>`:''}
-      <div class="hint">${m.cal} cal · ${m.protein} g protein${m.minutes?` · ${m.minutes} min`:''}</div>
-      <div class="row" style="margin-top:6px"><button class="btn sm" data-idea="${i}">+ Add</button><button class="btn sm ghost" data-ideafav="${i}">${isFav(m)?'★ Saved':'☆ Save'}</button></div></div>`).join('')}`;
-}
-function bindIdeas(d, date){
-  document.querySelectorAll('[data-idea]').forEach(b=>b.onclick=()=>{ const m=S.ideas.list[+b.dataset.idea]; logMeal(d, date, {...m, src:'idea'}); toast(`Added ${m.name}`); S.rerenderNutrition(); });
-  document.querySelectorAll('[data-ideafav]').forEach(b=>b.onclick=async ()=>{ const m=S.ideas.list[+b.dataset.ideafav]; if(!isFav(m)){ await addFav(m); S.rerenderNutrition(); } });
 }
 
 function profileFormSave(formEl, fields){
