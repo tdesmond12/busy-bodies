@@ -57,6 +57,10 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(198,244,50,.5);bo
 .seg input:checked+label{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .seg input:focus-visible+label{outline:2px solid #fff}
 .choices{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.checks label{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);cursor:pointer;font-size:14px;font-weight:600}
+.checks input{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.checks label:has(input:checked){border-color:var(--accent);color:var(--accent)}
 .choices input{position:absolute;opacity:0;pointer-events:none}
 .choices label{display:block;padding:12px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);cursor:pointer}
 .choices label b{display:block;font-size:14px}
@@ -271,6 +275,71 @@ E('Jump Rope','cardio','none',2,'Light bounces on the balls of your feet; rest a
 E('Stationary Bike','cardio','gym',1,'Moderate resistance, steady cadence.');
 E('Elliptical','cardio','gym',1,'Smooth stride, steady effort.');
 E('Rowing Machine','cardio','gym',2,'Legs, then lean back, then arms; reverse on the return.');
+E('Treadmill Incline Walk','cardio','gym',1,'Set an incline of 5–10%, walk at a brisk pace without holding the rails.');
+E('Swimming','cardio','gym',1,'Easy, steady laps; rest at the wall whenever you need it.');
+E('Outdoor Bike Ride','cardio','none',1,'Steady, comfortable pace; add a few hills for a challenge.');
+E('Cardio of Your Choice','cardio','none',1,'Any activity that gets your heart rate up and you can keep going: dancing, yard work, chasing the kids.');
+// Resistance bands
+E('Band Chest Press','push_h','bands',1,'Band anchored behind you at chest height; press forward and control the return.');
+E('Band Overhead Press','push_v','bands',1,'Stand on the band, press the handles overhead without arching your back.');
+E('Banded Row','pull_h','bands',1,'Band anchored in front at chest height; pull elbows back and squeeze your shoulder blades.');
+E('Band Lat Pulldown','pull_v','bands',1,'Band anchored high (top of a door); pull elbows down to your ribs.');
+E('Banded Glute Bridge','hinge','bands',1,'Band just above your knees; push knees out as you bridge up.');
+E('Band Pull-Apart','shoulders','bands',1,'Arms straight in front, pull the band apart to your chest.');
+E('Band Curl','biceps','bands',1,'Stand on the band, curl up with elbows pinned.');
+E('Band Triceps Pushdown','triceps','bands',1,'Band anchored high; push down until your arms are straight.');
+E('Band Pallof Press','core','bands',1,'Side-on to the anchor, press the band straight out and resist the twist.');
+// Kettlebell
+E('Kettlebell Goblet Squat','squat','kb',1,'Hold the kettlebell by the horns at your chest and sit down between your heels.');
+E('Kettlebell Deadlift','hinge','kb',1,'Bell between your feet, hips back, flat back, stand tall.');
+E('Kettlebell Swing','hinge','kb',2,'Hike the bell back, snap your hips to float it to chest height. Arms just guide it.');
+E('Kettlebell Overhead Press','push_v','kb',2,'Bell resting on your forearm at the shoulder; press straight up.');
+E('Kettlebell Row','pull_h','kb',1,'Hinge forward with one hand on a bench or knee; row the bell to your hip.');
+// Pull-up bar
+E('Negative Pull-Up','pull_v','bar',2,'Jump or step to the top, lower yourself slowly for 3–5 seconds.');
+E('Chin-Up','pull_v','bar',3,'Palms facing you, pull your chest to the bar.');
+
+// ---------- equipment + activities ----------
+const GEAR = {
+  dumbbells:'Dumbbells', bench:'Workout bench', kettlebell:'Kettlebell', bands:'Resistance bands',
+  pullup:'Pull-up bar', barbell:'Barbell & rack', machines:'Weight machines', cable:'Cable machine',
+};
+const ACTIVITIES = {
+  walk:'Walking', run:'Running', bike:'Cycling', swim:'Swimming', stairs:'Stairs', jumprope:'Jump rope',
+  treadmill:'Treadmill', elliptical:'Elliptical', rower:'Rowing machine',
+};
+const GEAR_PRESETS = {
+  none:{label:'Bodyweight only', gear:[], activities:['walk','stairs']},
+  home:{label:'Home with dumbbells', gear:['dumbbells','bench'], activities:['walk','stairs']},
+  gym:{label:'Full gym', gear:['dumbbells','bench','kettlebell','pullup','barbell','machines','cable'], activities:['walk','treadmill','bike','elliptical','rower','stairs']},
+};
+// What each exercise needs. Unlisted: none → nothing, db → dumbbells, bands → bands, kb → kettlebell, bar → pull-up bar.
+const NEEDS = {
+  'dumbbell-bench-press':['dumbbells','bench'], 'incline-dumbbell-press':['dumbbells','bench'], 'chest-supported-dumbbell-row':['dumbbells','bench'], 'dumbbell-pullover':['dumbbells','bench'],
+  'leg-press':['machines'], 'back-extension':['machines'], 'machine-chest-press':['machines'], 'machine-shoulder-press':['machines'], 'assisted-pull-up':['machines'], 'seated-calf-raise-machine':['machines'],
+  'barbell-back-squat':['barbell'], 'barbell-front-squat':['barbell'], 'barbell-romanian-deadlift':['barbell'], 'conventional-deadlift':['barbell'], 'barbell-reverse-lunge':['barbell'], 'barbell-overhead-press':['barbell'], 'barbell-bent-over-row':['barbell'], 'barbell-bench-press':['barbell','bench'],
+  'seated-cable-row':['cable'], 'lat-pulldown':['cable'], 'cable-face-pull':['cable'], 'cable-curl':['cable'], 'cable-triceps-pushdown':['cable'], 'cable-pallof-press':['cable'],
+  'pull-up':['pullup'], 'hanging-knee-raise':['pullup'],
+  // cardio needs an activity
+  'brisk-or-incline-walk':['walk'], 'stair-climbing':['stairs'], 'jog-or-run':['run'], 'jump-rope':['jumprope'], 'stationary-bike':['bike'], 'outdoor-bike-ride':['bike'],
+  'elliptical':['elliptical'], 'rowing-machine':['rower'], 'treadmill-incline-walk':['treadmill'], 'swimming':['swim'], 'cardio-of-your-choice':[],
+};
+const DEFAULT_NEEDS = {none:[], db:['dumbbells'], bands:['bands'], kb:['kettlebell'], bar:['pullup'], gym:['machines']};
+for(const e of EX) e.needs = NEEDS[e.id] || DEFAULT_NEEDS[e.eq] || [];
+const GEAR_RANK = {barbell:2, machines:2, cable:2, dumbbells:1, kettlebell:1, bands:1, pullup:1, bench:0};
+const exRank = e => Math.max(0, ...e.needs.map(n=>GEAR_RANK[n]||0));
+// Everything the user has: equipment + activities.
+const haveSet = p => new Set([...(p.gear||[]), ...(p.activities||[])]);
+const canDo = (e, p, have=haveSet(p)) => e.needs.every(n=>have.has(n));
+// Older profiles stored one of none | db | gym; turn that into checklists.
+function withGear(p){
+  if(!p || (Array.isArray(p.gear) && Array.isArray(p.activities))) return p;
+  const preset = GEAR_PRESETS[{none:'none', db:'home', gym:'gym'}[p.equipment] || 'gym'];
+  p.gear = Array.isArray(p.gear) ? p.gear : [...preset.gear];
+  p.activities = Array.isArray(p.activities) ? p.activities : [...preset.activities];
+  return p;
+}
+const gearSummary = p => { const g=(p.gear||[]).map(k=>GEAR[k]).filter(Boolean); return g.length ? (g.length>3 ? `${g.length} pieces of equipment` : g.join(', ')) : 'Bodyweight only'; };
 
 const EXBY = Object.fromEntries(EX.map(e=>[e.id,e]));
 const COMPOUND = new Set(['squat','hinge','lunge','push_h','push_v','pull_h','pull_v']);
@@ -284,7 +353,6 @@ const GOALS = {
   endurance:{label:'Endurance',sub:'Stamina and heart health'},
   general:{label:'General fitness',sub:'Feel better overall'},
 };
-const EQUIP = { none:{label:'No equipment',sub:'Bodyweight at home'}, db:{label:'Dumbbells',sub:'Home with dumbbells and a bench'}, gym:{label:'Full gym',sub:'Machines, barbells, cables'} };
 const LEVELS = {1:'Beginner',2:'Intermediate',3:'Advanced'};
 
 const TEMPLATES = {
@@ -305,13 +373,14 @@ function splitFor(days, goal){
   if(goal==='endurance') return ['fullA','cardio','fullB','cardio','fullC','cardio'].slice(0,days);
   return {2:['fullA','fullB'],3:['fullA','fullB','fullC'],4:['upperA','lowerA','upperB','lowerB'],5:['upperA','lowerA','push','pull','legs'],6:['push','pull','legs','push','pull','legs']}[days];
 }
-const allowedEq = eq => ({none:['none'],db:['none','db'],gym:['none','db','gym']}[eq]);
-const EQRANK = {none:0,db:1,gym:2};
-
 function pick(pattern, p, rng, used){
-  const eqs = allowedEq(p.equipment), lvl = +p.level, maxEq = EQRANK[p.equipment];
-  let c = EX.filter(e=>e.p===pattern && eqs.includes(e.eq) && !(p.lowImpact && e.h));
-  if(!c.length) c = EX.filter(e=>e.p===pattern && eqs.includes(e.eq));
+  const have = haveSet(p), lvl = +p.level;
+  const maxEq = Math.max(0, ...[...have].map(n=>GEAR_RANK[n]||0));
+  // only exercises the user has the equipment / activity for — never relaxed
+  const avail = EX.filter(e=>e.p===pattern && canDo(e,p,have) && e.id!=='cardio-of-your-choice');
+  let c = avail.filter(e=>!(p.lowImpact && e.h));
+  if(!c.length) c = avail;
+  if(!c.length) return pattern==='cardio' ? EXBY['cardio-of-your-choice'] : null;
   let fresh = c.filter(e=>!used.has(e.id));
   if(fresh.length) c = fresh;
   const fit = c.filter(e=>e.lvl<=lvl);
@@ -319,7 +388,8 @@ function pick(pattern, p, rng, used){
   let best=null, bs=-1;
   for(const e of c){
     // prefer exercises that use the best equipment available and match the experience level
-    const eqScore = (pattern==='core'||pattern==='calves'||pattern==='cardio') ? 0 : (EQRANK[e.eq]===maxEq?2:EQRANK[e.eq]===maxEq-1?1:0);
+    const r = exRank(e);
+    const eqScore = (pattern==='core'||pattern==='calves'||pattern==='cardio') ? 0 : (r===maxEq?2:r===maxEq-1?1:0);
     const lvScore = e.lvl===lvl?1.5:e.lvl===lvl-1?1:0;
     const s = eqScore + lvScore + rng()*1.8;
     if(s>bs){bs=s;best=e;}
@@ -332,12 +402,12 @@ function buildPlan(p, seed){
   const days = keys.map((k,i)=>{
     const t = TEMPLATES[k], used = new Set();
     const slots = k==='cardio' ? t.slots : t.slots.slice(0,cap);
-    const exercises = slots.map(pat=>{ const e=pick(pat,p,rng,used); used.add(e.id); return e.id; });
+    const exercises = slots.map(pat=>{ const e=pick(pat,p,rng,used); if(!e) return null; used.add(e.id); return e.id; }).filter(Boolean);
     return {key:k,name:t.name,weekday:wd[i],exercises};
   });
   return {seed, createdAt:Date.now(), sig:planSig(p), days};
 }
-const planSig = p => [p.goal,p.level,p.days,p.minutes,p.equipment,!!p.lowImpact].join('|');
+const planSig = p => [p.goal,p.level,p.days,p.minutes,[...(p.gear||[])].sort().join('+'),[...(p.activities||[])].sort().join('+'),!!p.lowImpact].join('|');
 
 function rx(ex, p){
   const goal=p.goal, lvl=+p.level, comp=COMPOUND.has(ex.p);
@@ -428,7 +498,7 @@ function firestoreBackend(F, db, uid){
 }
 // ---------- state ----------
 const S = { store:null, account:{}, workouts:[], draft:null, ready:false, user:null, chat:[], coachBusy:false };
-const profile = () => S.account.profile;
+const profile = () => withGear(S.account.profile);
 const plan = () => S.account.plan;
 
 async function saveAccount(){
@@ -456,10 +526,10 @@ function choiceCards(name, map, val){
   return `<div class="choices">${Object.entries(map).map(([v,o],i)=>`<div><input type="radio" id="${name}-${i}" name="${name}" value="${v}" ${v===val?'checked':''}><label for="${name}-${i}"><b>${o.label}</b><span>${o.sub}</span></label></div>`).join('')}</div>`;
 }
 
-const PROFILE_DEFAULTS = {sex:'male',goal:'general',level:1,days:3,minutes:45,equipment:'gym',lowImpact:false,heightFt:5,heightIn:9};
+const PROFILE_DEFAULTS = {sex:'male',goal:'general',level:1,days:3,minutes:45,gear:[...GEAR_PRESETS.gym.gear],activities:[...GEAR_PRESETS.gym.activities],lowImpact:false,heightFt:5,heightIn:9};
 // Validates and normalizes a profile (used by the form and by the coach).
 function normalizeProfile(raw){
-  const r = {...PROFILE_DEFAULTS, ...(raw||{})};
+  const r = {...PROFILE_DEFAULTS, ...withGear({...(raw||{})})};
   const pickOne = (v, allowed, d) => allowed.includes(v) ? v : d;
   const p = {
     name: String(r.name||'').trim().slice(0,40),
@@ -470,7 +540,8 @@ function normalizeProfile(raw){
     level: pickOne(+r.level, [1,2,3], 1),
     days: pickOne(+r.days, [2,3,4,5,6], 3),
     minutes: pickOne(+r.minutes, [30,45,60], 45),
-    equipment: pickOne(r.equipment, ['none','db','gym'], 'gym'),
+    gear: [...new Set((Array.isArray(r.gear)?r.gear:[]).filter(k=>k in GEAR))],
+    activities: [...new Set((Array.isArray(r.activities)?r.activities:[]).filter(k=>k in ACTIVITIES))],
     lowImpact: r.lowImpact===true || r.lowImpact==='true' || r.lowImpact==='on',
     notes: String(r.notes||'').trim().slice(0,600),
   };
@@ -539,8 +610,12 @@ function viewProfile(){
       ${radios('days',[[2,'2'],[3,'3'],[4,'4'],[5,'5'],[6,'6']],p.days)}
       <label class="f">Time per workout</label>
       ${radios('minutes',[[30,'30 min'],[45,'45 min'],[60,'60 min']],p.minutes)}
-      <label class="f">Equipment</label>
-      ${choiceCards('equipment',EQUIP,p.equipment)}
+      <label class="f">Equipment you can use</label>
+      <div class="row" style="gap:6px;margin-bottom:8px">${Object.entries(GEAR_PRESETS).map(([k,v])=>`<button type="button" class="btn sm" data-preset="${k}">${v.label}</button>`).join('')}</div>
+      <div class="checks">${Object.entries(GEAR).map(([k,l])=>`<label><input type="checkbox" name="gear" value="${k}" ${p.gear.includes(k)?'checked':''}><span>${l}</span></label>`).join('')}</div>
+      <div class="hint" style="margin-top:6px">Bodyweight exercises are always included.</div>
+      <label class="f">Cardio you can do</label>
+      <div class="checks">${Object.entries(ACTIVITIES).map(([k,l])=>`<label><input type="checkbox" name="activities" value="${k}" ${p.activities.includes(k)?'checked':''}><span>${l}</span></label>`).join('')}</div>
       <label class="toggle"><input type="checkbox" name="lowImpact" ${p.lowImpact?'checked':''}><span>Low-impact only <span class="muted small">— no jumping or running, easier on joints</span></span></label>
       <label class="f" for="notes">Anything your coach should know?</label>
       <textarea id="notes" name="notes" placeholder="e.g. two kids with evening practices, mornings work best, old shoulder injury">${esc(p.notes)}</textarea>
@@ -568,10 +643,15 @@ function viewProfile(){
   bindAccountCard();
   $('#exportBtn').onclick = exportData;
   $('#importFile').onchange = importData;
+  document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{
+    const ps = GEAR_PRESETS[b.dataset.preset];
+    document.querySelectorAll('input[name=gear]').forEach(c=>c.checked=ps.gear.includes(c.value));
+    document.querySelectorAll('input[name=activities]').forEach(c=>c.checked=ps.activities.includes(c.value));
+  });
   $('#pf').addEventListener('submit', async e=>{
     e.preventDefault();
     const f = new FormData(e.target);
-    const {p:np, err} = normalizeProfile({...Object.fromEntries(f.entries()), lowImpact:!!f.get('lowImpact')});
+    const {p:np, err} = normalizeProfile({...Object.fromEntries(f.entries()), gear:f.getAll('gear'), activities:f.getAll('activities'), lowImpact:!!f.get('lowImpact')});
     if(err.length){ $('#perr').textContent = 'Please enter your '+err.join(' and ')+'.'; return; }
     e.target.querySelector('button[type=submit],button:not([type])').disabled = true;
     const {hadPlan, changed} = await applyProfile(np);
@@ -591,7 +671,7 @@ function viewPlan(){
       <button class="btn sm" id="shuffle">${ICON_SWAP.replace('<svg','<svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"')}New exercises</button></div>
       <div class="chips" style="margin-top:10px">
         <span class="chip on">${GOALS[p.goal].label}</span><span class="chip">${LEVELS[p.level]}</span>
-        <span class="chip">${p.days}×/week</span><span class="chip">${p.minutes} min</span><span class="chip">${EQUIP[p.equipment].label}</span>
+        <span class="chip">${p.days}×/week</span><span class="chip">${p.minutes} min</span><span class="chip">${esc(gearSummary(p))}</span>
         ${p.lowImpact?'<span class="chip">Low impact</span>':''}
       </div>
       <p class="small muted" style="margin:10px 0 0">Tap <b>↻</b> on any exercise to swap it for a similar one. Rest days: ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].filter(d=>!WEEKDAYS[p.days].includes(d)).join(', ')} — light walking counts.</p>
@@ -611,7 +691,7 @@ function viewPlan(){
     const [di,ei] = b.dataset.swap.split(':').map(Number);
     const day = plan().days[di], cur = EXBY[day.exercises[ei]];
     const next = pick(cur.p, p, Math.random, new Set(day.exercises));
-    if(!next || next.id===cur.id){ toast('No other options for your equipment'); return; }
+    if(!next || next.id===cur.id){ toast('No other options with your equipment — add more in Profile'); return; }
     day.exercises[ei] = next.id;
     await saveAccount(); viewPlan(); toast(`Swapped in ${next.name}`);
   });
@@ -924,7 +1004,8 @@ function renderBadge(){
 
 // ---------- Coach ----------
 const COACH_STARTERS = ['I only have 20 minutes today','Something hurts','How did my week go?','Make my plan easier','Make my plan harder','What should I do today?'];
-const LIB_FOR_PROMPT = EX.map(e=>`${e.id} | ${e.name} | ${e.p} | ${e.eq} | lvl${e.lvl}${e.h?' | high-impact':''}`).join('\n');
+// The coach only ever sees exercises the user can actually do.
+const libForPrompt = p => EX.filter(e=>!p || canDo(e,p)).map(e=>`${e.id} | ${e.name} | ${e.p} | lvl${e.lvl}${e.h?' | high-impact':''}${e.needs.length?' | needs '+e.needs.join('+'):''}`).join('\n');
 
 function coachContext(){
   const p = profile(), pl = plan();
@@ -933,6 +1014,8 @@ function coachContext(){
   if(!p){ lines.push('The user has NO profile yet. You are in ONBOARDING mode.'); return lines.join('\n'); }
   const st = bodyStats(p);
   lines.push('PROFILE: '+JSON.stringify(p));
+  lines.push(`AVAILABLE EQUIPMENT: ${(p.gear||[]).map(k=>GEAR[k]).join(', ') || 'none (bodyweight only)'}.`);
+  lines.push(`AVAILABLE CARDIO: ${(p.activities||[]).map(k=>ACTIVITIES[k]).join(', ') || 'none listed'}.`);
   lines.push(`ESTIMATES: BMI ${st.bmi.toFixed(1)} (${st.bmiCat}), maintenance ~${Math.round(st.tdee)} cal/day, goal ~${Math.round(st.target)} cal/day, protein ${st.proteinLo}-${st.proteinHi} g/day.`);
   if(pl) lines.push('CURRENT PLAN (day index: weekday name — exercise ids with prescription):\n' + pl.days.map((d,i)=>`${i}: ${d.weekday} ${d.name} — ` + d.exercises.map(id=>EXBY[id]?`${id} (${rx(EXBY[id],p).text})`:id).join('; ')).join('\n'));
   const recent = S.workouts.slice(0,12);
@@ -951,17 +1034,18 @@ STYLE
 - Use the user's name occasionally if known.
 
 ONBOARDING MODE (when there is no profile)
-- Collect, one or two questions at a time, in a natural conversation: name; age; sex (male/female, only used for the calorie formula — explain briefly if asked); height (feet + inches); weight (lb); main goal; experience; workouts per week; minutes per workout; equipment; whether they need low-impact (no jumping/running); and helpful context (work schedule, kids, best times to train, injuries, likes/dislikes).
-- Map answers to allowed values: goal ∈ fat_loss | muscle | strength | endurance | general; level ∈ 1 (beginner) | 2 (intermediate) | 3 (advanced); days ∈ 2–6; minutes ∈ 30 | 45 | 60 (round to nearest); equipment ∈ none (bodyweight at home) | db (dumbbells at home) | gym (full gym); lowImpact true/false. If an answer is unclear, ask. Suggest a sensible default if they're unsure (e.g. 3 days, 30–45 minutes for busy parents).
-- When you have everything required, put the complete profile in "profile" (fields: name, age, sex, heightFt, heightIn, weight, goal, level, days, minutes, equipment, lowImpact, notes). "notes" is a short summary of their context (schedule, kids, injuries, preferences). In "reply", briefly summarize and say their plan is ready on the Plan tab. Until then, "profile" must be null.
+- Collect, one or two questions at a time, in a natural conversation: name; age; sex (male/female, only used for the calorie formula — explain briefly if asked); height (feet + inches); weight (lb); main goal; experience; workouts per week; minutes per workout; what equipment they can use (at home and/or a gym); what cardio they can or like to do; whether they need low-impact (no jumping/running); and helpful context (work schedule, kids, best times to train, injuries, likes/dislikes).
+- Map answers to allowed values: goal ∈ fat_loss | muscle | strength | endurance | general; level ∈ 1 (beginner) | 2 (intermediate) | 3 (advanced); days ∈ 2–6; minutes ∈ 30 | 45 | 60 (round to nearest); gear = array of any of: ${Object.entries(GEAR).map(([k,l])=>`${k} (${l})`).join(', ')} — empty array means bodyweight only; activities = array of any of: ${Object.entries(ACTIVITIES).map(([k,l])=>`${k} (${l})`).join(', ')}; lowImpact true/false. "Full gym" usually means all equipment plus treadmill, bike, elliptical and rower. If an answer is unclear, ask. Suggest a sensible default if they're unsure (e.g. 3 days, 30–45 minutes for busy parents).
+- When you have everything required, put the complete profile in "profile" (fields: name, age, sex, heightFt, heightIn, weight, goal, level, days, minutes, gear, activities, lowImpact, notes). "notes" is a short summary of their context (schedule, kids, injuries, preferences). In "reply", briefly summarize and say their plan is ready on the Plan tab. Until then, "profile" must be null.
 
 COACHING MODE (profile exists)
 - Use the PROFILE, PLAN and RECENT WORKOUTS below to give specific advice: what to do today, quick swaps, progression (when they hit the top of the rep range, add 5 lb or reps), recovery, consistency, motivation.
 - You may propose changes as "actions" the user can tap to apply. Only propose an action when it clearly helps; explain it in "reply". Allowed actions:
   {"type":"swap_exercise","day":<day index>,"from":"<exercise id in that day>","to":"<exercise id from the library>","label":"Swap X for Y on Monday"}
-  {"type":"update_profile","changes":{<any of: days, minutes, equipment, goal, level, lowImpact, weight, notes>},"label":"..."}
+  {"type":"update_profile","changes":{<any of: days, minutes, gear, activities, goal, level, lowImpact, weight, notes>},"label":"..."}  (gear/activities are the FULL new arrays)
   {"type":"regenerate_plan","label":"Shuffle in new exercises"}
-- For swaps, use the same movement pattern when possible and only exercises the user's equipment allows (none ⊂ db ⊂ gym). Use ONLY ids from the library.
+- EQUIPMENT RULE: only recommend exercises from the library below and cardio from AVAILABLE CARDIO — this applies to everything you write, not just actions. The library already contains only what this user can do. If the user wants something that needs equipment or an activity they don't have, say so and offer an update_profile action that adds it (e.g. they mention they joined a gym or bought a kettlebell).
+- For swaps, use the same movement pattern when possible. Use ONLY ids from the library.
 - When the user shares lasting info (new injury, schedule change, preference), propose an update_profile action with updated "notes" (keep the old notes and add the new info).
 - Nutrition: give general, sensible guidance (protein, simple meals, the calorie estimate). A full meal planner is coming later to the app.
 
@@ -973,8 +1057,8 @@ OUTPUT
 Respond with ONLY a JSON object, no markdown fences:
 {"reply": "<message to the user>", "profile": <object or null>, "actions": [<zero or more actions>]}
 
-EXERCISE LIBRARY (id | name | pattern | equipment | level):
-${LIB_FOR_PROMPT}
+EXERCISE LIBRARY — ${profile() ? 'only what this user can do' : 'all exercises'} (id | name | pattern | level | needs):
+${libForPrompt(profile())}
 
 CURRENT USER DATA
 ${coachContext()}`;
@@ -1048,11 +1132,11 @@ function validateAction(a){
   if(!a || !p || !pl) return null;
   if(a.type==='swap_exercise'){
     const d = pl.days[+a.day], to = EXBY[a.to];
-    if(!d || !d.exercises.includes(a.from) || !to || !allowedEq(p.equipment).includes(to.eq) || d.exercises.includes(a.to)) return null;
+    if(!d || !d.exercises.includes(a.from) || !to || !canDo(to,p) || d.exercises.includes(a.to)) return null;
     return {...a, label: a.label || `Swap ${EXBY[a.from].name} for ${to.name} (${d.weekday})`};
   }
   if(a.type==='update_profile' && a.changes && typeof a.changes==='object'){
-    const allowed = ['days','minutes','equipment','goal','level','lowImpact','weight','notes'];
+    const allowed = ['days','minutes','gear','activities','goal','level','lowImpact','weight','notes'];
     const changes = Object.fromEntries(Object.entries(a.changes).filter(([k])=>allowed.includes(k)));
     if(!Object.keys(changes).length) return null;
     return {...a, changes, label: a.label || 'Update my profile'};
