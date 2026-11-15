@@ -126,6 +126,18 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(198,244,50,.5);bo
 .iconbtn{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:9px;width:36px;height:36px;display:grid;place-items:center;cursor:pointer;flex:none}
 .iconbtn svg{width:18px;height:18px}
 .dayfoot{padding:12px 16px;display:flex;gap:8px}
+.exbtns{display:flex;flex-direction:column;gap:6px}
+.addex{padding:0 16px 4px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:6px}
+.cal-head div{text-align:center;font-size:12px;color:var(--muted);font-weight:600;margin-top:10px}
+.cal-d{aspect-ratio:1;border:1px solid transparent;border-radius:10px;background:var(--panel2);color:var(--text);font:600 14px Inter,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;padding:0}
+.cal-d i{display:flex;gap:3px;height:6px}
+.cal-d.today{border-color:var(--muted)}
+.cal-d.sel{border-color:var(--accent);background:rgba(198,244,50,.12)}
+.cal-d.future{opacity:.45}
+b.dw,b.dn{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:middle}
+b.dw{background:var(--accent)} b.dn{background:#7fb3ff}
+.cal-w{background:var(--panel2);border-radius:12px;padding:10px 12px;margin-bottom:8px}
 .logex{background:var(--panel2);border-radius:12px;padding:12px;margin-bottom:10px}
 .logex .top{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
 .logex .top .t{flex:1}
@@ -179,8 +191,8 @@ table.pr td.n{text-align:right;font-variant-numeric:tabular-nums}
 <main id="app"><div class="loading">Loading your data…</div></main>
 <nav class="tabs"><div class="inner">
   <a href="#nutrition" data-tab="nutrition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2.6"/><path d="M2.5 3v18M1 3v4a1.5 1.5 0 0 0 3 0V3M21.5 21V3c-1.6 1-2.2 3-2.2 6.5h2.2"/></svg>Nutrition</a>
-  <a href="#plan" data-tab="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Plan</a>
-  <a href="#log" data-tab="log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/></svg>Log</a>
+  <a href="#plan" data-tab="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 2h6v4H9zM9 11h6M9 15h6M9 19h3"/></svg>Plan</a>
+  <a href="#log" data-tab="log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><circle cx="8.5" cy="14" r="1" fill="currentColor"/><circle cx="12" cy="14" r="1" fill="currentColor"/></svg>Log</a>
   <a href="#coach" data-tab="coach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/></svg>Coach</a>
   <a href="#progress" data-tab="progress"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Progress</a>
 </div></nav>
@@ -501,6 +513,7 @@ function localBackend(){
     async getDay(date){ return (get('rr.days')||{})[date] || null; },
     async saveDay(date, data){ const all=get('rr.days')||{}; all[date]=data; set('rr.days', all); },
     async listDays(){ return get('rr.days')||{}; },
+    async listDaysRange(a,b){ return Object.fromEntries(Object.entries(get('rr.days')||{}).filter(([k])=>k>=a&&k<=b)); },
     async clearDays(){ set('rr.days', {}); },
   };
 }
@@ -529,6 +542,7 @@ function firestoreBackend(F, db, uid){
     async getDay(date){ const s=await F.getDoc(F.doc(dCol,date)); return s.exists() ? s.data() : null; },
     async saveDay(date, data){ await F.setDoc(F.doc(dCol,date), clean(data)); },
     async listDays(){ const s=await F.getDocs(dCol); return Object.fromEntries(s.docs.map(d=>[d.id, d.data()])); },
+    async listDaysRange(a,b){ const s=await F.getDocs(F.query(dCol, F.where(F.documentId(),'>=',a), F.where(F.documentId(),'<=',b))); return Object.fromEntries(s.docs.map(d=>[d.id, d.data()])); },
     async clearDays(){ const s=await F.getDocs(dCol); for(let i=0;i<s.docs.length;i+=400){ const b=F.writeBatch(db); s.docs.slice(i,i+400).forEach(d=>b.delete(d.ref)); await b.commit(); } },
   };
 }
@@ -543,16 +557,17 @@ async function saveAccount(){
 }
 
 // ---------- views ----------
-const TABS = ['nutrition','profile','plan','log','coach','progress'];
+const TABS = ['nutrition','profile','plan','log','coach','progress','workout'];
 function route(){
   if(!S.ready) return;
   let tab = location.hash.slice(1);
   if(!TABS.includes(tab)) tab = profile() ? 'plan' : (S.user ? 'coach' : 'profile');
-  document.querySelectorAll('nav.tabs a').forEach(a=>a.classList.toggle('on',a.dataset.tab===tab));
+  const navTab = tab==='workout' ? 'plan' : tab;
+  document.querySelectorAll('nav.tabs a').forEach(a=>a.classList.toggle('on',a.dataset.tab===navTab));
   $('#badge').classList.toggle('on', tab==='profile');
   if(tab!=='profile') S.profileTab = 'personal'; // opening Profile always starts on Personal info
   document.body.classList.toggle('coach-open', tab==='coach');
-  ({nutrition:viewNutrition, profile:viewProfile, plan:viewPlan, log:viewLog, coach:viewCoach, progress:viewProgress})[tab]();
+  ({workout:viewWorkout, nutrition:viewNutrition, profile:viewProfile, plan:viewPlan, log:viewLog, coach:viewCoach, progress:viewProgress})[tab]();
   if(tab!=='coach') window.scrollTo(0,0);
 }
 const go = tab => { if(location.hash==='#'+tab) route(); else location.hash = tab; };
@@ -938,7 +953,7 @@ function viewProfile(){
   const workout = `
     <form class="card" id="pfWorkout" novalidate>
       <h2>Workout settings</h2>
-      <p class="small muted" style="margin-top:0">Your weekly plan is rebuilt from these when you save.</p>
+      <p class="small muted" style="margin-top:0">Your weekly plan is rebuilt from these when you save${plan()&&plan().edited?' — this replaces the changes you made on the Plan page':''}.</p>
       <label class="f">Main goal</label>
       ${choiceCards('goal',GOALS,p.goal)}
       <label class="f">Experience</label>
@@ -994,50 +1009,189 @@ function viewProfile(){
 }
 
 const ICON_SWAP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg>';
+const WEEK = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const ADD_DAY_TYPES = { fullA:'Full Body', upperA:'Upper Body', lowerA:'Lower Body', push:'Push', pull:'Pull', legs:'Legs', cardio:'Cardio + Core', custom:'Empty — build your own' };
+const ICON_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+const sortDays = pl => pl.days.sort((a,b)=>WEEK.indexOf(a.weekday)-WEEK.indexOf(b.weekday));
+async function savePlanEdit(msg){ plan().edited = true; await saveAccount(); const y=window.scrollY; viewPlan(); window.scrollTo(0,y); if(msg) toast(msg); }
+
 function viewPlan(){
   const p = profile();
   if(!p){ $('#app').innerHTML = `<div class="card empty"><h2>No plan yet</h2><p>Add your details to get a plan built for you.</p><button class="btn primary" onclick="go('profile')">Set up profile</button></div>`; return; }
   const pl = plan();
+  const used = pl.days.map(d=>d.weekday), free = WEEK.filter(w=>!used.includes(w));
+  const todayDow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];
+  const exOptions = day => Object.keys(PATTERN_LABEL).map(pat=>{ const opts = EX.filter(e=>e.p===pat && canDo(e,p) && e.id!=='cardio-of-your-choice' && !day.exercises.includes(e.id)); return opts.length ? `<optgroup label="${PATTERN_LABEL[pat]}">${opts.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>` : ''; }).join('');
   $('#app').innerHTML = `
     <div class="card">
       <div class="row" style="justify-content:space-between"><h2 style="margin:0">${p.name?esc(p.name)+'’s':'Your'} week</h2>
       <button class="btn sm" id="shuffle">${ICON_SWAP.replace('<svg','<svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"')}New exercises</button></div>
       <div class="chips" style="margin-top:10px">
         <span class="chip on">${GOALS[p.goal].label}</span><span class="chip">${LEVELS[p.level]}</span>
-        <span class="chip">${p.days}×/week</span><span class="chip">${p.minutes} min</span><span class="chip">${esc(gearSummary(p))}</span>
+        <span class="chip">${pl.days.length}×/week</span><span class="chip">${p.minutes} min</span><span class="chip">${esc(gearSummary(p))}</span>
         ${p.lowImpact?'<span class="chip">Low impact</span>':''}
       </div>
-      <p class="small muted" style="margin:10px 0 0">Tap <b>↻</b> on any exercise to swap it for a similar one. Rest days: ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].filter(d=>!WEEKDAYS[p.days].includes(d)).join(', ')} — light walking counts.</p>
+      <p class="small muted" style="margin:10px 0 0">Tap <b>↻</b> to swap an exercise or <b>✕</b> to remove it. ${free.length?`Rest days: ${free.join(', ')} — light walking counts.`:''}</p>
     </div>
     ${pl.days.map((d,di)=>`
       <div class="card day">
-        <div class="dayhead"><span class="dow">${d.weekday}</span><h3>${d.name}</h3><span class="muted small" style="margin-left:auto">${d.exercises.length} exercises</span></div>
-        ${dayNotes(d,p).map(n=>`<div class="note">${n}</div>`).join('')}
+        <div class="dayhead"><span class="dow">${d.weekday}</span><h3>${esc(d.name)}</h3>${d.weekday===todayDow?'<span class="chip on" style="margin-left:4px">Today</span>':''}
+          <button class="iconbtn" data-delday="${di}" style="margin-left:auto" aria-label="Remove ${d.weekday}">${ICON_X}</button></div>
+        ${d.exercises.length ? dayNotes(d,p).map(n=>`<div class="note">${n}</div>`).join('') : ''}
         ${d.exercises.map((id,ei)=>{ const ex=EXBY[id]; if(!ex) return ''; const r=rx(ex,p); return `
           <div class="ex"><div class="num">${ei+1}</div><div class="body">
             <div class="name">${esc(ex.name)}</div><div class="rx">${r.text}</div><div class="cue">${esc(ex.cue)}</div>
-          </div><button class="iconbtn" data-swap="${di}:${ei}" aria-label="Swap ${esc(ex.name)}">${ICON_SWAP}</button></div>`; }).join('')}
-        <div class="dayfoot"><button class="btn primary block" data-logday="${di}">Log this workout</button></div>
-      </div>`).join('')}`;
-  $('#shuffle').onclick = async ()=>{ S.account.plan = buildPlan(p, Math.floor(Math.random()*1e9)); await saveAccount(); viewPlan(); toast('Fresh set of exercises'); };
+          </div><div class="exbtns"><button class="iconbtn" data-swap="${di}:${ei}" aria-label="Swap ${esc(ex.name)}">${ICON_SWAP}</button><button class="iconbtn" data-delex="${di}:${ei}" aria-label="Remove ${esc(ex.name)}">${ICON_X}</button></div></div>`; }).join('') || '<div class="note">No exercises yet — add some below.</div>'}
+        <div class="addex" ${S.addExDay===di?'':'hidden'}><select data-addex="${di}"><option value="">Choose an exercise…</option>${exOptions(d)}</select></div>
+        <div class="dayfoot"><button class="btn" data-openadd="${di}">+ Exercise</button><button class="btn primary" style="flex:1" data-logday="${di}" ${d.exercises.length?'':'disabled'}>Log this workout</button></div>
+      </div>`).join('')}
+    ${free.length ? `<div class="card">
+      <h3 style="margin-bottom:8px">Add a day</h3>
+      <div class="grid2"><select id="newDow" aria-label="Day of week">${free.map(w=>`<option>${w}</option>`).join('')}</select>
+      <select id="newType" aria-label="Workout type">${Object.entries(ADD_DAY_TYPES).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></div>
+      <button class="btn block" id="addDay" style="margin-top:8px">+ Add day</button>
+    </div>` : ''}
+    <button class="btn ghost block" id="customLog">Log a workout that isn’t on your plan</button>`;
+
+  $('#shuffle').onclick = async e=>{
+    const b=e.currentTarget;
+    if(pl.edited && !b.dataset.armed){ b.dataset.armed='1'; b.textContent='Tap again — replaces your edits'; setTimeout(()=>{ if(b.isConnected) viewPlan(); },4000); return; }
+    S.account.plan = buildPlan(p, Math.floor(Math.random()*1e9)); await saveAccount(); viewPlan(); toast('Fresh set of exercises');
+  };
   $('#app').querySelectorAll('[data-swap]').forEach(b=>b.onclick = async ()=>{
     const [di,ei] = b.dataset.swap.split(':').map(Number);
     const day = plan().days[di], cur = EXBY[day.exercises[ei]];
     const next = pick(cur.p, p, Math.random, new Set(day.exercises));
     if(!next || next.id===cur.id){ toast('No other options with your equipment — add more in Profile'); return; }
     day.exercises[ei] = next.id;
-    await saveAccount(); viewPlan(); toast(`Swapped in ${next.name}`);
+    await savePlanEdit(`Swapped in ${next.name}`);
   });
-  $('#app').querySelectorAll('[data-logday]').forEach(b=>b.onclick = ()=>{ startDraft(+b.dataset.logday); go('log'); });
+  $('#app').querySelectorAll('[data-delex]').forEach(b=>b.onclick = async ()=>{
+    const [di,ei] = b.dataset.delex.split(':').map(Number);
+    const name = EXBY[plan().days[di].exercises[ei]]?.name;
+    plan().days[di].exercises.splice(ei,1);
+    await savePlanEdit(`Removed ${name}`);
+  });
+  $('#app').querySelectorAll('[data-openadd]').forEach(b=>b.onclick = ()=>{ const di=+b.dataset.openadd; S.addExDay = S.addExDay===di ? null : di; const y=window.scrollY; viewPlan(); window.scrollTo(0,y); });
+  $('#app').querySelectorAll('[data-addex]').forEach(s=>s.onchange = async ()=>{
+    if(!s.value) return; const di=+s.dataset.addex;
+    plan().days[di].exercises.push(s.value); S.addExDay = null;
+    await savePlanEdit(`Added ${EXBY[s.value].name}`);
+  });
+  $('#app').querySelectorAll('[data-delday]').forEach(b=>b.onclick = async ()=>{
+    const di=+b.dataset.delday, d=plan().days[di];
+    if(!b.dataset.armed){ b.dataset.armed='1'; b.innerHTML='<span class="small" style="padding:0 6px;white-space:nowrap">Remove?</span>'; b.style.width='auto'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.armed; b.innerHTML=ICON_X; b.style.width=''; } },3000); return; }
+    plan().days.splice(di,1);
+    await savePlanEdit(`Removed ${d.weekday} — it’s a rest day now`);
+  });
+  $('#addDay')?.addEventListener('click', async ()=>{
+    const dow=$('#newDow').value, type=$('#newType').value;
+    let exercises = [];
+    if(type!=='custom'){
+      const rng = Math.random, usedEx = new Set();
+      const slots = type==='cardio' ? TEMPLATES[type].slots : TEMPLATES[type].slots.slice(0, exCap(+p.minutes));
+      exercises = slots.map(pat=>{ const e=pick(pat,p,rng,usedEx); if(!e) return null; usedEx.add(e.id); return e.id; }).filter(Boolean);
+    }
+    plan().days.push({key:type, name: type==='custom' ? 'Custom workout' : TEMPLATES[type].name.replace(/ [ABC]$/,''), weekday:dow, exercises});
+    sortDays(plan());
+    if(type==='custom') S.addExDay = plan().days.findIndex(d=>d.weekday===dow);
+    await savePlanEdit(`Added ${dow}`);
+  });
+  $('#app').querySelectorAll('[data-logday]').forEach(b=>b.onclick = ()=>{ startDraft(+b.dataset.logday); go('workout'); });
+  $('#customLog').onclick = ()=>{ startDraft(null); go('workout'); };
+}
+
+// ----- calendar (Log tab) -----
+const ymOf = s => s.slice(0,7);
+async function loadMonthDays(ym){
+  S.monthsLoaded = S.monthsLoaded || {};
+  if(S.monthsLoaded[ym]) return;
+  try{
+    const days = await S.store.listDaysRange(`${ym}-01`, `${ym}-31`);
+    for(const [date, data] of Object.entries(days)) if(!S.days[date]) S.days[date] = {...emptyDay(), ...data};
+    S.monthsLoaded[ym] = true;
+  }catch(e){ console.warn(e); }
+}
+const hasNutrition = d => d && (d.meals.length || d.water>0 || Object.keys(d.supps||{}).length);
+function workoutSummaryHtml(w){
+  const sets = w.exercises.reduce((a,e)=>a+e.sets.length,0);
+  return `<div class="cal-w">
+    <div class="row" style="justify-content:space-between"><b>${esc(w.dayName)}</b><button class="btn sm ghost danger" data-delw="${esc(w.id)}" style="padding:2px 4px">Delete</button></div>
+    <div class="hint">${w.exercises.length} exercise${w.exercises.length===1?'':'s'} · ${sets} set${sets===1?'':'s'}${w.cardioMin?` · ${w.cardioMin} min cardio`:''}${w.effort?` · effort ${w.effort}/10`:''}</div>
+    <div class="small" style="margin-top:6px">${w.exercises.map(e=>`<div><span>${esc(e.name)}</span> <span class="muted">— ${e.sets.map(s=>fmtSet(s,EXBY[e.id]||{p:e.pattern})).join(', ')}</span></div>`).join('')}</div>
+    ${w.notes?`<div class="small muted" style="margin-top:6px">“${esc(w.notes)}”</div>`:''}
+  </div>`;
+}
+async function viewLog(){
+  const sel = S.calSel || (S.calSel = todayStr());
+  const ym = S.calMonth || (S.calMonth = ymOf(sel));
+  if(!S.monthsLoaded || !S.monthsLoaded[ym]) $('#app').innerHTML = '<div class="loading">Loading your calendar…</div>';
+  await loadMonthDays(ym);
+  if(location.hash!=='#log') return;
+  const [y,m] = ym.split('-').map(Number);
+  const first = new Date(y, m-1, 1), daysIn = new Date(y, m, 0).getDate(), lead = (first.getDay()+6)%7;
+  const wByDate = {}; for(const w of S.workouts) (wByDate[w.date] = wByDate[w.date] || []).push(w);
+  const today = todayStr();
+  let cells = '';
+  for(let i=0;i<lead;i++) cells += '<div></div>';
+  for(let dnum=1; dnum<=daysIn; dnum++){
+    const ds = `${ym}-${String(dnum).padStart(2,'0')}`;
+    const hasW = !!wByDate[ds], hasN = hasNutrition(S.days[ds]);
+    cells += `<button class="cal-d ${ds===sel?'sel':''} ${ds===today?'today':''} ${ds>today?'future':''}" data-day="${ds}"><span>${dnum}</span><i>${hasW?'<b class="dw"></b>':''}${hasN?'<b class="dn"></b>':''}</i></button>`;
+  }
+  const monthName = first.toLocaleDateString(undefined,{month:'long', year:'numeric'});
+  const p = profile(), st = p ? bodyStats(p) : null;
+  const nd = S.days[sel] || (S.monthsLoaded[ymOf(sel)] ? emptyDay() : await loadDay(sel));
+  const t = dayTotals(nd), ns = nutritionSettings();
+  const ws = wByDate[sel] || [];
+  const monthW = Object.keys(wByDate).filter(d=>d.startsWith(ym)).reduce((a,d)=>a+wByDate[d].length,0);
+  $('#app').innerHTML = `
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <button class="iconbtn" id="calPrev" aria-label="Previous month">‹</button>
+        <div style="text-align:center"><h2 style="margin:0">${monthName}</h2><div class="hint">${monthW} workout${monthW===1?'':'s'} this month</div></div>
+        <button class="iconbtn" id="calNext" aria-label="Next month" ${ym>=ymOf(today)?'disabled style="opacity:.3"':''}>›</button>
+      </div>
+      <div class="cal-grid cal-head">${WEEK.map(w=>`<div>${w[0]}</div>`).join('')}</div>
+      <div class="cal-grid">${cells}</div>
+      <div class="row small muted" style="gap:14px;margin-top:10px;justify-content:center"><span><b class="dw"></b> Workout</span><span><b class="dn"></b> Nutrition</span></div>
+    </div>
+    <div class="card">
+      <h3>${prettyDate(sel)}${sel!==today?` <span class="muted small" style="font-family:Inter;text-transform:none">${parseYmd(sel).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span>`:''}</h3>
+      <div class="k small muted" style="font-weight:600;margin:12px 0 6px">WORKOUT</div>
+      ${ws.length ? ws.map(workoutSummaryHtml).join('') : `<p class="small muted" style="margin:0">${sel>today?'Nothing yet.':'No workout logged.'}${sel<=today?' Log workouts from the <a href="#plan">Plan</a> tab.':''}</p>`}
+      <div class="k small muted" style="font-weight:600;margin:16px 0 6px">NUTRITION</div>
+      ${hasNutrition(nd) ? `
+        <div class="grid3">
+          <div class="stat"><div class="k">Calories</div><div class="v" style="font-size:22px">${t.cal.toLocaleString()}</div><div class="s">${st?`of ${Math.round(st.target/10)*10}`:''}</div></div>
+          <div class="stat"><div class="k">Protein</div><div class="v" style="font-size:22px">${t.protein} g</div><div class="s">${st?`of ${st.proteinLo} g`:''}</div></div>
+          <div class="stat"><div class="k">Water</div><div class="v" style="font-size:22px">${nd.water} oz</div><div class="s">of ${waterGoal()} oz</div></div>
+        </div>
+        ${nd.meals.length?`<div class="small" style="margin-top:10px">${nd.meals.map(mm=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(mm.name)} <span class="muted">· ${esc(mm.type)}</span></span><span class="muted">${mm.cal?mm.cal+' cal':''}${mm.protein?` · ${mm.protein} g`:''}</span></div>`).join('')}</div>`:''}
+        ${ns.supplements.length?`<div class="small muted" style="margin-top:8px">Supplements: ${ns.supplements.map(x=>`${nd.supps[x.id]?'✓':'○'} ${esc(x.name)}`).join(' · ')}</div>`:''}
+      ` : `<p class="small muted" style="margin:0">Nothing logged.</p>`}
+      ${sel<=today?`<button class="btn sm" id="openNutrition" style="margin-top:12px">${hasNutrition(nd)?'Edit':'Add'} nutrition for this day</button>`:''}
+    </div>`;
+  const shiftMonth = n => { const d=new Date(y, m-1+n, 1); S.calMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; viewLog(); };
+  $('#calPrev').onclick = ()=>shiftMonth(-1);
+  $('#calNext').onclick = ()=>{ if(ym<ymOf(today)) shiftMonth(1); };
+  document.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{ S.calSel = b.dataset.day; const yy=window.scrollY; viewLog().then(()=>window.scrollTo(0,yy)); });
+  $('#openNutrition')?.addEventListener('click', ()=>{ S.nDate = sel; go('nutrition'); });
+  document.querySelectorAll('[data-delw]').forEach(b=>b.onclick=async ()=>{
+    if(!b.dataset.armed){ b.dataset.armed='1'; b.textContent='Tap again to delete'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.armed; b.textContent='Delete'; } },3000); return; }
+    b.disabled = true;
+    try{ await S.store.deleteWorkout(b.dataset.delw); S.workouts = S.workouts.filter(w=>w.id!==b.dataset.delw); toast('Workout deleted'); viewLog(); }
+    catch(e){ console.error(e); b.disabled=false; toast('Couldn’t delete — try again'); }
+  });
 }
 
 // ----- logging -----
 function blankSets(ex, n){ return Array.from({length:n},()=>({w:'',r:''})); }
-function startDraft(dayIdx){
+function startDraft(dayIdx, date){
   const p = profile();
   const day = dayIdx!=null && plan() ? plan().days[dayIdx] : null;
   S.draft = {
-    dayIdx, dayName: day?day.name:'Custom workout', date: todayStr(),
+    dayIdx, dayName: day?day.name:'Custom workout', date: date || todayStr(),
     exercises: day ? day.exercises.filter(id=>EXBY[id]).map(id=>({id, sets:blankSets(EXBY[id], rx(EXBY[id],p).sets)})) : [],
     cardioMin:'', effort:'', notes:'',
   };
@@ -1053,24 +1207,10 @@ function fmtSet(s, ex){
 }
 function setFields(ex){ return ex.p==='cardio' ? [['r','min']] : ex.t ? [['r','sec']] : [['w','lb'],['r','reps']]; }
 
-function viewLog(){
+function viewWorkout(){
   const p = profile();
-  if(!S.draft) S.draft = null;
   const d = S.draft;
-  const pl = plan();
-  if(!d){
-    const todayDow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];
-    const todayIdx = pl ? pl.days.findIndex(x=>x.weekday===todayDow) : -1;
-    $('#app').innerHTML = `
-      <div class="card"><h2>Log a workout</h2>
-        ${pl ? `<p class="muted small" style="margin-top:0">Pick a day from your plan${todayIdx>=0?` — today is <b style="color:var(--text)">${pl.days[todayIdx].name}</b>`:''}.</p>
-        <div style="display:grid;gap:8px">${pl.days.map((x,i)=>`<button class="btn ${i===todayIdx?'primary':''} block" data-d="${i}" style="text-align:left;display:flex;gap:10px;align-items:center"><span class="dow" style="${i===todayIdx?'background:var(--accent-ink);color:var(--accent)':''}">${x.weekday}</span>${x.name}</button>`).join('')}</div>
-        <div style="margin-top:8px"><button class="btn ghost block" data-d="custom">Start a custom workout</button></div>`
-        : `<p class="muted">Set up your profile first to get a plan — or log a custom workout.</p><button class="btn block" data-d="custom">Start a custom workout</button>`}
-      </div>`;
-    $('#app').querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ startDraft(b.dataset.d==='custom'?null:+b.dataset.d); viewLog(); });
-    return;
-  }
+  if(!d){ go('plan'); return; }
   const options = Object.keys(PATTERN_LABEL).map(pat=>`<optgroup label="${PATTERN_LABEL[pat]}">${EX.filter(e=>e.p===pat).map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>`).join('');
   $('#app').innerHTML = `
     <div class="card">
@@ -1089,12 +1229,12 @@ function viewLog(){
       <div id="lerr" class="small" style="color:var(--danger);margin-top:10px"></div>
       <button class="btn primary block" id="savew" style="margin-top:10px">Save workout</button>
     </div>`;
-  $('#cancel').onclick = ()=>{ S.draft=null; viewLog(); };
+  $('#cancel').onclick = ()=>{ S.draft=null; go('plan'); };
   $('#ldate').onchange = e=> d.date = e.target.value || todayStr();
   $('#cmin').oninput = e=> d.cardioMin = e.target.value;
   $('#effort').oninput = e=> d.effort = e.target.value;
   $('#lnotes').oninput = e=> d.notes = e.target.value;
-  $('#addex').onchange = e=>{ const id=e.target.value; if(!id) return; d.exercises.push({id, sets:blankSets(EXBY[id], p?rx(EXBY[id],p).sets:3)}); viewLog(); setTimeout(()=>document.querySelectorAll('.logex')[d.exercises.length-1]?.scrollIntoView({behavior:'smooth',block:'center'}),50); };
+  $('#addex').onchange = e=>{ const id=e.target.value; if(!id) return; d.exercises.push({id, sets:blankSets(EXBY[id], p?rx(EXBY[id],p).sets:3)}); viewWorkout(); setTimeout(()=>document.querySelectorAll('.logex')[d.exercises.length-1]?.scrollIntoView({behavior:'smooth',block:'center'}),50); };
   const list = $('#exlist');
   list.addEventListener('input', e=>{ const t=e.target; if(t.dataset.f==null) return; const [i,s]=[+t.dataset.i,+t.dataset.s]; d.exercises[i].sets[s][t.dataset.f]=t.value; });
   list.addEventListener('click', e=>{
@@ -1107,7 +1247,7 @@ function viewLog(){
   });
   $('#savew').onclick = saveWorkout;
 }
-function viewLogKeep(){ const y=window.scrollY; viewLog(); window.scrollTo(0,y); }
+function viewLogKeep(){ const y=window.scrollY; viewWorkout(); window.scrollTo(0,y); }
 function logExHtml(e, i, p){
   const ex = EXBY[e.id], L = lastFor(e.id), fields = setFields(ex), target = p ? rx(ex,p).text : '';
   return `<div class="logex">
@@ -1131,14 +1271,14 @@ async function saveWorkout(){
   try{
     const id = await S.store.addWorkout(w);
     S.workouts.unshift({...w,id}); S.workouts.sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
-    S.draft = null; toast('Workout saved 💪'); go('progress');
+    S.draft = null; S.calSel = w.date; S.calMonth = ymOf(w.date); toast('Workout saved 💪'); go('log');
   }catch(e){ console.error(e); btn.disabled=false; btn.textContent='Save workout'; $('#lerr').textContent = e && e.code==='quota_exceeded' ? 'Storage is full — delete some old workouts first.' : 'Couldn’t save — check your connection and try again.'; }
 }
 
 // ----- progress -----
 function viewProgress(){
   const p = profile(), W = S.workouts, target = p ? +p.days : 3;
-  if(!W.length){ $('#app').innerHTML = `<div class="card empty"><h2>No workouts yet</h2><p>Log your first session and your progress shows up here.</p><button class="btn primary" onclick="go('log')">Log a workout</button></div>`; return; }
+  if(!W.length){ $('#app').innerHTML = `<div class="card empty"><h2>No workouts yet</h2><p>Log your first session and your progress shows up here.</p><button class="btn primary" onclick="go('plan')">Go to your plan</button></div>`; return; }
   const now = new Date(), thisWk = weekStart(now).getTime();
   const weeks = []; for(let i=7;i>=0;i--){ const s=weekStart(now); s.setDate(s.getDate()-7*i); weeks.push({start:s, n:0}); }
   const byWeek = new Map(weeks.map(w=>[w.start.getTime(),w]));
@@ -1211,7 +1351,7 @@ async function resetAccount(b){
   }
   document.querySelectorAll('[data-reset]').forEach(x=>x.disabled=true);
   try{
-    if(all){ await S.store.replaceAll({}, []); await S.store.clearDays(); S.workouts = []; S.days = {}; }
+    if(all){ await S.store.replaceAll({}, []); await S.store.clearDays(); S.workouts = []; S.days = {}; S.monthsLoaded = {}; }
     else { await S.store.saveAccount(S.account.nutrition ? {nutrition:S.account.nutrition} : {}); }
     await S.store.saveChat([]);
     S.account = all ? {} : (S.account.nutrition ? {nutrition:S.account.nutrition} : {}); S.chat = []; S.draft = null; S.profileTab = 'personal'; renderBadge();
@@ -1251,7 +1391,7 @@ async function importData(e){
         await S.store.clearDays();
         for(const [date, day] of Object.entries(pendingImport.days)) if(/^\d{4}-\d{2}-\d{2}$/.test(date)) await S.store.saveDay(date, day);
       }
-      S.account = await S.store.getAccount(); S.workouts = await S.store.listWorkouts(); S.days = {}; pendingImport = null; renderBadge();
+      S.account = await S.store.getAccount(); S.workouts = await S.store.listWorkouts(); S.days = {}; S.monthsLoaded = {}; pendingImport = null; renderBadge();
       toast('Backup restored'); viewProfile();
     };
   }catch(err){ pendingImport = null; msg.textContent = 'That file isn’t a valid backup.'; }
@@ -1301,7 +1441,7 @@ async function doSignIn(){
 async function doSignOut(){ if(FB){ await FB.A.signOut(FB.auth); toast('Signed out'); } }
 
 async function useLocal(){
-  S.user = null; S.store = localBackend(); S.draft = null; S.days = {}; S.nDate = null;
+  S.user = null; S.store = localBackend(); S.draft = null; S.days = {}; S.nDate = null; S.monthsLoaded = {}; S.calSel = null; S.calMonth = null;
   S.account = await S.store.getAccount(); S.workouts = await S.store.listWorkouts(); S.chat = [];
   S.ready = true; renderBadge(); route();
 }
@@ -1320,7 +1460,7 @@ async function useCloud(user){
       await cloud.replaceAll(lAcc, lW);
       account = await cloud.getAccount(); workouts = await cloud.listWorkouts(); migrated = true;
     }
-    S.store = cloud; S.account = account; S.workouts = workouts; S.draft = null; S.days = {}; S.nDate = null;
+    S.store = cloud; S.account = account; S.workouts = workouts; S.draft = null; S.days = {}; S.nDate = null; S.monthsLoaded = {}; S.calSel = null; S.calMonth = null;
     S.chat = await cloud.getChat();
     S.ready = true; renderBadge(); route();
     if(migrated) toast('Moved your saved workouts into your account');
@@ -1365,7 +1505,7 @@ function coachContext(){
   const wk = weekStart(now).getTime();
   const nd = S.days[todayStr()];
   if(nd){ const t=dayTotals(nd); lines.push(`NUTRITION TODAY: ${t.cal} cal, ${t.protein} g protein, ${nd.water} oz water (goal ${waterGoal()} oz). Meals: ${nd.meals.map(m=>m.name).join('; ')||'none logged'}.${(S.account.nutrition?.supplements||[]).length?' Supplements taken: '+S.account.nutrition.supplements.filter(x=>nd.supps[x.id]).map(x=>x.name).join(', ')+' (of '+S.account.nutrition.supplements.map(x=>x.name).join(', ')+').':''}`); }
-  lines.push(`Workouts logged this week: ${S.workouts.filter(w=>weekStart(parseYmd(w.date)).getTime()===wk).length} of ${p.days} planned.`);
+  lines.push(`Workouts logged this week: ${S.workouts.filter(w=>weekStart(parseYmd(w.date)).getTime()===wk).length} of ${pl?pl.days.length:p.days} planned.`);
   return lines.join('\n');
 }
 
