@@ -168,7 +168,8 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .pl-pose{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:10px}
 .pl-name{font:800 34px "Barlow Condensed";text-transform:uppercase;letter-spacing:.02em}
 .pl-side{color:#7fb3ff;font-weight:600;text-transform:capitalize}
-.pl-time{font:800 72px "Barlow Condensed";color:var(--accent)}
+.pl-time{font:800 64px "Barlow Condensed";color:var(--accent);line-height:1}
+.ps-next{width:38px;height:38px;background:var(--panel);border-radius:8px}
 .pl-cue{color:var(--muted);max-width:420px;font-size:16px}
 .trophies{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
 .trophy{background:var(--panel2);border-radius:12px;padding:10px;text-align:center;display:flex;flex-direction:column;gap:2px}
@@ -220,6 +221,19 @@ table.pr td.n{text-align:right;font-variant-numeric:tabular-nums}
 .composer button{border-radius:50%;width:44px;height:44px;padding:0;display:grid;place-items:center;flex:none}
 .signin{text-align:center;padding:28px 18px}
 .gbtn{display:inline-flex;align-items:center;gap:10px;background:#fff;color:#1f1f1f;border-color:#fff}
+/* figures */
+.fig{width:100%;height:100%}
+.fig polyline,.fig path,.fig line{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.fig .ff{stroke:#2b3037;stroke-width:2}
+.fig .fp{stroke:#4a5563;stroke-width:2.5}
+.fig .fr{stroke:#5d6875;stroke-width:5}
+.fig .fb{stroke:#c6f432;stroke-width:6}
+.fig .fl{stroke:#dfe5ec;stroke-width:5}
+.fig .fh{fill:#dfe5ec}
+.fig-big{width:min(62vw,260px);height:min(62vw,260px)}
+.fig-mirror{transform:scaleX(-1)}
+.posestrip{display:flex;gap:2px;overflow:hidden;margin-top:4px;max-width:100%}
+.posestrip .ps{flex:none;width:38px;height:38px;background:var(--panel2);border-radius:8px}
 </style>
 </head>
 <body>
@@ -1181,6 +1195,94 @@ function viewPlan(){
   $('#customLog').onclick = ()=>{ startDraft(null); go('workout'); };
 }
 
+// ---------- Figure illustrations ----------
+// Poses are joint angles (degrees; 0 = right, 90 = down, -90 = up, 180 = left). Figure faces right.
+// The figure is auto-fitted onto the floor (or hung from a bar) inside a 120×120 box.
+const FIG_LEN = {torso:30, head:9, ua:14, la:13, th:21, sh:21, ft:5};
+function figJoints(q){
+  const rad = d => d*Math.PI/180, at = (o,a,l) => [o[0]+Math.cos(rad(a))*l, o[1]+Math.sin(rad(a))*l];
+  const L = FIG_LEN, hip = [0,0];
+  const t = q.t ?? -90, neck = at(hip, t, L.torso), head = at(neck, q.hd ?? t, L.head);
+  const arm = (ua,la) => { const e = at(neck, ua, L.ua); return [e, at(e, la, L.la)]; };
+  const leg = (th,sh,ft) => { const k = at(hip, th, L.th), f = at(k, sh, L.sh); return [k, f, at(f, ft ?? 0, L.ft)]; };
+  return { hip, neck, head, a1: arm(q.ua1 ?? 95, q.la1 ?? 92), a2: arm(q.ua2 ?? 85, q.la2 ?? 88),
+           l1: leg(q.th1 ?? 92, q.sh1 ?? 90, q.ft1), l2: leg(q.th2 ?? 88, q.sh2 ?? 90, q.ft2) };
+}
+function figSVG(q, opt={}){
+  const J = figJoints(q);
+  // bounding box of the body
+  const pts = [J.hip, J.neck, ...J.a1, ...J.a2, ...J.l1, ...J.l2, [J.head[0]-6,J.head[1]-6], [J.head[0]+6,J.head[1]+6]];
+  let minX=Math.min(...pts.map(p=>p[0])), maxX=Math.max(...pts.map(p=>p[0])), minY=Math.min(...pts.map(p=>p[1])), maxY=Math.max(...pts.map(p=>p[1]));
+  const W=120, F=110;               // box size, floor line
+  const s = Math.min(1.25, 100/(maxX-minX), (q.hang?84:96)/(maxY-minY));
+  const dx = W/2 - (minX+maxX)/2*s;
+  const dy = q.hang ? 20 - Math.min(J.a1[1][1], J.a2[1][1])*s : F - 2.5 - maxY*s - (q.lift||0);
+  const T = p => [+(p[0]*s+dx).toFixed(1), +(p[1]*s+dy).toFixed(1)];
+  const line = (pts, cls) => `<polyline class="${cls}" points="${pts.map(T).map(p=>p.join(',')).join(' ')}"/>`;
+  // torso can bend (q.bend: + arches up / − rounds down) using a curve through a control point
+  const [hx,hy]=T(J.hip), [nx,ny]=T(J.neck);
+  let torso;
+  if(q.bend){ const mx=(hx+nx)/2, my=(hy+ny)/2, len=Math.hypot(nx-hx,ny-hy), px=-(ny-hy)/len, py=(nx-hx)/len; torso = `<path class="fb" d="M${hx},${hy} Q${(mx+px*q.bend*s).toFixed(1)},${(my+py*q.bend*s).toFixed(1)} ${nx},${ny}"/>`; }
+  else torso = line([J.hip, J.neck], 'fb');
+  const [cx,cy] = T(J.head);
+  // simple props
+  const props = (q.props||[]).map(pr=>{
+    if(pr==='wall'){ const x = Math.max(T(J.a1[1])[0], T(J.a2[1])[0]) + 3; return `<line class="fp" x1="${x}" y1="18" x2="${x}" y2="${F}"/>`; }
+    if(pr==='wallL'){ const x = Math.min(...[J.l1[1],J.l2[1],J.l1[2],J.l2[2],J.hip].map(p=>T(p)[0])) ; return ''; }
+    if(pr==='wallUp'){ const x = Math.max(T(J.l1[1])[0], T(J.l1[2])[0]) + 3; return `<line class="fp" x1="${x}" y1="8" x2="${x}" y2="${F}"/>`; }
+    if(pr==='bar'){ const y = Math.min(T(J.a1[1])[1], T(J.a2[1])[1]) - 1, x = T(J.a1[1])[0]; return `<line class="fp" x1="${x-30}" y1="${y}" x2="${x+30}" y2="${y}"/>`; }
+    if(pr==='counter' || pr==='step' || pr==='table'){ const [x,y] = T(J.a1[1]); return `<path class="fp" d="M${x-14},${y+2.5} H${x+8} M${x},${y+2.5} V${F}"/>`; }
+    if(pr==='chair'){ const [x,y] = T(J.hip); return `<path class="fp" d="M${x-10},${y+4} H${x+12} M${x+8},${y+4} V${F} M${x-8},${y+4} V${F} M${x-10},${y+4} V${y-22}"/>`; }
+    if(pr==='box'){ const [x,y] = T(J.hip); return `<path class="fp" d="M${x-12},${y+4} H${x+6} V${F} M${x-12},${y+4} V${F}"/>`; }
+    if(pr==='couch'){ const [x,y] = T(J.l2[2]); return `<path class="fp" d="M${x-12},${y+3} H${x+8} V${F} M${x-12},${y+3} V${F}"/>`; }
+    if(pr==='chairs'){ const [x,y] = T(J.a1[1]); return `<path class="fp" d="M${x-6},${y+2.5} H${x+6} M${x},${y+2.5} V${F}"/>`; }
+    return '';
+  }).join('');
+  return `<svg class="fig" viewBox="0 0 120 120" aria-hidden="true">
+    <line class="ff" x1="4" y1="${F}" x2="116" y2="${F}"/>${props}
+    ${line([J.neck,...J.a2],'fr')}${line([J.hip,...J.l2],'fr')}${torso}${line([J.hip,...J.l1],'fl')}${line([J.neck,...J.a1],'fl')}
+    <circle class="fh" cx="${cx}" cy="${cy}" r="${(6*s).toFixed(1)}"/></svg>`;
+}
+const FIG_POSES = {
+  // --- standing ---
+  'mountain':      {t:-90},
+  'reach':         {t:-90, ua1:-88, la1:-90, ua2:-92, la2:-90},
+  'chair':         {t:-62, ua1:-62, la1:-62, ua2:-58, la2:-58, th1:15, sh1:105, th2:20, sh2:105},
+  'fold':          {t:80, hd:88, ua1:95, la1:92, ua2:92, la2:90, th1:95, sh1:88, th2:92, sh2:90},
+  'warrior2':      {t:-90, ua1:0, la1:0, ua2:180, la2:180, th1:40, sh1:92, th2:135, sh2:130, ft2:20},
+  'tree':          {t:-90, ua1:120, la1:-40, ua2:115, la2:-35, th1:30, sh1:170, ft1:100, th2:90, sh2:90},
+  'chestopen':     {t:-98, hd:-108, ua1:112, la1:120, ua2:108, la2:118},
+  'quad':          {t:-90, ua1:105, la1:95, ua2:-10, la2:-80, th1:95, sh1:-100, ft1:-170, th2:90, sh2:90},
+  // --- kneeling / lunges ---
+  'lowlunge':      {t:-95, ua1:-92, la1:-92, ua2:-88, la2:-88, th1:2, sh1:90, th2:118, sh2:178, ft2:180},
+  'halfsplit':     {t:-35, hd:-25, ua1:70, la1:85, ua2:75, la2:88, th1:40, sh1:36, ft1:-60, th2:90, sh2:180, ft2:180},
+  'pigeon':        {t:-80, ua1:100, la1:95, ua2:95, la2:90, th1:12, sh1:172, ft1:170, th2:178, sh2:180, ft2:180},
+  'child':         {t:4, hd:6, ua1:3, la1:0, ua2:6, la2:2, th1:32, sh1:178, ft1:178, th2:28, sh2:180, ft2:180},
+  'catcow':        {t:-12, hd:20, bend:-7, ua1:92, la1:90, ua2:88, la2:90, th1:90, sh1:180, ft1:180, th2:88, sh2:180, ft2:180},
+  'thread':        {t:30, hd:40, ua1:150, la1:180, ua2:-75, la2:-85, th1:90, sh1:180, ft1:180, th2:88, sh2:180, ft2:180},
+  'downdog':       {t:38, hd:48, ua1:44, la1:46, ua2:42, la2:44, th1:108, sh1:104, ft1:10, th2:104, sh2:100, ft2:10},
+  // --- seated ---
+  'seated':        {t:-90, ua1:80, la1:20, ua2:75, la2:15, th1:0, sh1:90, th2:-4, sh2:88, props:['chair']},
+  'seatedneck':    {t:-90, hd:-55, ua1:-70, la1:-150, ua2:95, la2:92, th1:0, sh1:90, th2:-4, sh2:88, props:['chair']},
+  'seatedcat':     {t:-88, hd:-75, bend:-6, ua1:70, la1:25, ua2:65, la2:20, th1:0, sh1:90, th2:-4, sh2:88, props:['chair']},
+  'seatedtwist':   {t:-90, ua1:40, la1:10, ua2:160, la2:120, th1:0, sh1:90, th2:-4, sh2:88, props:['chair']},
+  'eagle':         {t:-90, ua1:-15, la1:-95, ua2:-10, la2:-85, th1:0, sh1:90, th2:-4, sh2:88, props:['chair']},
+  'wrist':         {t:-90, ua1:0, la1:-25, ua2:2, la2:-20, th1:0, sh1:90, th2:-4, sh2:88, props:['chair']},
+  'crosslegged':   {t:-90, ua1:75, la1:20, ua2:70, la2:15, th1:15, sh1:170, ft1:170, th2:10, sh2:175, ft2:175},
+  'seatedfold':    {t:-25, hd:-15, ua1:8, la1:5, ua2:10, la2:6, th1:0, sh1:0, ft1:-90, th2:-2, sh2:0, ft2:-90},
+  // --- lying ---
+  'sphinx':        {t:-18, hd:-30, ua1:88, la1:0, ua2:85, la2:2, th1:180, sh1:180, ft1:90, th2:179, sh2:180, ft2:90},
+  'happybaby':     {t:180, hd:180, ua1:-62, la1:-72, ua2:-58, la2:-68, th1:-115, sh1:-75, ft1:-170, th2:-110, sh2:-70, ft2:-170},
+  'supinetwist':   {t:180, hd:180, ua1:-160, la1:180, ua2:200, la2:180, th1:-30, sh1:40, ft1:0, th2:-25, sh2:45, ft2:0},
+  'butterfly':     {t:180, hd:180, ua1:10, la1:-30, ua2:15, la2:-25, th1:-35, sh1:40, ft1:0, th2:-30, sh2:45, ft2:0},
+  'legsupwall':    {t:180, hd:180, ua1:20, la1:0, ua2:25, la2:2, th1:-90, sh1:-90, ft1:0, th2:-88, sh2:-90, ft2:0, props:['wallUp']},
+  'rest':          {t:180, hd:180, ua1:5, la1:0, ua2:8, la2:2, th1:0, sh1:0, ft1:-90, th2:2, sh2:0, ft2:-90},
+};
+
+// Which drawing goes with each yoga pose name
+const POSE_FIG = {'Child’s pose':'child','Cat-cow':'catcow','Downward dog':'downdog','Low lunge':'lowlunge','Standing forward fold':'fold','Mountain with overhead reach':'reach','Chair pose':'chair','Warrior II':'warrior2','Tree pose':'tree','Standing breath':'mountain','Seated neck release':'seatedneck','Seated cat-cow':'seatedcat','Seated twist':'seatedtwist','Eagle arms':'eagle','Chest opener':'chestopen','Standing quad stretch':'quad','Wrist circles and stretch':'wrist','Box breathing':'crosslegged','Half split':'halfsplit','Pigeon or figure-4':'pigeon','Seated forward fold':'seatedfold','Supine twist':'supinetwist','Thread the needle':'thread','Sphinx':'sphinx','Happy baby':'happybaby','Reclined butterfly':'butterfly','Legs up the wall':'legsupwall','Rest':'rest'};
+const poseFig = (p, cls='') => { const q = FIG_POSES[POSE_FIG[p.name]]; return q ? `<div class="${cls} ${p.side==='left'?'fig-mirror':''}">${figSVG(q)}</div>` : ''; };
+
 // ---------- Programs (multi-week routines) ----------
 // kind 'tracks': each movement has its own ladder (levels move up separately).
 // kind 'flows': guided routines (yoga) logged as minutes.
@@ -1413,10 +1515,10 @@ async function playFlow(progId, flowId){
     el.innerHTML = `<div class="pl-inner">
       <div class="row" style="justify-content:space-between"><span class="small muted">${esc(flow.name)} · ${i+1}/${flow.poses.length}</span><button class="iconbtn" id="plX" aria-label="End">✕</button></div>
       <div class="nbar"><div class="track"><div class="fill" style="width:${Math.round(doneSecs/total*100)}%"></div></div></div>
-      <div class="pl-pose"><div class="pl-name">${esc(p.name)}</div>${p.side?`<div class="pl-side">${p.side} side</div>`:''}
+      <div class="pl-pose">${poseFig(p,'fig-big')}<div class="pl-name">${esc(p.name)}</div>${p.side?`<div class="pl-side">${p.side} side</div>`:''}
         <div class="pl-time">${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</div>
         <div class="pl-cue">${esc(p.cue)}</div></div>
-      <div class="small muted" style="text-align:center;min-height:20px">${nx?`Next: ${esc(nx.name)}${nx.side?` (${nx.side})`:''}`:'Last pose'}</div>
+      <div class="small muted row" style="justify-content:center;min-height:38px;gap:8px">${nx?`${poseFig(nx,'ps-next')}Next: ${esc(nx.name)}${nx.side?` (${nx.side})`:''}`:'Last pose'}</div>
       <div class="grid3"><button class="btn" id="plBack" ${i===0?'disabled':''}>‹ Back</button><button class="btn primary" id="plPause">${paused?'▶ Resume':'❚❚ Pause'}</button><button class="btn" id="plSkip">Skip ›</button></div>
     </div>`;
     $('#plX').onclick = ()=>{ if(elapsed>=60) finishScreen(true); else { end(); el.remove(); } };
@@ -1451,7 +1553,8 @@ function programsSectionHtml(){
               <div class="ladder" style="margin:6px 0">${levels.map((l,i)=>`<span class="${i<entry.tracks[k]?'done':i===entry.tracks[k]?'cur':''}"></span>`).join('')}</div>
               <div class="small">${esc(lv.name)} <span class="muted">· ${esc(lv.plan)}</span></div>
               <div class="row" style="margin-top:6px;gap:6px"><button class="btn sm ghost" data-trk="${entry.id}:${k}:-1" ${entry.tracks[k]===0?'disabled':''} style="padding:2px 8px">‹</button><button class="btn sm ghost" data-trk="${entry.id}:${k}:1" ${entry.tracks[k]>=levels.length-1?'disabled':''} style="padding:2px 8px">›</button></div></div>`; }).join('')}</div>`
-          : `<div style="display:grid;gap:6px;margin-top:10px">${def.flows.map(f=>`<button class="btn" data-flow="${entry.id}:${f.id}" style="display:flex;justify-content:space-between"><span>▶ ${esc(f.name)}</span><span class="muted">${flowMinutes(f)} min</span></button>`).join('')}</div>`}
+          : `<div style="display:grid;gap:8px;margin-top:10px">${def.flows.map(f=>`<button class="btn" data-flow="${entry.id}:${f.id}" style="text-align:left;width:100%;min-width:0;overflow:hidden"><div style="display:flex;justify-content:space-between"><span>▶ ${esc(f.name)}</span><span class="muted">${flowMinutes(f)} min</span></div>
+              <div class="posestrip">${f.poses.filter((p,i,a)=>!(p.side==='left' && a[i-1] && a[i-1].name===p.name)).map(p=>poseFig(p,'ps')).join('')}</div></button>`).join('')}</div>`}
         <details style="margin-top:8px"><summary class="small muted">How it works</summary><div class="small" style="margin-top:6px;display:grid;gap:4px">
           ${def.warmup?`<div><b>Warm-up:</b> ${esc(def.warmup)}</div>`:''}<div>${esc(def.howTo)}</div><div class="hint">${esc(def.source)}</div></div></details>
       </div>`; }).join('')}
