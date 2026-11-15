@@ -1205,7 +1205,11 @@ function fmtSet(s, ex){
   if(ex.t) return `${s.r}s`;
   return s.w ? `${s.w}×${s.r}` : `${s.r} reps`;
 }
-function setFields(ex){ return ex.p==='cardio' ? [['r','min']] : ex.t ? [['r','sec']] : [['w','lb'],['r','reps']]; }
+// Weight is only asked for when the exercise uses a weight (dumbbells, kettlebell, barbell, machines, cables).
+// Bodyweight, band and pull-up bar exercises just log reps.
+const WEIGHTED_GEAR = ['dumbbells','kettlebell','barbell','machines','cable'];
+const usesWeight = ex => !!ex && (ex.needs||[]).some(n=>WEIGHTED_GEAR.includes(n));
+function setFields(ex){ return ex.p==='cardio' ? [['r','min']] : ex.t ? [['r','sec']] : usesWeight(ex) ? [['w','lb'],['r','reps']] : [['r','reps']]; }
 
 function viewWorkout(){
   const p = profile();
@@ -1263,7 +1267,7 @@ function logExHtml(e, i, p){
 async function saveWorkout(){
   const d = S.draft;
   const exercises = d.exercises.map(e=>({id:e.id, name:EXBY[e.id].name, pattern:EXBY[e.id].p,
-    sets:e.sets.filter(s=>num(s.r)>0).map(s=>{ const o={r:num(s.r)}; if(num(s.w)>0) o.w=num(s.w); return o; })})).filter(e=>e.sets.length);
+    sets:e.sets.filter(s=>num(s.r)>0).map(s=>{ const o={r:num(s.r)}; if(usesWeight(EXBY[e.id]) && num(s.w)>0) o.w=num(s.w); return o; })})).filter(e=>e.sets.length);
   const cardioMin = num(d.cardioMin);
   if(!exercises.length && !cardioMin){ $('#lerr').textContent = 'Enter reps (or time) for at least one set before saving.'; return; }
   const w = { date:d.date, dayName:d.dayName, exercises, cardioMin, effort:Math.min(10,num(d.effort))||null, notes:d.notes.trim(), createdAt:Date.now() };
