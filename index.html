@@ -986,11 +986,17 @@ async function askCoach(contents){
     S.appCheckOk = true;
   }
   S.stage = 'waiting for Gemini';
-  const list = S.goodModel ? [S.goodModel] : COACH_MODELS;
+  const list = S.goodModel ? [S.goodModel, ...COACH_MODELS.filter(n=>n!==S.goodModel)] : COACH_MODELS;
   let lastErr;
   for(const name of list){
     try{ const model = await getCoachModel(name); const res = await model.generateContent({contents}); S.goodModel = name; return res.response.text(); }
-    catch(e){ lastErr = e; if(!/not found|404|is not supported|NOT_FOUND/i.test(String(e&&e.message))) throw e; }
+    catch(e){
+      lastErr = e;
+      const m = String(e&&e.message);
+      // model missing, overloaded or briefly unavailable → try the next model
+      if(!/not found|404|is not supported|NOT_FOUND|\b50[0-9]\b|high demand|overloaded|UNAVAILABLE|try again later/i.test(m)) throw e;
+      if(S.goodModel===name) S.goodModel = null;
+    }
   }
   throw lastErr;
 }
@@ -1103,6 +1109,7 @@ async function sendCoach(text){
     const reply = /timeout/i.test(m) ? 'I didn’t get an answer in time. If this keeps happening, the AI connection isn’t finishing — usually an App Check or AI Logic setup issue.' :
                   /app.?check|attestation|unauthenticated|401/i.test(m) ? 'I’m almost ready — Firebase is blocking me until **App Check** is set up for this site.' :
                   /api-not-enabled|not been used|PERMISSION_DENIED|403/i.test(m) ? 'I’m not switched on yet — in the Firebase console, open **AI Logic** and click **Get started** with the Gemini Developer API.' :
+                  /high demand|overloaded|\b50[0-9]\b|UNAVAILABLE/i.test(m) ? 'Google’s AI is really busy right now — give it a minute and try again.' :
                   /quota|429|RESOURCE_EXHAUSTED/i.test(m) ? 'I’ve hit my free usage limit for now — try again in a little while.' :
                   /not found|404/i.test(m) ? 'The AI model I use isn’t available right now. (Developer note: update COACH_MODELS.)' :
                   'Sorry — I couldn’t connect just now. Check your connection and try again.';
