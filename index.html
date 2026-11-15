@@ -547,7 +547,16 @@ function viewProfile(){
         <label class="btn" style="text-align:center">Restore backup<input type="file" id="importFile" accept=".json,application/json" hidden></label>
       </div>
       <div id="dataMsg" class="small" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <h2>Start over</h2>
+      <p class="small muted" style="margin-top:0"><b style="color:var(--text)">Redo setup</b> clears your profile, plan and coach chat but keeps your logged workouts. <b style="color:var(--text)">Erase everything</b> also deletes every workout. Neither can be undone, so download a backup first if you might want it.</p>
+      <div class="grid2">
+        <button class="btn" data-reset="setup">Redo setup</button>
+        <button class="btn danger" data-reset="all">Erase everything</button>
+      </div>
     </div>`;
+  document.querySelectorAll('[data-reset]').forEach(b=>b.onclick=()=>resetAccount(b));
   bindAccountCard();
   $('#exportBtn').onclick = exportData;
   $('#importFile').onchange = importData;
@@ -768,6 +777,29 @@ function viewProgress(){
     try{ await S.store.deleteWorkout(b.dataset.del); S.workouts = S.workouts.filter(w=>w.id!==b.dataset.del); toast('Workout deleted'); viewProgress(); }
     catch(e){ console.error(e); b.disabled=false; toast('Couldn’t delete — try again'); }
   });
+}
+
+// ----- reset -----
+async function resetAccount(b){
+  const all = b.dataset.reset==='all';
+  if(!b.dataset.armed){
+    document.querySelectorAll('[data-reset]').forEach(x=>{ delete x.dataset.armed; x.textContent = x.dataset.reset==='all'?'Erase everything':'Redo setup'; });
+    b.dataset.armed='1'; b.textContent = all ? 'Tap again to erase all' : 'Tap again to reset';
+    setTimeout(()=>{ if(b.isConnected && b.dataset.armed){ delete b.dataset.armed; b.textContent = all?'Erase everything':'Redo setup'; } }, 4000);
+    return;
+  }
+  document.querySelectorAll('[data-reset]').forEach(x=>x.disabled=true);
+  try{
+    if(all){ await S.store.replaceAll({}, []); S.workouts = []; }
+    else { await S.store.saveAccount({}); }
+    await S.store.saveChat([]);
+    S.account = {}; S.chat = []; S.draft = null;
+    toast(all ? 'Everything erased — fresh start' : 'Setup cleared — let’s start again');
+    go(S.user ? 'coach' : 'profile');
+  }catch(e){
+    console.error(e); toast('Couldn’t reset — check your connection and try again');
+    document.querySelectorAll('[data-reset]').forEach(x=>x.disabled=false);
+  }
 }
 
 // ----- backup / restore -----
