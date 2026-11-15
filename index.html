@@ -995,7 +995,7 @@ function greeting(){
   return `Hey${p.name?' '+p.name:''}! Ask me anything — what to do today, a quick workout when time is tight, a swap for something that hurts, or how your week is going.`;
 }
 function mdLite(s){
-  const lines = esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').split('\n');
+  const lines = esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(^|\s)_(.+?)_(?=\s|$)/g,'$1<span class="small muted">$2</span>').split('\n');
   let out='', inList=false;
   for(const l of lines){
     const m = l.match(/^\s*[-•*]\s+(.*)/);
@@ -1051,6 +1051,7 @@ function viewCoach(){
       <button class="btn primary" aria-label="Send" ${S.coachBusy?'disabled':''}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>
     </div></div>`;
   const ta = $('#coachIn');
+  if(S.lastFailed && !S.coachBusy) ta.value = S.lastFailed;
   ta.addEventListener('input', ()=>{ ta.style.height='auto'; ta.style.height=Math.min(ta.scrollHeight,120)+'px'; });
   ta.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey && window.matchMedia('(pointer:fine)').matches){ e.preventDefault(); $('#coachForm').requestSubmit(); } });
   $('#coachForm').onsubmit = e=>{ e.preventDefault(); const t=ta.value.trim(); if(t) sendCoach(t); };
@@ -1074,6 +1075,7 @@ function msgHtml(m, i){
 
 async function sendCoach(text){
   if(S.coachBusy) return;
+  S.chat = S.chat.filter(m=>!m.transient); S.lastFailed = '';
   if(!S.chat.length) S.chat.push({role:'model', text:greeting(), ts:Date.now()});
   S.chat.push({role:'user', text, ts:Date.now()});
   S.coachBusy = true; viewCoach();
@@ -1083,16 +1085,18 @@ async function sendCoach(text){
     while(hist.length && hist[0].role!=='user') hist.shift();
     // keep the coach's opening question in view so onboarding answers make sense
     if(S.chat.length<=24 && S.chat[0].role==='model') hist.unshift({role:'user',parts:[{text:'(Opened the coach.)'}]},{role:'model',parts:[{text:S.chat[0].text}]});
-    out = parseCoach(await askCoach(hist));
+    out = parseCoach(await withTimeout(askCoach(hist), 40000));
   }catch(e){
     console.error(e);
     const m = String(e && (e.message||e.code)||'');
-    const reply = /app.?check|attestation|unauthenticated|401/i.test(m) ? 'I’m almost ready — Firebase is blocking me until **App Check** is set up for this site.' :
+    const detail = m.slice(0,220);
+    const reply = /timeout/i.test(m) ? 'I didn’t get an answer in time. If this keeps happening, the AI connection isn’t finishing — usually an App Check or AI Logic setup issue.' :
+                  /app.?check|attestation|unauthenticated|401/i.test(m) ? 'I’m almost ready — Firebase is blocking me until **App Check** is set up for this site.' :
                   /api-not-enabled|not been used|PERMISSION_DENIED|403/i.test(m) ? 'I’m not switched on yet — in the Firebase console, open **AI Logic** and click **Get started** with the Gemini Developer API.' :
                   /quota|429|RESOURCE_EXHAUSTED/i.test(m) ? 'I’ve hit my free usage limit for now — try again in a little while.' :
                   /not found|404/i.test(m) ? 'The AI model I use isn’t available right now. (Developer note: update COACH_MODELS.)' :
                   'Sorry — I couldn’t connect just now. Check your connection and try again.';
-    out = {reply, profile:null, actions:[], error:true};
+    out = {reply: reply + `\n\n_Details: ${detail}_`, profile:null, actions:[], error:true};
   }
   const msg = {role:'model', text:out.reply, ts:Date.now()};
   // onboarding: coach collected a full profile
@@ -1105,7 +1109,8 @@ async function sendCoach(text){
   if(acts.length) msg.actions = acts;
   S.chat.push(msg);
   S.coachBusy = false;
-  try{ await S.store.saveChat(S.chat); }catch(e){ console.warn(e); }
+  if(out.error){ S.chat.splice(-2, 2); S.chat.push({...msg, text: out.reply + '\n\nYour message is back in the box — tap send to try again.', transient:true}); S.lastFailed = text; }
+  try{ await S.store.saveChat(S.chat.filter(m=>!m.transient)); }catch(e){ console.warn(e); }
   if(location.hash==='#coach') viewCoach();
 }
 
