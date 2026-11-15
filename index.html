@@ -144,6 +144,7 @@ b.dw{background:var(--accent)} b.dn{background:#7fb3ff}
 .sets{display:grid;gap:6px}
 .setrow{display:grid;grid-template-columns:34px 1fr 1fr 34px;gap:6px;align-items:center}
 .setrow.one{grid-template-columns:34px 1fr 34px}
+.btn.wt-on{border-color:var(--accent);color:var(--accent)}
 .setrow .n{font:700 14px "Barlow Condensed";color:var(--muted);text-align:center}
 .setrow input{padding:9px 10px}
 .setrow .x{background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer}
@@ -1192,7 +1193,7 @@ function startDraft(dayIdx, date){
   const day = dayIdx!=null && plan() ? plan().days[dayIdx] : null;
   S.draft = {
     dayIdx, dayName: day?day.name:'Custom workout', date: date || todayStr(),
-    exercises: day ? day.exercises.filter(id=>EXBY[id]).map(id=>({id, sets:blankSets(EXBY[id], rx(EXBY[id],p).sets)})) : [],
+    exercises: day ? day.exercises.filter(id=>EXBY[id]).map(id=>({id, sets:blankSets(EXBY[id], rx(EXBY[id],p).sets), ...(canAddWeight(EXBY[id]) && lastHadWeight(id) ? {addWeight:true} : {})})) : [],
     cardioMin:'', effort:'', notes:'',
   };
 }
@@ -1203,13 +1204,17 @@ function lastFor(id){
 function fmtSet(s, ex){
   if(ex.p==='cardio') return `${s.r} min`;
   if(ex.t) return `${s.r}s`;
+  if(s.w && !usesWeight(ex)) return `+${s.w} lb × ${s.r}`;   // weighted bodyweight move
   return s.w ? `${s.w}×${s.r}` : `${s.r} reps`;
 }
 // Weight is only asked for when the exercise uses a weight (dumbbells, kettlebell, barbell, machines, cables).
 // Bodyweight, band and pull-up bar exercises just log reps.
 const WEIGHTED_GEAR = ['dumbbells','kettlebell','barbell','machines','cable'];
 const usesWeight = ex => !!ex && (ex.needs||[]).some(n=>WEIGHTED_GEAR.includes(n));
-function setFields(ex){ return ex.p==='cardio' ? [['r','min']] : ex.t ? [['r','sec']] : usesWeight(ex) ? [['w','lb'],['r','reps']] : [['r','reps']]; }
+// For bodyweight moves, weight can be switched on per exercise (weighted vest, dumbbell, belt).
+const canAddWeight = ex => !!ex && ex.p!=='cardio' && !ex.t && !usesWeight(ex);
+function setFields(ex, entry){ return ex.p==='cardio' ? [['r','min']] : ex.t ? [['r','sec']] : (usesWeight(ex) || (entry && entry.addWeight)) ? [['w', usesWeight(ex)?'lb':'+ lb'],['r','reps']] : [['r','reps']]; }
+const lastHadWeight = id => { const L = lastFor(id); return !!(L && L.sets.some(s=>s.w)); };
 
 function viewWorkout(){
   const p = profile();
@@ -1238,7 +1243,7 @@ function viewWorkout(){
   $('#cmin').oninput = e=> d.cardioMin = e.target.value;
   $('#effort').oninput = e=> d.effort = e.target.value;
   $('#lnotes').oninput = e=> d.notes = e.target.value;
-  $('#addex').onchange = e=>{ const id=e.target.value; if(!id) return; d.exercises.push({id, sets:blankSets(EXBY[id], p?rx(EXBY[id],p).sets:3)}); viewWorkout(); setTimeout(()=>document.querySelectorAll('.logex')[d.exercises.length-1]?.scrollIntoView({behavior:'smooth',block:'center'}),50); };
+  $('#addex').onchange = e=>{ const id=e.target.value; if(!id) return; d.exercises.push({id, sets:blankSets(EXBY[id], p?rx(EXBY[id],p).sets:3), ...(canAddWeight(EXBY[id]) && lastHadWeight(id) ? {addWeight:true} : {})}); viewWorkout(); setTimeout(()=>document.querySelectorAll('.logex')[d.exercises.length-1]?.scrollIntoView({behavior:'smooth',block:'center'}),50); };
   const list = $('#exlist');
   list.addEventListener('input', e=>{ const t=e.target; if(t.dataset.f==null) return; const [i,s]=[+t.dataset.i,+t.dataset.s]; d.exercises[i].sets[s][t.dataset.f]=t.value; });
   list.addEventListener('click', e=>{
@@ -1247,13 +1252,14 @@ function viewWorkout(){
     if(b.dataset.act==='addset'){ const sets=d.exercises[i].sets; const last=sets[sets.length-1]; sets.push({w:last?last.w:'',r:last?last.r:''}); viewLogKeep(); }
     if(b.dataset.act==='delset'){ d.exercises[i].sets.splice(+b.dataset.s,1); viewLogKeep(); }
     if(b.dataset.act==='delex'){ d.exercises.splice(i,1); viewLogKeep(); }
-    if(b.dataset.act==='copy'){ const L=lastFor(d.exercises[i].id); if(L){ d.exercises[i].sets = L.sets.map(s=>({w:s.w??'',r:s.r??''})); viewLogKeep(); } }
+    if(b.dataset.act==='copy'){ const L=lastFor(d.exercises[i].id); if(L){ d.exercises[i].sets = L.sets.map(s=>({w:s.w??'',r:s.r??''})); if(L.sets.some(s=>s.w) && canAddWeight(EXBY[d.exercises[i].id])) d.exercises[i].addWeight = true; viewLogKeep(); } }
+    if(b.dataset.act==='togglew'){ const e=d.exercises[i]; e.addWeight = !e.addWeight; if(!e.addWeight) e.sets.forEach(s=>s.w=''); viewLogKeep(); }
   });
   $('#savew').onclick = saveWorkout;
 }
 function viewLogKeep(){ const y=window.scrollY; viewWorkout(); window.scrollTo(0,y); }
 function logExHtml(e, i, p){
-  const ex = EXBY[e.id], L = lastFor(e.id), fields = setFields(ex), target = p ? rx(ex,p).text : '';
+  const ex = EXBY[e.id], L = lastFor(e.id), fields = setFields(ex, e), target = p ? rx(ex,p).text : '';
   return `<div class="logex">
     <div class="top"><div class="t"><div style="font-weight:600">${esc(ex.name)}</div>
       <div class="hint">${target?`Target ${target}`:''}${L?`${target?' · ':''}Last (${L.date.slice(5).replace('-','/')}): ${L.sets.map(s=>fmtSet(s,ex)).join(', ')}`:''}</div></div>
@@ -1261,13 +1267,13 @@ function logExHtml(e, i, p){
     <div class="sets">${e.sets.map((s,si)=>`<div class="setrow ${fields.length===1?'one':''}"><div class="n">${si+1}</div>
       ${fields.map(([f,ph])=>`<input type="number" inputmode="decimal" min="0" placeholder="${ph}" aria-label="Set ${si+1} ${ph}" data-i="${i}" data-s="${si}" data-f="${f}" value="${esc(s[f])}">`).join('')}
       <button class="x" data-act="delset" data-i="${i}" data-s="${si}" aria-label="Remove set">×</button></div>`).join('')}</div>
-    <div class="row" style="margin-top:8px"><button class="btn sm" data-act="addset" data-i="${i}">+ Set</button>${L?`<button class="btn sm ghost" data-act="copy" data-i="${i}">Copy last time</button>`:''}</div>
+    <div class="row" style="margin-top:8px"><button class="btn sm" data-act="addset" data-i="${i}">+ Set</button>${canAddWeight(ex)?`<button class="btn sm ${e.addWeight?'wt-on':'ghost'}" data-act="togglew" data-i="${i}">${e.addWeight?'✓ Weighted':'+ Weight'}</button>`:''}${L?`<button class="btn sm ghost" data-act="copy" data-i="${i}">Copy last time</button>`:''}</div>
   </div>`;
 }
 async function saveWorkout(){
   const d = S.draft;
   const exercises = d.exercises.map(e=>({id:e.id, name:EXBY[e.id].name, pattern:EXBY[e.id].p,
-    sets:e.sets.filter(s=>num(s.r)>0).map(s=>{ const o={r:num(s.r)}; if(usesWeight(EXBY[e.id]) && num(s.w)>0) o.w=num(s.w); return o; })})).filter(e=>e.sets.length);
+    sets:e.sets.filter(s=>num(s.r)>0).map(s=>{ const o={r:num(s.r)}; if((usesWeight(EXBY[e.id]) || e.addWeight) && num(s.w)>0) o.w=num(s.w); return o; })})).filter(e=>e.sets.length);
   const cardioMin = num(d.cardioMin);
   if(!exercises.length && !cardioMin){ $('#lerr').textContent = 'Enter reps (or time) for at least one set before saving.'; return; }
   const w = { date:d.date, dayName:d.dayName, exercises, cardioMin, effort:Math.min(10,num(d.effort))||null, notes:d.notes.trim(), createdAt:Date.now() };
@@ -1325,7 +1331,7 @@ function viewProgress(){
     <div class="card"><h3 style="margin-bottom:8px">Workouts per week</h3>${chart}</div>
     ${prs.length?`<div class="card"><h3 style="margin-bottom:6px">Personal bests</h3>
       <table class="pr"><thead><tr><th>Exercise</th><th class="n" style="text-align:right">Best set</th><th class="n" style="text-align:right">Est. max</th></tr></thead><tbody>
-      ${prs.map(x=>`<tr><td>${esc(x.name)}</td><td class="n">${fmtSet(x.best,x.ex)}</td><td class="n">${x.kind==='w'&&!x.ex.t?Math.round(x.score)+' lb':'—'}</td></tr>`).join('')}
+      ${prs.map(x=>`<tr><td>${esc(x.name)}</td><td class="n">${fmtSet(x.best,x.ex)}</td><td class="n">${x.kind==='w'&&!x.ex.t&&usesWeight(x.ex)?Math.round(x.score)+' lb':'—'}</td></tr>`).join('')}
       </tbody></table><div class="hint" style="margin-top:6px">Est. max = estimated one-rep max (Epley formula).</div></div>`:''}
     <div class="card"><h3 style="margin-bottom:4px">History</h3>
       ${W.map(w=>{ const dt=parseYmd(w.date); const sets=w.exercises.reduce((a,e)=>a+e.sets.length,0); return `
