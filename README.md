@@ -11,6 +11,9 @@ A workout tracker for working parents. Enter your height, weight, age, goal, sch
 - **Progress** – weekly goal tracking, streaks, volume, personal bests and history
 - **Coach** – an AI coach (Gemini via Firebase AI Logic) that sets up your profile by chatting, answers questions, and can swap exercises or adjust your plan with one tap
 
+## Install on your phone
+Open the live site in Safari (iPhone) or Chrome (Android) → **Share → Add to Home Screen** (iPhone) or **Install app** (Android). It opens full-screen with its own icon and loads even without a connection.
+
 ## Data
 - **Signed in (Google):** saved in Firestore — `users/{uid}` (profile + plan), `users/{uid}/workouts/{id}`, `users/{uid}/coach/chat`. Security rules are in `firestore.rules`.
 - **Signed out:** saved in the browser (localStorage). Anything saved there moves into your account the first time you sign in.

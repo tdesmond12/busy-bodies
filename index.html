@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Busy Bodies — Workout Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1113">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Busy Bodies">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -868,6 +876,7 @@ async function doSignIn(){
     if(e.code==='auth/popup-blocked' || e.code==='auth/operation-not-supported-in-this-environment'){ await FB.A.signInWithRedirect(FB.auth, provider); return; }
     if(e.code==='auth/unauthorized-domain') toast('Add this site to Firebase → Authentication → Authorized domains');
     else if(e.code==='auth/operation-not-allowed') toast('Turn on Google sign-in in Firebase → Authentication');
+    else if(S.standalone) toast('Sign-in didn’t finish in the home-screen app — try again, or tell Claude');
     else if(e.code!=='auth/popup-closed-by-user' && e.code!=='auth/cancelled-popup-request') toast('Sign-in didn’t work — try again');
   }
 }
@@ -1158,6 +1167,12 @@ async function init(){
   });
 }
 window.go = go;
+// Installable app: register the service worker (works on https only, e.g. GitHub Pages).
+if('serviceWorker' in navigator && location.protocol==='https:'){
+  window.addEventListener('load', ()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('SW failed', e)));
+}
+// Running from the home screen?
+S.standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 window.addEventListener('hashchange', route);
 init();
 </script>
