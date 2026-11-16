@@ -1064,7 +1064,9 @@ function toItem(f, src){
   const opts = portionOpts(f), du = defaultUnit(opts), o = opts[du];
   const amt = o.label==='g' ? 100 : 1;
   const parts = f.name.split(' — ');
-  return { key:src+':'+f.name, name: src==='local' ? f.name : parts[0], brand: src==='local' ? '' : (parts[1]||''), src, verified: src!=='off', food:f, opts, du, amt };
+  const brand = src==='local' ? '' : (parts[1]||''), nm = src==='local' ? f.name : parts[0];
+  const tidy = t => t && t===t.toLowerCase() ? titleCase(t) : t;   // "trader joes" → "Trader Joes"
+  return { key:src+':'+f.name, name: tidy(nm), brand: tidy(brand), src, verified: src!=='off', food:f, opts, du, amt };
 }
 function itemDefault(it){
   if(it.fixed) return {...it.per, label: it.label};
@@ -1090,13 +1092,24 @@ function sheetResults(){
   const recs = recentFoods().filter(r=>matchScore({name:r.name, brand:r.brand||''}, toks)>=0.6).map(r=>toItem(r,'recent'));
   const local = (FOODS ? searchLocal(q) : []).map(f=>toItem(f,'local'));
   const online = F.onlineQ===F.q ? F.online.map(f=>toItem(f, f.src==='off'?'off':'usda')) : [];
-  const seen = new Set(), all = [];
+  const all = [], kept = [];
   const prio = {fav:0, recent:1, local:2, usda:3, off:4};
-  [...favs, ...recs, ...local, ...online].forEach((it,i)=>{ const k=(it.name+'|'+it.brand).toLowerCase(); if(seen.has(k)) return; seen.add(k); all.push({it, i, sc: matchScore({name:it.name.replace(/[’']/g,''), brand:it.brand.replace(/[’']/g,'')}, toks)}); });
+  // Merge near-duplicates: same words in the name (any order, ignoring case/punctuation/plurals), same brand,
+  // and calories within ~8%. The first one wins — your own foods, then USDA, then Open Food Facts.
+  [...favs, ...recs, ...local, ...online].forEach((it,i)=>{
+    const nk = normWords(it.name), bk = normWords(it.brand), cal = itemDefault(it).cal;
+    if(kept.some(k=>k.bk===bk && sameWords(k.nk, nk) && Math.abs(k.cal-cal) <= Math.max(10, k.cal*0.08))) return;
+    kept.push({nk, bk, cal});
+    all.push({it, i, sc: matchScore({name:it.name.replace(/[’']/g,''), brand:it.brand.replace(/[’']/g,'')}, toks)});
+  });
   // Best word coverage first (so "trader joe's" pulls the branded product up), then your own foods, then list order.
   all.sort((a,b)=> (b.sc - a.sc) || (prio[a.it.src]-prio[b.it.src]) || (a.i-b.i));
   return { list: all.slice(0,40).map(x=>x.it) };
 }
+const STOP = new Set(['the','and','with','a','of','in','co','inc','llc','company','brand','brands']);
+// "Trader Joe's" → "joe trader"; "Steel cut oats" → "cut oat steel"
+const normWords = s => [...new Set(String(s||'').toLowerCase().replace(/[’'`]/g,'').split(/[^a-z0-9]+/).filter(w=>w && !STOP.has(w)).map(w=>w.length>3 ? w.replace(/(es|s)$/,'') : w.replace(/s$/,'')))].sort().join(' ');
+const sameWords = (a, b) => a===b;
 function rowHtml(it, idx){
   const d = itemDefault(it);
   const sub = [`${Math.round(d.cal)} cal`, d.label, it.brand || (it.src==='local'?'':''), it.src==='fav'?'★ favorite':it.src==='recent'?'recent':''].filter(Boolean).join(', ');
