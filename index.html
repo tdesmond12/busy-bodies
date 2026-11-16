@@ -1098,7 +1098,7 @@ function sheetResults(){
   // and calories within ~8%. The first one wins — your own foods, then USDA, then Open Food Facts.
   [...favs, ...recs, ...local, ...online].forEach((it,i)=>{
     const nk = normWords(it.name), bk = normWords(it.brand), cal = itemDefault(it).cal;
-    if(kept.some(k=>k.bk===bk && sameWords(k.nk, nk) && Math.abs(k.cal-cal) <= Math.max(10, k.cal*0.08))) return;
+    if(kept.some(k=>(k.bk===bk || (k.bk && bk && (k.bk.includes(bk) || bk.includes(k.bk)))) && sameWords(k.nk, nk) && Math.abs(k.cal-cal) <= Math.max(10, k.cal*0.08))) return;
     kept.push({nk, bk, cal});
     all.push({it, i, sc: matchScore({name:it.name.replace(/[’']/g,''), brand:it.brand.replace(/[’']/g,'')}, toks)});
   });
@@ -1109,7 +1109,16 @@ function sheetResults(){
 const STOP = new Set(['the','and','with','a','of','in','co','inc','llc','company','brand','brands']);
 // "Trader Joe's" → "joe trader"; "Steel cut oats" → "cut oat steel"
 const normWords = s => [...new Set(String(s||'').toLowerCase().replace(/[’'`]/g,'').split(/[^a-z0-9]+/).filter(w=>w && !STOP.has(w)).map(w=>w.length>3 ? w.replace(/(es|s)$/,'') : w.replace(/s$/,'')))].sort().join(' ');
-const sameWords = (a, b) => a===b;
+// Names count as the same product when one's words are (almost) all inside the other's,
+// e.g. "steel cut oats" vs "organic steel cut oats" vs "quick cook steel cut oats" (with the same brand and calories).
+const sameWords = (a, b) => {
+  if(a===b) return true;
+  const A = a.split(' ').filter(Boolean), B = b.split(' ').filter(Boolean);
+  if(!A.length || !B.length) return false;
+  const [small, big] = A.length<=B.length ? [A,B] : [B,A];
+  const inside = small.filter(w=>big.includes(w)).length;
+  return inside >= Math.max(2, small.length - (small.length>=4 ? 1 : 0)) && inside/small.length >= 0.75;
+};
 function rowHtml(it, idx){
   const d = itemDefault(it);
   const sub = [`${Math.round(d.cal)} cal`, d.label, it.brand || (it.src==='local'?'':''), it.src==='fav'?'★ favorite':it.src==='recent'?'recent':''].filter(Boolean).join(', ');
