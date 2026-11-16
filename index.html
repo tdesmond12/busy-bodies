@@ -53,6 +53,32 @@ button.badge.on{border-color:var(--accent)}
 .fav span{font-size:12px;color:var(--muted)}
 .fav i{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;font-style:normal;font-size:14px;display:grid;place-items:center}
 .photo-btn{text-align:center}
+body.noscroll{overflow:hidden}
+.sheet{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom)}
+.sheet-in{max-width:760px;margin:0 auto;padding:10px 14px 40px}
+.fstop{display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;background:var(--bg);padding:6px 0;z-index:2}
+.fstype{width:auto;background:none;border:0;color:var(--accent);font:700 18px Inter,sans-serif;padding:6px 4px;text-align:center}
+.fssearch{position:sticky;top:50px;background:var(--bg);padding-bottom:8px;z-index:2}
+.fssearch input{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:99px;padding:12px 18px;font:inherit;font-size:16px}
+.fsec{font:700 20px "Barlow Condensed";text-transform:uppercase;margin:14px 2px 8px}
+.frow{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px 8px 4px 4px;margin-bottom:8px}
+.fhit{flex:1;min-width:0;text-align:left;background:none;border:0;color:var(--text);font:inherit;padding:10px;cursor:pointer}
+.fhit b{display:block;font-size:15px}
+.fhit span{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fplus{flex:none;width:44px;height:44px;border-radius:50%;border:0;background:var(--panel2);color:var(--accent);font-size:26px;line-height:1;cursor:pointer}
+.vbadge{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;background:#2fb36b;color:#fff;font-size:11px;vertical-align:2px}
+.fdrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.fdrow span{color:var(--muted);font-size:14px}
+.fdrow select,.fdrow input{width:auto;max-width:60%;text-align:right}
+.fdrow .fstype{font-size:15px}
+.fdmac{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:6px;margin:14px 0 6px;text-align:center}
+.fdmac div{background:var(--panel2);border-radius:12px;padding:10px 4px}
+.fdmac b{display:block;font:700 20px "Barlow Condensed"}
+.fdmac span{font-size:11px;color:var(--muted)}
+.fdmac .big b{font-size:26px;color:var(--accent)}
+.msec{border-top:1px solid var(--line);padding-top:8px;margin-top:8px}
+.msec-h{display:flex;justify-content:space-between;align-items:baseline}
+.addfood{background:none;border:0;color:var(--accent);font:600 14px Inter,sans-serif;padding:8px 0;cursor:pointer}
 .fb input[type=search]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:11px 12px;font:inherit;font-size:16px}
 .fbrow{border-bottom:1px solid var(--line)}
 .fbhit{display:block;width:100%;text-align:left;background:none;border:0;color:var(--text);font:inherit;padding:9px 2px;cursor:pointer}
@@ -791,11 +817,15 @@ async function viewNutrition(){
     </div>
 
     <div class="card">
-      <h3 style="margin-bottom:8px">Meals</h3>
-      ${d.meals.length ? d.meals.map((m,i)=>`<div class="meal"><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(m.name)}</div><div class="hint">${esc(m.type)}${m.cal?` · ${m.cal} cal`:''}${m.protein?` · ${m.protein} g protein`:''}${m.src==='photo'?' · 📷':''}${m.servings&&m.servings!==1?` · ${m.servings}× servings`:''}</div>${m.items&&m.items.length?`<div class="hint">${m.items.map(x=>`${esc(shortName(x.name))} (${esc(x.label)})`).join(' · ')}</div>`:''}</div>
-        <button class="star ${isFav(m)?'on':''}" data-favmeal="${i}" aria-label="${isFav(m)?'Saved as favorite':'Save as favorite'}">${isFav(m)?'★':'☆'}</button><button class="x" data-delmeal="${i}" aria-label="Remove">×</button></div>`).join('') : '<p class="muted small" style="margin:0 0 6px">Nothing logged yet.</p>'}
+      <h3 style="margin-bottom:4px">Food diary</h3>
+      ${MEAL_TYPES.map(mt=>{ const rows = d.meals.map((m,i)=>[m,i]).filter(([m])=>(m.type||'Snack')===mt); const sub = rows.reduce((a,[m])=>a+(m.cal||0),0);
+        return `<div class="msec"><div class="msec-h"><b>${mt}</b><span class="muted small">${sub?sub.toLocaleString()+' cal':''}</span></div>
+          ${rows.map(([m,i])=>`<div class="meal"><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(m.name)}</div><div class="hint">${[m.label, m.brand, m.cal?`${m.cal} cal`:'', m.protein?`${m.protein} g protein`:'', m.src==='photo'?'📷':'', m.servings&&m.servings!==1?`${m.servings}× servings`:''].filter(Boolean).map(esc).join(', ')}</div>${m.items&&m.items.length?`<div class="hint">${m.items.map(x=>`${esc(shortName(x.name))} (${esc(x.label)})`).join(' · ')}</div>`:''}</div>
+            <button class="star ${isFav(m)?'on':''}" data-favmeal="${i}" aria-label="${isFav(m)?'Saved as favorite':'Save as favorite'}">${isFav(m)?'★':'☆'}</button><button class="x" data-delmeal="${i}" aria-label="Remove">×</button></div>`).join('')}
+          <button class="addfood" data-addfood="${mt}">+ Add food</button></div>`; }).join('')}
 
-      <div class="seg" style="margin:12px 0 10px">${MEAL_TYPES.map((m,i)=>`<input type="radio" id="mt-${i}" name="mtype" value="${m}" ${m===mealType?'checked':''}><label for="mt-${i}">${m}</label>`).join('')}</div>
+      <div class="k small muted" style="font-weight:600;margin:14px 0 6px">QUICK ADD TO</div>
+      <div class="seg" style="margin:0 0 10px">${MEAL_TYPES.map((m,i)=>`<input type="radio" id="mt-${i}" name="mtype" value="${m}" ${m===mealType?'checked':''}><label for="mt-${i}">${m}</label>`).join('')}</div>
 
       <div class="row" style="justify-content:space-between;margin-bottom:6px"><span class="k small muted" style="font-weight:600">Quick add favorites</span>${favs.length?`<button class="btn sm ghost" id="favEditBtn" style="padding:2px 6px">${S.favEdit?'Done':'Edit'}</button>`:''}</div>
       ${favs.length ? `<div class="favs">${favs.map(f=>`<button class="fav" data-fav="${esc(f.id)}"><b>${esc(f.name)}</b><span>${f.cal?f.cal+' cal':''}${f.protein?` · ${f.protein}g`:''}</span>${S.favEdit?'<i data-delfav="'+esc(f.id)+'">×</i>':''}</button>`).join('')}</div>`
@@ -803,11 +833,11 @@ async function viewNutrition(){
 
       <div class="grid2" style="margin-top:12px">
         <label class="btn photo-btn ${aiOK?'':'disabled'}">📷 Snap a meal<input type="file" id="mealPhoto" accept="image/*" hidden ${aiOK?'':'disabled'}></label>
-        <button class="btn" id="showManual">${S.manualOpen?'Close':'🔍 Add food'}</button>
+        <button class="btn" id="showManual">🔍 Search foods</button>
       </div>
       ${aiOK?'':'<p class="hint" style="margin:6px 0 0">Sign in to scan meal photos.</p>'}
       <div id="scanBox">${scanHtml()}</div>
-      ${S.manualOpen ? fbHtml() : ''}
+
     </div>
 
     <div class="card">
@@ -851,8 +881,8 @@ async function viewNutrition(){
     logMeal(d, date, {...f, src:'fav'}); toast(`Added ${f.name}`); rerender();
   });
   // manual
-  $('#showManual').onclick = ()=>{ S.manualOpen=!S.manualOpen; if(!S.manualOpen) S.fb=null; rerender(); if(S.manualOpen) setTimeout(()=>$('#fbQ')?.focus(), 60); };
-  if(S.manualOpen) bindFb(d, date);
+  $('#showManual').onclick = ()=>openFoodSheet(S.mealType, date);
+  document.querySelectorAll('[data-addfood]').forEach(b=>b.onclick=()=>{ S.mealType = b.dataset.addfood; openFoodSheet(b.dataset.addfood, date); });
   // photo
   $('#mealPhoto')?.addEventListener('change', e=>{ const file=e.target.files[0]; e.target.value=''; if(file) scanMeal(file); });
   bindScan(d, date);
@@ -954,7 +984,7 @@ async function searchUSDA(q){
   return (j.foods||[]).map(f=>{
     const portions = [];
     const su = String(f.servingSizeUnit||'').toLowerCase();
-    if(f.servingSize && /^(g|grm|ml|mlt)$/.test(su)) portions.push([`1 serving${f.householdServingFullText?` (${f.householdServingFullText})`:''}`, +f.servingSize]);
+    if(f.servingSize && /^(g|grm|ml|mlt)$/.test(su)) portions.push([String(f.householdServingFullText||'').trim() ? String(f.householdServingFullText).trim().toLowerCase() : `1 serving`, +f.servingSize]);
     for(const m of (f.foodMeasures||[]).slice(0,4)) if(m.gramWeight && m.disseminationText && !/quantity not specified/i.test(m.disseminationText)) portions.push([m.disseminationText, +m.gramWeight]);
     const brand = f.brandName || f.brandOwner;
     return { name: titleCase(f.description) + (brand ? ` — ${titleCase(brand)}` : ''), online:true,
@@ -984,7 +1014,7 @@ async function searchOFF(q){
     const n = p.nutriments||{};
     const kcal = +n['energy-kcal_100g'] || (n['energy_100g'] ? n['energy_100g']/4.184 : 0);
     const portions = []; const sq = +p.serving_quantity;
-    if(sq>0) portions.push([`1 serving${p.serving_size?` (${p.serving_size})`:''}`, sq]);
+    if(sq>0) portions.push([p.serving_size && !/^\s*\d+(\.\d+)?\s*g\s*$/i.test(p.serving_size) ? String(p.serving_size).trim() : '1 serving', sq]);
     const brand = String(p.brands||'').split(',')[0].trim();
     return { name: (p.product_name||'').trim() + (brand ? ` — ${brand}` : ''), online:true, src:'off',
       kcal: Math.round(kcal), p: Math.round((+n.proteins_100g||0)*10)/10, c: Math.round((+n.carbohydrates_100g||0)*10)/10, f: Math.round((+n.fat_100g||0)*10)/10, portions };
@@ -998,144 +1028,218 @@ async function searchOnline(q){
   if(!out.length && errs.length===2) throw new Error(errs.join('; '));
   return {foods: out, errs};
 }
+// "2 large", "1/4 cup uncooked", "2 × 1/4 cup uncooked", "150 g"
+function unitLabel(amt, o){
+  if(o.label==='g') return `${amt} g`;
+  if(o.label==='oz') return `${amt} oz`;
+  if(/^\d/.test(o.label)) return amt===1 ? o.label : `${amt} × ${o.label}`;
+  return `${amt} ${o.label}`;
+}
 const portionOpts = f => [...(f.portions||[]).map(([l,g])=>({label:l.replace(/^1 /,''), g})), {label:'g', g:1}, {label:'oz', g:28.35}];
 function macrosFor(f, grams){ const k = grams/100; return { cal:Math.round(f.kcal*k), protein:Math.round(f.p*k*10)/10, carbs:Math.round(f.c*k*10)/10, fat:Math.round(f.f*k*10)/10 }; }
 
-const fb = () => S.fb || (S.fb = {q:'', items:[], servings:1, name:'', fav:false, online:null, onlineState:'', pick:null});
 function recentFoods(){ const n=nutritionSettings(); if(!Array.isArray(n.recentFoods)) n.recentFoods=[]; return n.recentFoods; }
 
-function fbResultsHtml(){
-  const B = fb(), q = B.q.trim().toLowerCase();
+// ===== Add food: full-screen search (MyFitnessPal-style) =====
+// Every result is shown at a real serving ("150 cal, 1/4 cup, Trader Joe's"). ➕ logs that serving right away;
+// tapping the row opens details to change serving size / number of servings.
+const fs = () => S.fs;
+function openFoodSheet(mealType, date){
+  S.fs = { q:'', type: mealType || S.mealType || guessMealType(), date: date || S.nDate || todayStr(), online:[], onlineQ:'', loading:false, offTried:false, detail:null, manual:false };
+  let el = document.getElementById('foodSheet');
+  if(!el){ el = document.createElement('div'); el.id = 'foodSheet'; el.className = 'sheet'; document.body.appendChild(el); }
+  document.body.classList.add('noscroll');
+  renderFoodSheet(true);
+  loadFoods().then(()=>{ if(S.fs) renderResults(); }).catch(()=>{});
+}
+function closeFoodSheet(){ document.getElementById('foodSheet')?.remove(); document.body.classList.remove('noscroll'); S.fs = null; if(location.hash==='#nutrition') S.rerenderNutrition?.(); }
+
+// A unified result: {key, name, brand, verified, src, base:{per100 or perServing}, serving:{label, g?}}
+function toItem(f, src){
+  if(src==='fav' || src==='recent'){
+    return { key:src+':'+f.name+'|'+(f.label||''), name:f.name, brand:f.brand||'', src, verified:false, fixed:true, label: f.label || '1 serving',
+      per:{cal:f.cal, protein:f.protein, carbs:f.carbs||0, fat:f.fat||0} };
+  }
+  const opts = portionOpts(f), du = defaultUnit(opts), o = opts[du];
+  const amt = o.label==='g' ? 100 : 1;
+  const parts = f.name.split(' — ');
+  return { key:src+':'+f.name, name: src==='local' ? f.name : parts[0], brand: src==='local' ? '' : (parts[1]||''), src, verified: src!=='off', food:f, opts, du, amt };
+}
+function itemDefault(it){
+  if(it.fixed) return {...it.per, label: it.label};
+  const o = it.opts[it.du], m = macrosFor(it.food, it.amt*o.g);
+  return {...m, label: unitLabel(it.amt, o)};
+}
+const displayName = n => { const t = /[a-z]/.test(n) ? n : titleCase(n); return t; };
+function matchScore(it, toks){
+  const hay = (it.name+' '+it.brand).toLowerCase();
+  let hit = 0; for(const t of toks){ const st = t.length>3 ? t.replace(/(es|s)$/,'') : t; if(hay.includes(st)) hit++; }
+  return toks.length ? hit/toks.length : 0;
+}
+function sheetResults(){
+  const F = fs(), q = F.q.trim().toLowerCase();
   if(!q){
-    const rec = recentFoods().slice(0,6);
-    return rec.length ? `<div class="k small muted" style="font-weight:600;margin:10px 0 4px">RECENT</div>${rec.map((r,i)=>fbRow({...r, recent:true}, 'r'+i)).join('')}` : `<p class="hint" style="margin:8px 0 0">Start typing — e.g. “egg”, “chicken breast”, “banana”.</p>`;
+    return { sections: [
+      ['Recent', recentFoods().slice(0,12).map(r=>toItem(r,'recent'))],
+      ['Favorites', favorites().slice(0,12).map(f=>toItem({...f, label: f.label || '1 serving'},'fav'))],
+    ]};
   }
-  const favHits = favorites().filter(f=>f.name.toLowerCase().includes(q)).slice(0,3);
-  const recHits = recentFoods().filter(r=>r.name.toLowerCase().includes(q)).slice(0,3);
-  const local = FOODS ? searchLocal(q) : [];
-  B.list = [...favHits.map(f=>({fav:true, name:f.name, cal:f.cal, protein:f.protein, carbs:f.carbs||0, fat:f.fat||0})), ...recHits.map(r=>({...r, recent:true})), ...local, ...(B.online||[])];
-  return `${B.list.map((f,i)=>fbRow(f, i)).join('') || (FOODS?'<p class="hint">No matches in the built-in list.</p>':'<p class="hint">Loading foods…</p>')}
-    <div class="row" style="margin-top:8px;gap:6px">
-      ${B.online ? '' : `<button class="btn sm" id="fbOnline" ${B.onlineState==='loading'?'disabled':''}>${B.onlineState==='loading'?'Searching…':'🔎 Search more foods'}</button>`}
-      <button class="btn sm ghost" id="fbManual">✎ Enter manually</button>
-    </div>
-    ${B.onlineState && B.onlineState!=='loading' ? `<p class="hint" style="color:var(--warn)">${esc(B.onlineState)}</p>` : ''}`;
+  const toks = q.replace(/[’']/g,'').split(/[^a-z0-9%]+/).filter(Boolean);
+  const favs = favorites().filter(f=>matchScore({name:f.name, brand:''}, toks)>=0.6).map(f=>toItem({...f, label: f.label||'1 serving'},'fav'));
+  const recs = recentFoods().filter(r=>matchScore({name:r.name, brand:r.brand||''}, toks)>=0.6).map(r=>toItem(r,'recent'));
+  const local = (FOODS ? searchLocal(q) : []).map(f=>toItem(f,'local'));
+  const online = F.onlineQ===F.q ? F.online.map(f=>toItem(f, f.src==='off'?'off':'usda')) : [];
+  const seen = new Set(), all = [];
+  const prio = {fav:0, recent:1, local:2, usda:3, off:4};
+  [...favs, ...recs, ...local, ...online].forEach((it,i)=>{ const k=(it.name+'|'+it.brand).toLowerCase(); if(seen.has(k)) return; seen.add(k); all.push({it, i, sc: matchScore({name:it.name.replace(/[’']/g,''), brand:it.brand.replace(/[’']/g,'')}, toks)}); });
+  // Best word coverage first (so "trader joe's" pulls the branded product up), then your own foods, then list order.
+  all.sort((a,b)=> (b.sc - a.sc) || (prio[a.it.src]-prio[b.it.src]) || (a.i-b.i));
+  return { list: all.slice(0,40).map(x=>x.it) };
 }
-function fbRow(f, i){
-  const B = fb(), open = B.pick===String(i);
-  const sub = f.fav ? `★ favorite · ${f.cal} cal · ${f.protein} g protein per serving`
-    : f.recent ? `${esc(f.label)} · ${f.cal} cal · ${f.protein} g protein`
-    : `${f.kcal} cal · ${f.p} g protein per 100 g${f.online?(f.src==='off'?' · Open Food Facts':' · USDA online'):''}`;
-  let editor = '';
-  if(open){
-    if(f.fav || f.recent){
-      editor = `<div class="fbedit"><div class="row" style="gap:6px"><input type="number" inputmode="decimal" id="fbAmt" value="1" min="0" step="0.25" style="width:80px"><span class="small muted">× ${f.fav?'serving':esc(f.label)}</span></div>
-        <div class="small" id="fbPrev" style="margin:6px 0"></div><button class="btn sm primary" id="fbAdd">Add to meal</button></div>`;
-    } else {
-      const opts = portionOpts(f);
-      const du = defaultUnit(opts);
-      editor = `<div class="fbedit"><div class="row" style="gap:6px"><input type="number" inputmode="decimal" id="fbAmt" value="${opts[du].label==='g'?100:1}" min="0" step="0.25" style="width:80px">
-        <select id="fbUnit" style="flex:1">${opts.map((o,j)=>`<option value="${j}" ${j===du?'selected':''}>${esc(o.label)}${o.label!=='g'&&o.label!=='oz'?` (${o.g} g)`:''}</option>`).join('')}</select></div>
-        <div class="small" id="fbPrev" style="margin:6px 0"></div><button class="btn sm primary" id="fbAdd">Add to meal</button></div>`;
-    }
+function rowHtml(it, idx){
+  const d = itemDefault(it);
+  const sub = [`${Math.round(d.cal)} cal`, d.label, it.brand || (it.src==='local'?'':''), it.src==='fav'?'★ favorite':it.src==='recent'?'recent':''].filter(Boolean).join(', ');
+  return `<div class="frow"><button class="fhit" data-open="${idx}"><b>${esc(displayName(it.name))}${it.verified?' <span class="vbadge" title="USDA data">✓</span>':''}</b><span>${esc(sub)}</span></button>
+    <button class="fplus" data-quick="${idx}" aria-label="Add ${esc(it.name)}">+</button></div>`;
+}
+function renderResults(){
+  const F = fs(); if(!F) return;
+  const box = document.getElementById('fsResults'); if(!box) return;
+  const r = sheetResults(); F.items = [];
+  let html = '';
+  if(r.sections){
+    for(const [title, list] of r.sections){ if(!list.length) continue; html += `<div class="fsec">${title}</div>` + list.map(it=>{ F.items.push(it); return rowHtml(it, F.items.length-1); }).join(''); }
+    if(!html) html = `<p class="hint" style="padding:12px 4px">Search for a food — e.g. “steel cut oats trader joe’s”, “banana”, “chicken breast”. Foods you log show up here next time.</p>`;
+  } else {
+    html = `<div class="fsec">Search results</div>` + (r.list.length ? r.list.map(it=>{ F.items.push(it); return rowHtml(it, F.items.length-1); }).join('') : (FOODS && !F.loading ? '<p class="hint" style="padding:8px 4px">No matches yet.</p>' : ''));
+    if(F.loading) html += `<p class="hint" style="padding:10px 4px">Searching online…</p>`;
+    else if(F.onlineErr) html += `<p class="hint" style="padding:6px 4px;color:var(--warn)">${esc(F.onlineErr)}</p>`;
+    if(!F.loading && F.onlineQ===F.q && !F.offTried) html += `<button class="btn sm block" id="fsMore" style="margin-top:8px">Show more results</button>`;
   }
-  return `<div class="fbrow ${open?'open':''}"><button class="fbhit" data-fbpick="${i}"><b>${esc(f.name)}</b><span>${sub}</span></button>${editor}</div>`;
+  html += `<button class="btn ghost block" id="fsManual" style="margin-top:10px">Can’t find it? Enter manually</button>
+    <p class="hint" style="text-align:center;margin-top:10px">✓ = USDA FoodData Central. Also searches Open Food Facts (ODbL).</p>`;
+  box.innerHTML = html;
+  box.querySelectorAll('[data-quick]').forEach(b=>b.onclick=()=>quickAdd(F.items[+b.dataset.quick]));
+  box.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{ F.detail = F.items[+b.dataset.open]; renderFoodSheet(); });
+  document.getElementById('fsManual').onclick = ()=>{ F.manual = true; renderFoodSheet(); };
+  document.getElementById('fsMore')?.addEventListener('click', ()=>onlineSearch(true));
 }
-function fbHtml(){
-  const B = fb();
-  const tot = B.items.reduce((t,x)=>({cal:t.cal+x.cal, protein:t.protein+x.protein, carbs:t.carbs+x.carbs, fat:t.fat+x.fat}), {cal:0,protein:0,carbs:0,fat:0});
-  const s = num(B.servings)||1;
-  return `<div class="fb">
-    ${B.manual ? `<form id="mealForm" style="margin-top:10px">
-        <div class="row" style="justify-content:space-between"><b class="small">Enter manually</b><button type="button" class="btn sm ghost" id="fbBack">← Search instead</button></div>
-        <input type="text" name="name" placeholder="What did you eat? e.g. turkey sandwich" required style="margin-top:6px">
-        <div class="grid2" style="margin-top:8px">
-          <input type="number" inputmode="numeric" name="cal" placeholder="Calories" min="0">
-          <input type="number" inputmode="numeric" name="protein" placeholder="Protein (g)" min="0">
-          <input type="number" inputmode="numeric" name="carbs" placeholder="Carbs (g, optional)" min="0">
-          <input type="number" inputmode="numeric" name="fat" placeholder="Fat (g, optional)" min="0">
-        </div>
-        <label class="toggle" style="margin-top:8px"><input type="checkbox" name="fav"><span class="small">Also save as a favorite</span></label>
-        <button class="btn primary block" style="margin-top:8px">Add ${esc((S.mealType||'meal').toLowerCase())}</button>
-      </form>` : `
-      <input type="search" id="fbQ" placeholder="Search foods…" value="${esc(B.q)}" autocomplete="off" style="margin-top:10px">
-      <div id="fbResults">${fbResultsHtml()}</div>`}
-    ${B.items.length ? `<div class="fbmeal">
-      <div class="k small muted" style="font-weight:600;margin-bottom:6px">THIS ${esc((S.mealType||'meal').toUpperCase())}</div>
-      ${B.items.map((x,i)=>`<div class="meal"><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(x.name)}</div><div class="hint">${esc(x.label)} · ${x.cal} cal · ${x.protein} g protein</div></div><button class="x" data-fbdel="${i}" aria-label="Remove">×</button></div>`).join('')}
-      <div class="row" style="justify-content:space-between;margin-top:8px"><span class="small muted">Servings of this meal</span><input type="number" inputmode="decimal" id="fbServ" value="${B.servings}" min="0.25" step="0.25" style="width:80px"></div>
-      <div style="margin:8px 0"><b>${Math.round(tot.cal*s)} cal</b> <span class="muted small">· ${Math.round(tot.protein*s)} g protein · ${Math.round(tot.carbs*s)} g carbs · ${Math.round(tot.fat*s)} g fat</span></div>
-      <input type="text" id="fbName" placeholder="Meal name (optional)" value="${esc(B.name)}">
-      <label class="toggle" style="margin-top:8px"><input type="checkbox" id="fbFav" ${B.fav?'checked':''}><span class="small">Save as a favorite</span></label>
-      <button class="btn primary block" id="fbLog" style="margin-top:8px">Log ${esc((S.mealType||'meal').toLowerCase())}</button>
-    </div>` : ''}
-    <p class="hint" style="margin-top:8px">Food data: USDA FoodData Central and <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">Open Food Facts</a> (ODbL).</p>
+let fsTimer = null, fsSeq = 0;
+async function onlineSearch(includeOFF){
+  const F = fs(); if(!F) return; const q = F.q.trim(); if(q.length<3) return;
+  const my = ++fsSeq; F.loading = true; F.onlineErr = ''; renderResults();
+  try{
+    const tasks = [searchUSDA(q)]; if(includeOFF) tasks.push(searchOFF(q));
+    const res = await Promise.allSettled(tasks);
+    if(my!==fsSeq || !S.fs) return;
+    const prev = (includeOFF && F.onlineQ===F.q) ? F.online.filter(x=>x.src!=='off') : [];
+    const got = res.flatMap(r=>r.status==='fulfilled'?r.value:[]);
+    F.online = includeOFF ? [...prev, ...got.filter(x=>x.src==='off' || !prev.length)] : got;
+    F.onlineQ = F.q; F.offTried = !!includeOFF;
+    const errs = res.filter(r=>r.status==='rejected');
+    F.onlineErr = errs.length===res.length ? 'Couldn’t reach the online food databases right now — built-in results still work.' : '';
+  }finally{ if(my===fsSeq && S.fs){ F.loading = false; renderResults(); } }
+}
+function renderFoodSheet(first){
+  const F = fs(), el = document.getElementById('foodSheet'); if(!F || !el) return;
+  const typeSel = `<select id="fsType" class="fstype">${MEAL_TYPES.map(m=>`<option ${m===F.type?'selected':''}>${m}</option>`).join('')}</select>`;
+  if(F.detail) return renderDetail(el, typeSel);
+  if(F.manual) return renderManual(el, typeSel);
+  el.innerHTML = `<div class="sheet-in">
+    <div class="fstop"><button class="iconbtn" id="fsBack" aria-label="Back">←</button>${typeSel}<span style="width:36px"></span></div>
+    <div class="fssearch"><input type="search" id="fsQ" placeholder="Search for a food" value="${esc(F.q)}" autocomplete="off" enterkeyhint="search"></div>
+    <div id="fsResults"></div>
   </div>`;
+  document.getElementById('fsBack').onclick = closeFoodSheet;
+  document.getElementById('fsType').onchange = e=>{ F.type = e.target.value; S.mealType = F.type; };
+  const q = document.getElementById('fsQ');
+  q.oninput = ()=>{ F.q = q.value; renderResults(); clearTimeout(fsTimer); fsSeq++; F.loading=false; if(F.q.trim().length>=3) fsTimer = setTimeout(()=>onlineSearch(false), 550); };
+  q.onkeydown = e=>{ if(e.key==='Enter'){ e.preventDefault(); clearTimeout(fsTimer); onlineSearch(false); q.blur(); } };
+  renderResults();
+  if(first) setTimeout(()=>q.focus(), 80);
 }
-function bindFb(d, date){
-  const B = fb();
-  const refresh = (focus) => { const box = $('#fbResults'); if(box){ box.innerHTML = fbResultsHtml(); bindFbResults(d, date); } };
-  const q = $('#fbQ');
-  if(q){
-    loadFoods().then(()=>{ if(B.q) refresh(); }).catch(()=>{ const box=$('#fbResults'); if(box && B.q) box.insertAdjacentHTML('afterbegin','<p class="hint" style="color:var(--warn)">Couldn’t load the food list — check your connection.</p>'); });
-    let t; q.addEventListener('input', ()=>{ clearTimeout(t); t=setTimeout(()=>{ B.q=q.value; B.pick=null; B.online=null; B.onlineState=''; refresh(); }, 120); });
-  }
-  bindFbResults(d, date);
-  $('#fbBack')?.addEventListener('click', ()=>{ B.manual=false; S.rerenderNutrition(); });
-  $('#mealForm')?.addEventListener('submit', async e=>{
-    e.preventDefault(); const f=new FormData(e.target); const name=String(f.get('name')||'').trim(); if(!name) return;
-    const m = {name:name.slice(0,80), cal:Math.round(num(f.get('cal')))||0, protein:Math.round(num(f.get('protein')))||0, carbs:Math.round(num(f.get('carbs')))||0, fat:Math.round(num(f.get('fat')))||0};
-    logMeal(d, date, m); if(f.get('fav')) await addFav(m);
-    toast('Meal added'); S.fb=null; S.manualOpen=false; S.rerenderNutrition();
-  });
-  document.querySelectorAll('[data-fbdel]').forEach(b=>b.onclick=()=>{ B.items.splice(+b.dataset.fbdel,1); S.rerenderNutrition(); });
-  $('#fbServ')?.addEventListener('change', e=>{ B.servings = Math.max(0.25, num(e.target.value)||1); S.rerenderNutrition(); });
-  $('#fbName')?.addEventListener('input', e=>{ B.name = e.target.value; });
-  $('#fbFav')?.addEventListener('change', e=>{ B.fav = e.target.checked; });
-  $('#fbLog')?.addEventListener('click', async ()=>{
-    const s = num(B.servings)||1;
-    const tot = B.items.reduce((t,x)=>({cal:t.cal+x.cal, protein:t.protein+x.protein, carbs:t.carbs+x.carbs, fat:t.fat+x.fat}), {cal:0,protein:0,carbs:0,fat:0});
-    const auto = B.items.length<=3 ? B.items.map(x=>x.short).join(', ') : `${B.items.slice(0,2).map(x=>x.short).join(', ')} + ${B.items.length-2} more`;
-    const m = {name:(B.name.trim()||auto).slice(0,80), cal:tot.cal*s, protein:tot.protein*s, carbs:tot.carbs*s, fat:tot.fat*s, items:B.items.map(x=>({name:x.name, label:x.label, cal:x.cal, protein:x.protein})), servings:s};
-    logMeal(d, date, m);
-    if(B.fav) await addFav({...m, cal:tot.cal, protein:tot.protein, carbs:tot.carbs, fat:tot.fat});
-    // remember individual foods for quick re-adding
-    const rec = recentFoods(); for(const x of B.items){ const i = rec.findIndex(r=>r.name===x.name && r.label===x.label); if(i>=0) rec.splice(i,1); rec.unshift({name:x.name, label:x.label, cal:x.cal, protein:x.protein, carbs:x.carbs, fat:x.fat}); }
-    nutritionSettings().recentFoods = rec.slice(0,30); saveAccount();
-    toast('Meal logged'); S.fb = null; S.manualOpen = false; S.rerenderNutrition();
-  });
+function detailCalc(it, amt, unitIdx){
+  if(it.fixed){ const a=amt; return {cal:Math.round(it.per.cal*a), protein:Math.round(it.per.protein*a*10)/10, carbs:Math.round(it.per.carbs*a*10)/10, fat:Math.round(it.per.fat*a*10)/10, label: a===1 ? it.label : `${a} × ${it.label}`}; }
+  const o = it.opts[unitIdx];
+  return {...macrosFor(it.food, amt*o.g), label: unitLabel(amt, o)};
 }
-function bindFbResults(d, date){
-  const B = fb();
-  document.querySelectorAll('[data-fbpick]').forEach(b=>b.onclick=()=>{ B.pick = B.pick===b.dataset.fbpick ? null : b.dataset.fbpick; const box=$('#fbResults'); box.innerHTML = fbResultsHtml(); bindFbResults(d, date); });
-  $('#fbManual')?.addEventListener('click', ()=>{ B.manual = true; S.rerenderNutrition(); });
-  $('#fbOnline')?.addEventListener('click', async ()=>{
-    B.onlineState = 'loading'; const box=$('#fbResults'); box.innerHTML = fbResultsHtml(); bindFbResults(d, date);
-    try{ const res = await searchOnline(B.q.trim()); B.online = res.foods; B.onlineState = res.foods.length ? '' : 'Nothing found online either — try different words, or enter it manually.'; if(res.errs.length) console.warn(res.errs); }
-    catch(e){ console.error(e); B.online = null; B.onlineState = `Couldn’t reach the online food databases right now. The built-in list still works, or enter it manually. (${e.message})`; }
-    const bx=$('#fbResults'); if(bx){ bx.innerHTML = fbResultsHtml(); bindFbResults(d, date); }
-  });
-  // portion editor
-  const sel = B.pick!=null ? (String(B.pick).startsWith('r') ? {...recentFoods()[+String(B.pick).slice(1)], recent:true} : (B.list||[])[+B.pick]) : null;
-  if(!sel) return;
-  const amt = $('#fbAmt'), unit = $('#fbUnit'), prev = $('#fbPrev');
-  const calc = () => {
-    const a = Math.max(0, num(amt.value));
-    if(sel.fav || sel.recent) return {...{cal:Math.round(sel.cal*a), protein:Math.round(sel.protein*a*10)/10, carbs:Math.round((sel.carbs||0)*a*10)/10, fat:Math.round((sel.fat||0)*a*10)/10}, label: sel.fav ? `${a} serving${a===1?'':'s'}` : (a===1 ? sel.label : `${a} × ${sel.label}`)};
-    const o = portionOpts(sel)[+unit.value], g = a*o.g;
-    return {...macrosFor(sel, g), label: o.label==='g' ? `${a} g` : o.label==='oz' ? `${a} oz` : `${a} ${o.label}`};
+function renderDetail(el, typeSel){
+  const F = fs(), it = F.detail;
+  const amt0 = it.fixed ? 1 : it.amt, unit0 = it.fixed ? 0 : it.du;
+  el.innerHTML = `<div class="sheet-in">
+    <div class="fstop"><button class="iconbtn" id="fdBack" aria-label="Back">←</button><b>Add food</b><span style="width:36px"></span></div>
+    <div class="card" style="margin-top:12px">
+      <h3 style="text-transform:none;font-family:Inter;font-size:18px">${esc(displayName(it.name))}${it.verified?' <span class="vbadge">✓</span>':''}</h3>
+      ${it.brand?`<div class="muted small">${esc(it.brand)}</div>`:''}
+      <div class="fdrow"><span>Meal</span>${typeSel}</div>
+      ${it.fixed ? `<div class="fdrow"><span>Serving size</span><b class="small">${esc(it.label)}</b></div>`
+        : `<div class="fdrow"><span>Serving size</span><select id="fdUnit">${it.opts.map((o,j)=>`<option value="${j}" ${j===unit0?'selected':''}>${esc(o.label)}${o.label!=='g'&&o.label!=='oz'&&!/\d\s*g\b/.test(o.label)?` (${Math.round(o.g*10)/10} g)`:''}</option>`).join('')}</select></div>`}
+      <div class="fdrow"><span>Number of servings</span><input type="number" inputmode="decimal" id="fdAmt" value="${amt0}" min="0" step="0.25"></div>
+      <div id="fdMacros"></div>
+      <label class="toggle"><input type="checkbox" id="fdFav" ${isFav({name:it.name})?'checked disabled':''}><span class="small">${isFav({name:it.name})?'In your favorites':'Save as a favorite'}</span></label>
+      <button class="btn primary block" id="fdAdd" style="margin-top:12px">Add to ${esc(F.type)}</button>
+    </div></div>`;
+  const amtEl = document.getElementById('fdAmt'), unitEl = document.getElementById('fdUnit');
+  const show = ()=>{
+    const m = detailCalc(it, Math.max(0,num(amtEl.value)), unitEl ? +unitEl.value : 0);
+    const kc = m.carbs*4 + m.protein*4 + m.fat*9 || 1, pc = x => Math.round(x/kc*100);
+    document.getElementById('fdMacros').innerHTML = `<div class="fdmac">
+      <div class="big"><b>${Math.round(m.cal)}</b><span>cal</span></div>
+      <div><b>${m.carbs} g</b><span>Carbs ${pc(m.carbs*4)}%</span></div>
+      <div><b>${m.fat} g</b><span>Fat ${pc(m.fat*9)}%</span></div>
+      <div><b>${m.protein} g</b><span>Protein ${pc(m.protein*4)}%</span></div></div>`;
   };
-  const show = () => { const m = calc(); prev.innerHTML = `<b>${m.cal} cal</b> <span class="muted">· ${m.protein} g protein · ${m.carbs} g carbs · ${m.fat} g fat</span>`; };
-  amt.oninput = show; if(unit) unit.onchange = show; show();
-  setTimeout(()=>amt.focus(), 30);
-  $('#fbAdd').onclick = () => {
-    const m = calc(); if(!(num(amt.value)>0)) return;
-    const short = shortName(sel.name);
-    B.items.push({name: sel.name, short, label: m.label, cal:m.cal, protein:m.protein, carbs:m.carbs, fat:m.fat});
-    B.pick = null; B.q = ''; B.online = null; B.onlineState = '';
-    S.rerenderNutrition();
-    setTimeout(()=>$('#fbQ')?.focus(), 50);
+  amtEl.oninput = show; if(unitEl) unitEl.onchange = show; show();
+  document.getElementById('fsType').onchange = e=>{ F.type = e.target.value; S.mealType = F.type; document.getElementById('fdAdd').textContent = `Add to ${F.type}`; };
+  document.getElementById('fdBack').onclick = ()=>{ F.detail = null; renderFoodSheet(); };
+  document.getElementById('fdAdd').onclick = async ()=>{
+    const a = num(amtEl.value); if(!(a>0)) return;
+    const m = detailCalc(it, a, unitEl ? +unitEl.value : 0);
+    await addFoodEntry(it, m);
+    if(document.getElementById('fdFav')?.checked && !isFav({name:it.name})) await addFav({name:it.name, brand:it.brand, label:m.label, cal:m.cal, protein:m.protein, carbs:m.carbs, fat:m.fat});
+    F.detail = null; renderFoodSheet();
   };
+}
+function renderManual(el, typeSel){
+  const F = fs();
+  el.innerHTML = `<div class="sheet-in">
+    <div class="fstop"><button class="iconbtn" id="fmBack" aria-label="Back">←</button><b>Enter manually</b><span style="width:36px"></span></div>
+    <form class="card" id="fmForm" style="margin-top:12px">
+      <div class="fdrow"><span>Meal</span>${typeSel}</div>
+      <input type="text" name="name" placeholder="Food name, e.g. Grandma’s lasagna" required style="margin-top:8px">
+      <input type="text" name="label" placeholder="Serving (optional), e.g. 1 slice" style="margin-top:8px">
+      <div class="grid2" style="margin-top:8px">
+        <input type="number" inputmode="numeric" name="cal" placeholder="Calories" min="0">
+        <input type="number" inputmode="numeric" name="protein" placeholder="Protein (g)" min="0">
+        <input type="number" inputmode="numeric" name="carbs" placeholder="Carbs (g)" min="0">
+        <input type="number" inputmode="numeric" name="fat" placeholder="Fat (g)" min="0">
+      </div>
+      <label class="toggle"><input type="checkbox" name="fav"><span class="small">Save as a favorite</span></label>
+      <button class="btn primary block" style="margin-top:12px">Add to ${esc(F.type)}</button>
+    </form></div>`;
+  document.getElementById('fsType').onchange = e=>{ F.type = e.target.value; S.mealType = F.type; };
+  document.getElementById('fmBack').onclick = ()=>{ F.manual = false; renderFoodSheet(); };
+  document.getElementById('fmForm').onsubmit = async e=>{
+    e.preventDefault(); const f = new FormData(e.target); const name = String(f.get('name')||'').trim(); if(!name) return;
+    const m = {cal:Math.round(num(f.get('cal'))), protein:Math.round(num(f.get('protein'))), carbs:Math.round(num(f.get('carbs'))), fat:Math.round(num(f.get('fat'))), label:String(f.get('label')||'').trim() || '1 serving'};
+    const it = {name, brand:'', src:'manual'};
+    await addFoodEntry(it, m);
+    if(f.get('fav')) await addFav({name, label:m.label, ...m});
+    F.manual = false; renderFoodSheet();
+  };
+}
+async function quickAdd(it){ await addFoodEntry(it, itemDefault(it)); }
+async function addFoodEntry(it, m){
+  const F = fs(); const date = F ? F.date : todayStr(), type = F ? F.type : (S.mealType||guessMealType());
+  const d = await loadDay(date);
+  d.meals.push({ name: displayName(it.name).slice(0,80), ...(it.brand?{brand:it.brand.slice(0,40)}:{}), type, label:m.label, cal:Math.round(m.cal)||0, protein:Math.round(num(m.protein))||0,
+    carbs:Math.round(num(m.carbs))||0, fat:Math.round(num(m.fat))||0, ...(it.src==='usda'||it.src==='off'||it.src==='local'?{src:it.src}:{}), ts:Date.now() });
+  saveDaySoon(date);
+  // remember for Recent
+  const rec = recentFoods(), entry = {name:displayName(it.name), brand:it.brand||'', label:m.label, cal:Math.round(m.cal), protein:m.protein, carbs:m.carbs, fat:m.fat};
+  const i = rec.findIndex(r=>r.name===entry.name && r.label===entry.label); if(i>=0) rec.splice(i,1); rec.unshift(entry);
+  nutritionSettings().recentFoods = rec.slice(0,40); saveAccount();
+  toast(`Added to ${type}: ${displayName(it.name).split(',')[0]} · ${Math.round(m.cal)} cal`);
 }
 
 // ----- favorites -----
@@ -1144,7 +1248,7 @@ const favKey = m => String(m.name||'').trim().toLowerCase();
 const isFav = m => favorites().some(f=>favKey(f)===favKey(m));
 async function addFav(m){
   if(isFav(m)) return;
-  favorites().unshift({id:'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:String(m.name).slice(0,80), cal:Math.round(num(m.cal))||0, protein:Math.round(num(m.protein))||0, ...(m.carbs?{carbs:Math.round(num(m.carbs))}:{}), ...(m.fat?{fat:Math.round(num(m.fat))}:{})});
+  favorites().unshift({id:'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:String(m.name).slice(0,80), ...(m.label?{label:String(m.label).slice(0,60)}:{}), ...(m.brand?{brand:String(m.brand).slice(0,40)}:{}), cal:Math.round(num(m.cal))||0, protein:Math.round(num(m.protein))||0, ...(m.carbs?{carbs:Math.round(num(m.carbs))}:{}), ...(m.fat?{fat:Math.round(num(m.fat))}:{})});
   nutritionSettings().favorites = favorites().slice(0,40);
   await saveAccount(); toast('Saved to favorites ★');
 }
@@ -1152,7 +1256,7 @@ async function removeFav(m){ nutritionSettings().favorites = favorites().filter(
 function logMeal(d, date, m){
   d.meals.push({name:String(m.name).slice(0,80), type:S.mealType||guessMealType(), cal:Math.round(num(m.cal))||0, protein:Math.round(num(m.protein))||0,
     ...(m.carbs?{carbs:Math.round(num(m.carbs))}:{}), ...(m.fat?{fat:Math.round(num(m.fat))}:{}), ...(m.src?{src:m.src}:{}),
-    ...(Array.isArray(m.items)&&m.items.length?{items:m.items}:{}), ...(m.servings&&m.servings!==1?{servings:m.servings}:{}), ts:Date.now()});
+    ...(Array.isArray(m.items)&&m.items.length?{items:m.items}:{}), ...(m.label?{label:String(m.label).slice(0,60)}:{}), ...(m.brand?{brand:String(m.brand).slice(0,40)}:{}), ...(m.servings&&m.servings!==1?{servings:m.servings}:{}), ts:Date.now()});
   saveDaySoon(date);
 }
 
