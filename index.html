@@ -199,6 +199,10 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.chartblk{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+.clegend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--muted);margin-top:4px}
+.clegend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.clegend i.dash{height:0;width:12px;border-top:2px dashed var(--warn);border-radius:0}
 .upask{margin-top:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 10%, transparent);font-size:14px}
 .practice div{display:flex;gap:8px;background:var(--panel2);border-radius:8px;padding:6px 8px}
 .practice .pd{color:var(--muted);min-width:46px}
@@ -2384,12 +2388,96 @@ function bindMilestones(){
   $('#closeCele')?.addEventListener('click', ()=>{ S.msCelebrate=null; rer(); });
 }
 
+
+// ----- practice charts (Progress → Programs & milestones → Charts) -----
+// sessions: oldest→newest [{date, lv, lvName, sets:[n], goal:n|null}]
+function practiceChartSvg(sessions, unit){
+  sessions = sessions.slice(-10);
+  if(!sessions.length) return `<div class="hint">No practice logged yet — use Log practice on the card.</div>`;
+  const maxSets = Math.max(...sessions.map(x=>x.sets.length), 1);
+  const maxV = Math.max(1, ...sessions.flatMap(x=>[...x.sets, x.goal||0])) * 1.12;
+  const H = 110, top = 14, colW = 30, gap = 10, Wd = Math.max(sessions.length*(colW+gap), 340), left = 0;
+  const y = v => top + (H-top) - (v/maxV)*(H-top);
+  const bw = Math.max(4, Math.min(9, (colW - (maxSets-1)*2)/maxSets));
+  let prevLv = null;
+  const cols = sessions.map((x,i)=>{
+    const cx = left + i*(colW+gap) + gap/2, n = x.sets.length, w = n*bw + (n-1)*2, x0 = cx + (colW-w)/2;
+    const lvChange = prevLv!==null && x.lv!==prevLv; prevLv = x.lv;
+    const d = parseYmd(x.date);
+    return `${lvChange?`<line x1="${cx-gap/2}" x2="${cx-gap/2}" y1="${top-6}" y2="${H}" stroke="#9aa3ad" stroke-width="1" stroke-dasharray="2 3"/><text x="${cx-gap/2+3}" y="${top-1}" fill="#9aa3ad" font-size="9">L${x.lv+1}</text>`:''}
+      ${x.goal?`<line x1="${cx}" x2="${cx+colW}" y1="${y(x.goal)}" y2="${y(x.goal)}" stroke="#ffb547" stroke-width="1.5" stroke-dasharray="3 2"/>`:''}
+      ${x.sets.map((v,j)=>{ const hit = x.goal && v>=x.goal; return `<rect x="${x0+j*(bw+2)}" y="${y(v)}" width="${bw}" height="${Math.max(1,H-y(v))}" rx="2" fill="${hit?'#c6f432':'#5b6b7d'}"><title>${d.toLocaleDateString(undefined,{month:'short',day:'numeric'})} · ${esc(x.lvName)} · set ${j+1}: ${v} ${unit}</title></rect>`; }).join('')}
+      <text x="${cx+colW/2}" y="${y(Math.max(...x.sets,0))-4}" fill="#eef1f4" font-size="10" text-anchor="middle" font-weight="600">${Math.max(...x.sets,0)}</text>
+      <text x="${cx+colW/2}" y="${H+13}" fill="#9aa3ad" font-size="9.5" text-anchor="middle">${d.getMonth()+1}/${d.getDate()}</text>`;
+  }).join('');
+  const firstLv = `<text x="2" y="${top-1}" fill="#9aa3ad" font-size="9">L${sessions[0].lv+1}</text>`;
+  return `<svg viewBox="0 0 ${Wd} ${H+18}" width="100%" style="max-height:170px" role="img" aria-label="Practice sessions"><line x1="0" x2="${Wd}" y1="${H}" y2="${H}" stroke="#2b3037"/>${firstLv}${cols}</svg>`;
+}
+const chartLegend = (goal=true) => `<div class="clegend"><span><i style="background:#c6f432"></i>${goal?'hit the goal':'set'}</span>${goal?`<span><i style="background:#5b6b7d"></i>below goal</span><span><i class="dash"></i>goal for that level</span>`:''}<span class="muted">number = best set</span></div>`;
+function msChartSessions(id){
+  const def = msDef(id); if(!def) return {sessions:[], unit:'reps'};
+  const sessions = [];
+  for(const w of [...S.workouts].reverse()) for(const e of w.exercises){
+    if(!e.ms || e.ms.id!==id) continue;
+    const lv = def.levels[e.ms.level] || {}, ex = EXBY[e.id] || {}, g = lv.goal || {};
+    const sets = e.sets.map(s=>num(s.r)).filter(v=>v>0); if(!sets.length) continue;
+    sessions.push({date:w.date, lv:e.ms.level, lvName:lv.name||e.name, sets, goal: g.reps||g.secs||null, unit: (ex.p==='cardio'||ex.p==='mobility')?'min':ex.t?'sec':'reps'});
+  }
+  return {sessions, unit: sessions.length ? sessions[sessions.length-1].unit : 'reps'};
+}
+function trackChartSessions(entry, k){
+  const sessions = [];
+  for(const w of [...S.workouts].reverse()) for(const e of w.exercises){
+    if(!e.prog || e.prog.id!==entry.id || e.prog.track!==k) continue;
+    const lv = trackLevels(entry,k)[e.prog.level] || {}, g = lv.goal || {}, ex = EXBY[e.id] || {};
+    const sets = e.sets.map(s=>num(s.r)).filter(v=>v>0); if(!sets.length) continue;
+    sessions.push({date:w.date, lv:e.prog.level, lvName:lv.name||e.name, sets, goal:g.reps||g.secs||null, unit: ex.t?'sec':'reps'});
+  }
+  return sessions;
+}
+function weeklyFlowsSvg(entry){
+  const def = prDef(entry.id), now = parseYmd(todayStr()), wk0 = new Date(now); wk0.setDate(now.getDate() - ((now.getDay()+6)%7) - 7*7);
+  const weeks = Array.from({length:8}, (_,i)=>{ const st = new Date(wk0); st.setDate(wk0.getDate()+i*7); return {start:st, n:0, min:0}; });
+  for(const w of S.workouts) for(const e of w.exercises){ if(!e.prog || e.prog.id!==entry.id) continue;
+    const i = Math.floor((parseYmd(w.date) - wk0)/(7*864e5)); if(i>=0 && i<8){ weeks[i].n++; weeks[i].min += num(e.sets[0]?.r); } }
+  const target = def.perWeek, maxN = Math.max(target, ...weeks.map(w=>w.n), 1), H=100, bw=26, gap=12, Wd=8*(bw+gap);
+  const y = n => H - (n/maxN)*(H-16);
+  return `<svg viewBox="0 0 ${Wd} ${H+18}" width="100%" style="max-height:150px" role="img" aria-label="Sessions per week">
+    <line x1="0" x2="${Wd}" y1="${y(target)}" y2="${y(target)}" stroke="#ffb547" stroke-dasharray="4 4" stroke-width="1.5"/>
+    <text x="${Wd}" y="${y(target)-4}" fill="#ffb547" font-size="10" text-anchor="end">goal ${target}/wk</text>
+    ${weeks.map((w,i)=>{ const x=i*(bw+gap)+gap/2; return `<rect x="${x}" y="${y(w.n)}" width="${bw}" height="${Math.max(0,H-y(w.n))}" rx="4" fill="${w.n>=target?'#c6f432':'#5b6b7d'}"><title>${w.n} session${w.n===1?'':'s'}, ${w.min} min</title></rect>
+      ${w.n?`<text x="${x+bw/2}" y="${y(w.n)-4}" fill="#eef1f4" font-size="10" text-anchor="middle" font-weight="600">${w.n}</text>`:''}
+      <text x="${x+bw/2}" y="${H+13}" fill="#9aa3ad" font-size="9.5" text-anchor="middle">${w.start.getMonth()+1}/${w.start.getDate()}</text>`; }).join('')}</svg>`;
+}
+function practiceChartsHtml(){
+  const st = msState(), ps = prState(); const out = [];
+  for(const e of ps.active){ const def = prDef(e.id); if(!def) continue;
+    if(def.kind==='tracks'){
+      out.push(`<div class="chartblk"><b>${def.icon} ${esc(def.title)}</b>${Object.entries(def.tracks).map(([k,t])=>{ const ss = trackChartSessions(e,k); const lv = trackLevels(e,k)[e.tracks[k]];
+        return `<div style="margin-top:10px"><div class="row" style="justify-content:space-between"><span class="small" style="font-weight:600">${t.label}</span><span class="hint">L${e.tracks[k]+1} · ${esc(lv.name)}</span></div>${practiceChartSvg(ss, ss.length?ss[ss.length-1].unit:'reps')}</div>`; }).join('')}${chartLegend()}</div>`);
+    } else {
+      out.push(`<div class="chartblk"><div class="row" style="justify-content:space-between"><b>${def.icon} ${esc(def.title)}</b><span class="hint">sessions per week</span></div>${weeklyFlowsSvg(e)}</div>`);
+    }
+  }
+  const ids = [...st.active.map(m=>m.id), ...st.done.map(d=>d.id).filter(id=>!st.active.some(m=>m.id===id))];
+  for(const id of ids){ const def = msDef(id); if(!def) continue; const {sessions, unit} = msChartSessions(id); const m = st.active.find(x=>x.id===id);
+    if(!m && !sessions.length) continue;
+    out.push(`<div class="chartblk"><div class="row" style="justify-content:space-between"><b>${def.icon||'🎯'} ${esc(def.title)}</b><span class="hint">${m?`L${m.level+1} · ${esc(def.levels[m.level].name)}`:'✓ done'}</span></div>
+      <div class="hint" style="margin-bottom:4px">Each bar is one set (${unit}), grouped by session</div>${practiceChartSvg(sessions, unit)}${sessions.some(x=>x.goal)?chartLegend():''}</div>`);
+  }
+  return out.length ? out.join('') : `<div class="hint" style="margin-top:10px">Nothing to chart yet.</div>`;
+}
+
 // Progress tab section
+function reProgress(){ const y=window.scrollY; viewProgress(); window.scrollTo(0,y); }
 function milestonesProgressHtml(){
   const st = msState(), ps = prState();
   if(!st.active.length && !st.done.length && !ps.active.length && !ps.done.length) return '';
   const trophies = [...st.done, ...ps.done].sort((a,b)=>b.date.localeCompare(a.date));
+  const tab = S.mpTab || 'overview';
   return `<div class="card"><div class="row" style="justify-content:space-between"><h3>Programs & milestones</h3><a class="small" href="#plan" onclick="S.planTab='programs'">Manage</a></div>
+    <div class="seg" style="margin-top:10px"><input type="radio" id="mp-o" name="mptab" ${tab==='overview'?'checked':''} onchange="S.mpTab='overview';reProgress()"><label for="mp-o">Overview</label><input type="radio" id="mp-c" name="mptab" ${tab==='charts'?'checked':''} onchange="S.mpTab='charts';reProgress()"><label for="mp-c">Charts</label></div>
+    ${tab==='charts' ? practiceChartsHtml() + '</div>' : `
     ${ps.active.map(e=>{ const def=prDef(e.id), n=prSessions(e);
       return `<div style="margin-top:12px"><div class="row" style="justify-content:space-between"><b>${def.icon} ${esc(def.title)}</b><span class="small muted">${n}/${def.total} sessions</span></div>
         <div class="nbar"><div class="track"><div class="fill ${n>=def.total?'done':''}" style="width:${Math.max(4,Math.min(100,Math.round(n/def.total*100)))}%"></div></div></div>
@@ -2400,7 +2488,7 @@ function milestonesProgressHtml(){
         <div class="nbar"><div class="track"><div class="fill" style="width:${Math.max(4,pct)}%"></div></div></div>
         <div class="hint">${esc(def.levels[m.level].name)} · started ${relDay(m.started)}${ev.length?` · last level-up ${relDay(ev[ev.length-1].date)}`:''}</div></div>`; }).join('')}
     ${trophies.length?`<div class="k small muted" style="font-weight:600;margin:16px 0 8px">TROPHIES</div><div class="trophies">${trophies.map(d=>`<div class="trophy"><div style="font-size:26px">🏆</div><b>${esc(d.title)}</b><span>${parseYmd(d.date).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</span></div>`).join('')}</div>`:''}
-  </div>`;
+  </div>`}`;
 }
 
 // ----- calendar (Log tab) -----
