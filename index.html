@@ -192,6 +192,7 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.upask{margin-top:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 10%, transparent);font-size:14px}
 .practice div{display:flex;gap:8px;background:var(--panel2);border-radius:8px;padding:6px 8px}
 .practice .pd{color:var(--muted);min-width:46px}
 .section-h{margin:18px 2px 10px}
@@ -1891,10 +1892,8 @@ async function checkPrograms(w){
       if(entry.tracks[k]!==e.prog.level || entry.tracks[k]>=levels.length-1) continue;
       const g = levels[entry.tracks[k]].goal, need = g.reps||g.secs;
       if(e.sets.filter(s=>s.r>=need).length >= (g.sets||1)){
-        entry.tracks[k]++; changed = true;
-        const nl = levels[entry.tracks[k]];
-        msgs.push(`⬆ ${def.tracks[k].label}: ${nl.name}`);
-        msEvent('level', 'prog:'+entry.id, entry.tracks[k]); const ev = msState().events[msState().events.length-1]; ev.title = `${def.title} · ${def.tracks[k].label}`; ev.levelName = nl.name;
+        entry.ready = entry.ready || {}; entry.ready[k] = entry.tracks[k]; changed = true;   // ask before moving up
+        msgs.push(`🎯 ${def.tracks[k].label}: goal hit! Move up?`); S.planTab = 'programs'; S.askUp = true;
       }
     }
     if(!entry.completed && w.exercises.some(e=>e.prog && e.prog.id===entry.id) && prSessions(entry) >= def.total){
@@ -1978,6 +1977,8 @@ function programsSectionHtml(){
             return `<div class="trk"><div class="row" style="justify-content:space-between"><b>${t.label}</b><span class="hint">Level ${entry.tracks[k]+1}/${levels.length}</span></div>
               <div class="ladder" style="margin:6px 0">${levels.map((l,i)=>`<span class="${i<entry.tracks[k]?'done':i===entry.tracks[k]?'cur':''}"></span>`).join('')}</div>
               <div class="small">${esc(lv.name)} <span class="muted">· ${esc(lv.plan)}</span></div>
+              ${entry.ready && entry.ready[k]===entry.tracks[k] && entry.tracks[k]<levels.length-1 ? `<div class="upask"><div><b>🎯 Goal hit!</b> Move up to <b>${esc(levels[entry.tracks[k]+1].name)}</b>?</div>
+                <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button class="btn sm primary" data-prup="${entry.id}:${k}">Move up</button><button class="btn sm" data-prstay="${entry.id}:${k}">Stay</button>${S.user&&FB?`<button class="btn sm" data-prupask="${entry.id}:${k}">💬 Coach</button>`:''}</div></div>` : ''}
               <div class="row" style="margin-top:6px;gap:6px"><button class="btn sm ghost" data-trk="${entry.id}:${k}:-1" ${entry.tracks[k]===0?'disabled':''} style="padding:2px 8px">‹</button><button class="btn sm ghost" data-trk="${entry.id}:${k}:1" ${entry.tracks[k]>=levels.length-1?'disabled':''} style="padding:2px 8px">›</button></div></div>`; }).join('')}</div>`
           : `<div style="display:grid;gap:8px;margin-top:10px">${def.flows.map(f=>`<button class="btn" data-flow="${entry.id}:${f.id}" style="text-align:left;width:100%;min-width:0;overflow:hidden"><div style="display:flex;justify-content:space-between"><span>▶ ${esc(f.name)}</span><span class="muted">${flowMinutes(f)} min</span></div>
               <div class="posestrip">${f.poses.filter((p,i,a)=>!(p.side==='left' && a[i-1] && a[i-1].name===p.name)).map(p=>poseFig(p,'ps')).join('')}</div></button>`).join('')}</div>`}
@@ -2020,9 +2021,20 @@ function bindPrograms(){
     const entry = prState().active.find(e=>e.id===b.dataset.stoppr);
     await stopProgram(b.dataset.stoppr); toast(entry && entry.mode==='replace' ? 'Program stopped — your previous plan is back' : 'Program stopped'); rer();
   });
+  document.querySelectorAll('[data-prup]').forEach(b=>b.onclick=async ()=>{
+    const [id,k]=b.dataset.prup.split(':'), entry=prState().active.find(e=>e.id===id), def=prDef(id); if(!entry) return;
+    const levels=trackLevels(entry,k); entry.tracks[k]=Math.min(levels.length-1, entry.tracks[k]+1); delete entry.ready[k];
+    const nl=levels[entry.tracks[k]]; msEvent('level','prog:'+id, entry.tracks[k]); const ev=msState().events[msState().events.length-1]; ev.title=`${def.title} · ${def.tracks[k].label}`; ev.levelName=nl.name;
+    await saveAccount(); toast(`⬆ ${def.tracks[k].label}: ${nl.name}`); rer();
+  });
+  document.querySelectorAll('[data-prstay]').forEach(b=>b.onclick=async ()=>{
+    const [id,k]=b.dataset.prstay.split(':'), entry=prState().active.find(e=>e.id===id); if(!entry) return;
+    delete entry.ready[k]; await saveAccount(); toast('Staying put — you’ll be asked again next time'); rer();
+  });
+  document.querySelectorAll('[data-prupask]').forEach(b=>b.onclick=()=>{ const [id,k]=b.dataset.prupask.split(':'); askCoachAbout('pr', id, k); });
   document.querySelectorAll('[data-trk]').forEach(b=>b.onclick=async ()=>{
     const [id,k,d]=b.dataset.trk.split(':'); const entry=prState().active.find(e=>e.id===id); if(!entry) return;
-    const max = trackLevels(entry,k).length-1; entry.tracks[k] = Math.max(0, Math.min(max, entry.tracks[k] + +d)); await saveAccount(); rer();
+    const max = trackLevels(entry,k).length-1; entry.tracks[k] = Math.max(0, Math.min(max, entry.tracks[k] + +d)); if(entry.ready) delete entry.ready[k]; await saveAccount(); rer();
   });
   document.querySelectorAll('[data-flow]').forEach(b=>b.onclick=()=>{ const [id,f]=b.dataset.flow.split(':'); playFlow(id,f); });
   $('#closePrCele')?.addEventListener('click', ()=>{ S.prCelebrate=null; rer(); });
@@ -2138,7 +2150,7 @@ async function startMilestone(id, level=0){
 }
 async function setMilestoneLevel(id, level){
   const def = msDef(id), m = msState().active.find(x=>x.id===id); if(!def || !m) return;
-  m.level = Math.max(0, Math.min(def.levels.length-1, level)); msEvent('set', id, m.level);
+  m.level = Math.max(0, Math.min(def.levels.length-1, level)); delete m.ready; msEvent('set', id, m.level);
   await saveAccount();
 }
 async function stopMilestone(id){ const st=msState(); st.active = st.active.filter(m=>m.id!==id); await saveAccount(); }
@@ -2180,8 +2192,8 @@ async function checkMilestones(w){
       msEvent('done', m.id, m.level);
       S.msCelebrate = m.id; S.planTab = 'programs'; msgs.push(`🏆 ${def.title} — done!`);
     } else {
-      m.level++; msEvent('level', m.id, m.level);
-      msgs.push(`⬆ ${def.title}: level ${m.level+1} — ${def.levels[m.level].name}`);
+      m.ready = m.level;   // goal hit — ask before moving up
+      msgs.push(`🎯 ${def.title}: goal hit! Move up?`); S.planTab = 'programs'; S.askUp = true;
     }
   }
   if(changed){ await saveAccount(); }
@@ -2221,6 +2233,10 @@ function viewMilestones(){
             <div class="muted">${def.levels.map((l,i)=>`${i+1}. ${esc(l.name)}`).join(' · ')}</div>
             <div class="hint">${esc(def.source||'')}</div>
           </div></details>
+        ${m.ready===m.level && m.level<def.levels.length-1 ? `<div class="upask">
+          <div><b>🎯 You hit the goal!</b> Move up to level ${m.level+2}: <b>${esc(def.levels[m.level+1].name)}</b>?</div>
+          <div class="hint" style="margin:2px 0 8px">${esc(def.levels[m.level+1].plan)}</div>
+          <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm primary" data-msup="${esc(m.id)}">Move up</button><button class="btn sm" data-msstay="${esc(m.id)}">Stay here</button>${S.user&&FB?`<button class="btn sm" data-msupask="${esc(m.id)}">💬 Ask the coach</button>`:''}</div></div>` : ''}
         ${practiceButtons('ms', m.id)}
         ${practiceHtml('ms', m.id)}
         <div class="row" style="margin-top:10px"><button class="btn sm ghost" data-mslevel="${esc(m.id)}:-1" ${m.level===0?'disabled':''}>‹ Back a level</button><button class="btn sm ghost" data-mslevel="${esc(m.id)}:1" ${m.level>=def.levels.length-1?'disabled':''}>Skip ahead ›</button></div>
@@ -2279,17 +2295,21 @@ function startPracticeDraft(kind, id){
   }
   go('workout');
 }
-function askCoachAbout(kind, id){
+function askCoachAbout(kind, id, upFor){
   let msg;
   if(kind==='ms'){
     const m = msState().active.find(x=>x.id===id), def = msDef(id); const lv = def.levels[m.level];
     const h = practiceHistory('ms', id, 4).map(({w,ex})=>`${w.date}: ${ex.map(e=>`${def.levels[e.ms.level]?.name||e.name} ${e.sets.map(s=>s.r).join(', ')}`).join('; ')}`).join(' | ');
-    msg = `Check-in on my "${def.title}" milestone. I'm on level ${m.level+1} of ${def.levels.length} (${lv.name}, target ${lv.plan}, move up at ${goalText(lv.goal)}). Recent practice: ${h || 'nothing logged yet'}. Should I stay at this level, add reps, add sets, or move up? What should my next session look like?`;
+    msg = `Check-in on my "${def.title}" milestone. I'm on level ${m.level+1} of ${def.levels.length} (${lv.name}, target ${lv.plan}, move up at ${goalText(lv.goal)}). Recent practice: ${h || 'nothing logged yet'}. ` +
+      (upFor && def.levels[m.level+1] ? `I just hit the goal for this level. Should I move up to level ${m.level+2} (${def.levels[m.level+1].name}, ${def.levels[m.level+1].plan}) or stay here a bit longer? If I should move up, include the set_milestone_level action.`
+             : `Should I stay at this level, add reps, add sets, or move up? What should my next session look like?`);
   } else {
     const entry = prState().active.find(e=>e.id===id), def = prDef(id);
     const h = practiceHistory('pr', id, 4).map(({w,ex})=>`${w.date}: ${ex.map(e=>`${e.name} ${e.sets.map(s=>s.r).join(', ')}`).join('; ')}`).join(' | ');
     const lv = def.kind==='tracks' ? Object.entries(def.tracks).map(([k,t])=>`${t.label} level ${entry.tracks[k]+1} (${trackLevels(entry,k)[entry.tracks[k]].name})`).join(', ') : `${prSessions(entry)} of ${def.total} sessions done`;
-    msg = `Check-in on my "${def.title}" program: ${lv}. Recent sessions: ${h || 'nothing logged yet'}. What should I change or focus on next session?`;
+    const nxt = upFor && def.tracks?.[upFor] ? trackLevels(entry,upFor)[entry.tracks[upFor]+1] : null;
+    msg = `Check-in on my "${def.title}" program: ${lv}. Recent sessions: ${h || 'nothing logged yet'}. ` +
+      (nxt ? `I just hit the goal for my ${def.tracks[upFor].label} track. Should I move up to ${nxt.name} (${nxt.plan}) or stay a bit longer? (If I should move up I'll tap Move up on the card.)` : `What should I change or focus on next session?`);
   }
   go('coach'); setTimeout(()=>sendCoach(msg), 60);
 }
@@ -2315,6 +2335,16 @@ function bindMilestones(){
     const id = makeCustomMilestone({exercise:ex, target}); if(!id){ toast('That one won’t work as a milestone'); return; }
     await startMilestone(id, 0); S.msStart=null; toast(`Started ${msDef(id).title}`); rer();
   });
+  document.querySelectorAll('[data-msup]').forEach(b=>b.onclick=async ()=>{
+    const id=b.dataset.msup, m=msState().active.find(x=>x.id===id), def=msDef(id); if(!m) return;
+    m.level++; delete m.ready; msEvent('level', id, m.level); await saveAccount();
+    toast(`⬆ ${def.title}: ${def.levels[m.level].name}`); rer();
+  });
+  document.querySelectorAll('[data-msstay]').forEach(b=>b.onclick=async ()=>{
+    const m=msState().active.find(x=>x.id===b.dataset.msstay); if(!m) return;
+    delete m.ready; await saveAccount(); toast('Staying put — you’ll be asked again next time you hit the goal'); rer();
+  });
+  document.querySelectorAll('[data-msupask]').forEach(b=>b.onclick=()=>askCoachAbout('ms', b.dataset.msupask, true));
   document.querySelectorAll('[data-mslevel]').forEach(b=>b.onclick=async ()=>{
     const [id,d]=b.dataset.mslevel.split(':'); const m=msState().active.find(x=>x.id===id); if(!m) return;
     await setMilestoneLevel(id, m.level + +d); rer();
@@ -2547,7 +2577,8 @@ async function saveWorkout(){
     S.draft = null; S.calSel = w.date; S.calMonth = ymOf(w.date);
     const msgs = [...await checkMilestones(w), ...await checkPrograms(w)];
     toast(msgs.length ? msgs.join(' · ') : 'Workout saved 💪');
-    if(S.msCelebrate || S.prCelebrate || d.returnTo==='programs'){ S.planTab = 'programs'; go('plan'); } else go('log');
+    const toProg = S.msCelebrate || S.prCelebrate || S.askUp || d.returnTo==='programs'; S.askUp = false;
+    if(toProg){ S.planTab = 'programs'; go('plan'); } else go('log');
   }catch(e){ console.error(e); btn.disabled=false; btn.textContent='Save workout'; $('#lerr').textContent = e && e.code==='quota_exceeded' ? 'Storage is full — delete some old workouts first.' : 'Couldn’t save — check your connection and try again.'; }
 }
 
