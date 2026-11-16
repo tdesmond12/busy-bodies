@@ -1,8 +1,8 @@
 // Busy Bodies service worker: lets the app open without a connection.
 // App files: network first (so updates show up right away), cached copy when offline.
 // Firebase SDK + fonts: cached after first load. Firebase API calls are never cached.
-const CACHE = 'busy-bodies-v1';
-const APP = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
+const CACHE = 'busy-bodies-v2';
+const APP = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './data/foods.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(APP)).then(() => self.skipWaiting()));

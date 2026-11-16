@@ -53,6 +53,15 @@ button.badge.on{border-color:var(--accent)}
 .fav span{font-size:12px;color:var(--muted)}
 .fav i{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;font-style:normal;font-size:14px;display:grid;place-items:center}
 .photo-btn{text-align:center}
+.fb input[type=search]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:11px 12px;font:inherit;font-size:16px}
+.fbrow{border-bottom:1px solid var(--line)}
+.fbhit{display:block;width:100%;text-align:left;background:none;border:0;color:var(--text);font:inherit;padding:9px 2px;cursor:pointer}
+.fbhit b{display:block;font-size:14px;font-weight:600}
+.fbhit span{font-size:12px;color:var(--muted)}
+.fbrow.open .fbhit b{color:var(--accent)}
+.fbedit{padding:0 2px 10px}
+.fbmeal{margin-top:12px;padding:12px;border-radius:12px;background:var(--panel2)}
+.fbmeal input{background:var(--panel)}
 .photo-btn.disabled{opacity:.5}
 .scan{margin-top:12px;padding:12px;border-radius:12px;background:var(--panel2)}
 .scan input[type=text],.scan input[type=number]{background:var(--panel);margin-top:4px}
@@ -767,7 +776,7 @@ async function viewNutrition(){
 
     <div class="card">
       <h3 style="margin-bottom:8px">Meals</h3>
-      ${d.meals.length ? d.meals.map((m,i)=>`<div class="meal"><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(m.name)}</div><div class="hint">${esc(m.type)}${m.cal?` · ${m.cal} cal`:''}${m.protein?` · ${m.protein} g protein`:''}${m.src==='photo'?' · 📷':''}</div></div>
+      ${d.meals.length ? d.meals.map((m,i)=>`<div class="meal"><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(m.name)}</div><div class="hint">${esc(m.type)}${m.cal?` · ${m.cal} cal`:''}${m.protein?` · ${m.protein} g protein`:''}${m.src==='photo'?' · 📷':''}${m.servings&&m.servings!==1?` · ${m.servings}× servings`:''}</div>${m.items&&m.items.length?`<div class="hint">${m.items.map(x=>`${esc(shortName(x.name))} (${esc(x.label)})`).join(' · ')}</div>`:''}</div>
         <button class="star ${isFav(m)?'on':''}" data-favmeal="${i}" aria-label="${isFav(m)?'Saved as favorite':'Save as favorite'}">${isFav(m)?'★':'☆'}</button><button class="x" data-delmeal="${i}" aria-label="Remove">×</button></div>`).join('') : '<p class="muted small" style="margin:0 0 6px">Nothing logged yet.</p>'}
 
       <div class="seg" style="margin:12px 0 10px">${MEAL_TYPES.map((m,i)=>`<input type="radio" id="mt-${i}" name="mtype" value="${m}" ${m===mealType?'checked':''}><label for="mt-${i}">${m}</label>`).join('')}</div>
@@ -778,19 +787,11 @@ async function viewNutrition(){
 
       <div class="grid2" style="margin-top:12px">
         <label class="btn photo-btn ${aiOK?'':'disabled'}">📷 Snap a meal<input type="file" id="mealPhoto" accept="image/*" hidden ${aiOK?'':'disabled'}></label>
-        <button class="btn" id="showManual">${S.manualOpen?'Hide form':'✎ Type it in'}</button>
+        <button class="btn" id="showManual">${S.manualOpen?'Close':'🔍 Add food'}</button>
       </div>
       ${aiOK?'':'<p class="hint" style="margin:6px 0 0">Sign in to scan meal photos.</p>'}
       <div id="scanBox">${scanHtml()}</div>
-      ${S.manualOpen ? `<form id="mealForm" style="margin-top:10px">
-        <input type="text" name="name" placeholder="What did you eat? e.g. turkey sandwich" required>
-        <div class="grid2" style="margin-top:8px">
-          <input type="number" inputmode="numeric" name="cal" placeholder="Calories" min="0">
-          <input type="number" inputmode="numeric" name="protein" placeholder="Protein (g)" min="0">
-        </div>
-        <label class="toggle" style="margin-top:8px"><input type="checkbox" name="fav"><span class="small">Also save as a favorite</span></label>
-        <button class="btn primary block" style="margin-top:8px">Add ${esc(mealType.toLowerCase())}</button>
-      </form>` : ''}
+      ${S.manualOpen ? fbHtml() : ''}
     </div>
 
     <div class="card">
@@ -834,13 +835,8 @@ async function viewNutrition(){
     logMeal(d, date, {...f, src:'fav'}); toast(`Added ${f.name}`); rerender();
   });
   // manual
-  $('#showManual').onclick = ()=>{ S.manualOpen=!S.manualOpen; rerender(); };
-  $('#mealForm')?.addEventListener('submit', async e=>{
-    e.preventDefault(); const f=new FormData(e.target); const name=String(f.get('name')||'').trim(); if(!name) return;
-    const m = {name:name.slice(0,80), cal:Math.round(num(f.get('cal')))||0, protein:Math.round(num(f.get('protein')))||0};
-    logMeal(d, date, m); if(f.get('fav')) await addFav(m);
-    toast('Meal added'); S.manualOpen=false; rerender();
-  });
+  $('#showManual').onclick = ()=>{ S.manualOpen=!S.manualOpen; if(!S.manualOpen) S.fb=null; rerender(); if(S.manualOpen) setTimeout(()=>$('#fbQ')?.focus(), 60); };
+  if(S.manualOpen) bindFb(d, date);
   // photo
   $('#mealPhoto')?.addEventListener('change', e=>{ const file=e.target.files[0]; e.target.value=''; if(file) scanMeal(file); });
   bindScan(d, date);
@@ -860,6 +856,247 @@ async function viewNutrition(){
 }
 function guessMealType(){ const h=new Date().getHours(); return h<10.5?'Breakfast':h<15?'Lunch':h<17?'Snack':h<21?'Dinner':'Snack'; }
 
+// ----- food search + meal builder -----
+// Local list: USDA FoodData Central SR Legacy (public domain), loaded once from data/foods.json.
+// Online: USDA FoodData Central search API (branded + survey foods) via "Search more foods".
+const USDA_KEY = 'wN9qWL9j6PfLrgBHhJrbMzKkrnT8Pq7ckw8mRqHF';
+let FOODS = null, FOODS_LOADING = null;
+function loadFoods(){
+  if(FOODS) return Promise.resolve(FOODS);
+  if(!FOODS_LOADING) FOODS_LOADING = fetch('data/foods.json').then(r=>{ if(!r.ok) throw new Error('foods '+r.status); return r.json(); })
+    .then(j=>{ FOODS = j.foods.map(f=>({name:f[0], cat:+f[1], kcal:f[2], p:f[3], c:f[4], f:f[5], portions:f[6], lc:f[0].toLowerCase()})); return FOODS; })
+    .catch(e=>{ FOODS_LOADING = null; throw e; });
+  return FOODS_LOADING;
+}
+const COMMON_CATS = new Set([1,5,9,10,11,12,13,15,16,20]);
+const FOOD_SYNONYMS = {oatmeal:'oats', oats:'oats', pb:'peanut butter', oj:'orange juice', hamburger:'ground beef', burger:'ground beef', tuna:'tuna', shrimp:'shrimp', mayo:'mayonnaise'};
+const PENALTY = /\b(breaded|nuggets|frozen|mix|dehydrated|dried|powder|imitation|substitute|babyfood|restaurant|fast food|unprepared|dry mix|canned|condensed|bran|flour|noodles|pickled|stewed|roll|sliced|flavor|luncheon|meatless|omelet|salted)\b/;
+// Everyday searches → the entries most people mean (shown first, in this order)
+const FEATURED = {
+  egg:['Egg, whole, cooked, hard-boiled','Egg, whole, cooked, scrambled','Egg, whole, cooked, fried','Egg, whole, raw, fresh','Egg, white, raw, fresh'],
+  oats:['Cereals, oats, regular and quick, unenriched, cooked with water (includes boiling and microwaving), without salt','Cereals, oats, regular and quick, not fortified, dry','Cereals, oats, instant, fortified, plain, prepared with water'],
+  'chicken breast':['Chicken, broilers or fryers, breast, meat only, cooked, roasted','Chicken, broilers or fryers, breast, meat only, cooked, fried'],
+  chicken:['Chicken, broilers or fryers, breast, meat only, cooked, roasted','Chicken, broilers or fryers, thigh, meat only, cooked, roasted'],
+  milk:['Milk, whole, 3.25% milkfat, with added vitamin D','Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D','Milk, lowfat, fluid, 1% milkfat, with added vitamin A and vitamin D','Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)'],
+  bread:['Bread, whole-wheat, commercially prepared','Bread, white, commercially prepared (includes soft bread crumbs)','Bread, multi-grain (includes whole-grain)'],
+  coffee:['Beverages, coffee, brewed, prepared with tap water','Beverages, coffee, brewed, espresso, restaurant-prepared'],
+  salmon:['Fish, salmon, Atlantic, farmed, cooked, dry heat','Fish, salmon, Atlantic, wild, cooked, dry heat','Fish, salmon, sockeye, cooked, dry heat'],
+  bacon:['Pork, cured, bacon, pre-sliced, cooked, pan-fried','Pork, cured, bacon, cooked, baked','Bacon, turkey, microwaved'],
+  'brown rice':['Rice, brown, long-grain, cooked'], rice:['Rice, white, long-grain, regular, enriched, cooked','Rice, brown, long-grain, cooked'],
+  pasta:['Pasta, cooked, enriched, without added salt'], spaghetti:['Pasta, cooked, enriched, without added salt'],
+  steak:['Beef, top sirloin, steak, separable lean only, trimmed to 0" fat, all grades, cooked, broiled'],
+  'greek yogurt':['Yogurt, Greek, plain, nonfat','Yogurt, Greek, plain, lowfat','Yogurt, Greek, plain, whole milk'],
+  'peanut butter':['Peanut butter, smooth style, with salt','Peanut butter, chunk style, with salt'],
+  'ground turkey':['Turkey, ground, 93% lean, 7% fat, pan-broiled crumbles'], 'ground beef':['Beef, ground, 85% lean meat / 15% fat, crumbles, cooked, pan-browned','Beef, ground, 90% lean meat / 10% fat, crumbles, cooked, pan-browned'],
+  tuna:['Fish, tuna, light, canned in water, drained solids'], almonds:['Nuts, almonds'], cheese:['Cheese, cheddar','Cheese, mozzarella, part skim milk'],
+  apple:['Apples, raw, with skin (Includes foods for USDA\'s Food Distribution Program)','Apples, raw, with skin'], potato:['Potatoes, baked, flesh and skin, without salt'],
+};
+// Ranking: every word must match a word in the name (prefix allowed); whole-word matches near the start of the
+// name, plain everyday foods and shorter names rank higher; branded / processed items rank lower.
+function searchLocal(q){
+  let qq = q.toLowerCase().trim(); if(FOOD_SYNONYMS[qq]) qq = FOOD_SYNONYMS[qq];
+  const toks = qq.split(/[^a-z0-9%]+/).filter(Boolean).map(t=>FOOD_SYNONYMS[t] && !FOOD_SYNONYMS[t].includes(' ') ? FOOD_SYNONYMS[t] : t);
+  if(!toks.length || !FOODS) return [];
+  const featKey = Object.keys(FEATURED).find(k=>k===qq || k===qq.replace(/s$/,'') || (FOOD_SYNONYMS[qq]||'')===k);
+  const feat = featKey ? FEATURED[featKey].map(n=>n.toLowerCase()) : [];
+  const stems = toks.map(t=>t.length>3 ? t.replace(/(es|s)$/,'') : t);
+  const out = [];
+  for(const f of FOODS){
+    const lc = f.lc, words = lc.split(/[^a-z0-9%]+/);
+    let ok = true, whole = 0;
+    for(let i=0;i<toks.length;i++){
+      const t = toks[i], st = stems[i];
+      if(words.some(w=>w===t || w===st || w===st+'s' || w===st+'es')) whole++;
+      else if(!words.some(w=>w.startsWith(st))){ ok=false; break; }
+    }
+    if(!ok) continue;
+    const segs = lc.split(', '), head = segs[0], early = segs.slice(0,3).join(' ');
+    let s = whole*14 - (toks.length-whole)*10;
+    if(segs[0]===qq || segs[0]===stems.join(' ') || segs[0]===stems.join(' ')+'s') s += 45;
+    else if(stems.every(st=>new RegExp('\\b'+st).test(head))) s += 25;
+    if(stems.every(st=>new RegExp('\\b'+st).test(early))) s += 12;
+    if(COMMON_CATS.has(f.cat)) s += 12;
+    if(PENALTY.test(lc)) s -= 14;
+    if(/[A-Z]{3,}/.test(f.name)) s -= 12;            // brand names in caps
+    if([9,11].includes(f.cat) && /\braw\b/.test(lc)) s += 8;
+    if([5,10,13,15,17,20,16].includes(f.cat) && /\b(cooked|roasted|boiled|grilled|broiled|baked)\b/.test(lc)) s += 8;
+    if(/\bmeat only\b/.test(lc)) s += 4;
+    if(/\bwhole\b/.test(lc) && f.cat===1) s += 6;
+    s -= lc.length * 0.25;
+    const fi = feat.findIndex(n=>lc===n || lc.startsWith(n)); if(fi>=0) s += 200 - fi*5;
+    out.push([s,f]);
+  }
+  return out.sort((a,b)=>b[0]-a[0]).slice(0,10).map(x=>x[1]);
+}
+const titleCase = s => String(s||'').toLowerCase().replace(/\b([a-z])/g, m=>m.toUpperCase());
+async function searchUSDA(q){
+  const url = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${USDA_KEY}&query=${encodeURIComponent(q)}&pageSize=15&dataType=${encodeURIComponent('Branded,Survey (FNDDS)')}`;
+  const r = await fetch(url); if(!r.ok) throw new Error('USDA '+r.status);
+  const j = await r.json();
+  const pick = (f, ids, nums) => { const n = (f.foodNutrients||[]).find(x=>ids.includes(x.nutrientId) || nums.includes(String(x.nutrientNumber))); return n ? +n.value || 0 : 0; };
+  return (j.foods||[]).map(f=>{
+    const portions = [];
+    const su = String(f.servingSizeUnit||'').toLowerCase();
+    if(f.servingSize && /^(g|grm|ml|mlt)$/.test(su)) portions.push([`1 serving${f.householdServingFullText?` (${f.householdServingFullText})`:''}`, +f.servingSize]);
+    for(const m of (f.foodMeasures||[]).slice(0,4)) if(m.gramWeight && m.disseminationText && !/quantity not specified/i.test(m.disseminationText)) portions.push([m.disseminationText, +m.gramWeight]);
+    const brand = f.brandName || f.brandOwner;
+    return { name: titleCase(f.description) + (brand ? ` — ${titleCase(brand)}` : ''), online:true,
+      kcal: pick(f,[1008,2047,2048],['208','957','958']), p: pick(f,[1003],['203']), c: pick(f,[1005],['205']), f: pick(f,[1004],['204']), portions };
+  }).filter(f=>f.kcal>0 || f.p>0);
+}
+// Portion options for a food: its serving sizes, plus grams and ounces.
+// Default to a natural unit ("1 large", "1 slice", "1 medium") when there is one.
+function defaultUnit(opts){
+  const pref = [/^large\b/, /^medium\b/, /^slice\b/, /^(piece|item|egg|fruit|link|patty|bar|cookie|muffin|bagel|tortilla)\b/, /^serving\b/, /^cup\b(?!,)/, /^cup\b/];
+  for(const re of pref){ const i = opts.findIndex(o=>re.test(o.label)); if(i>=0) return i; }
+  return opts.length>2 ? 0 : opts.length-2;
+}
+const GENERIC_HEADS = new Set(['beverages','fish','cereals','nuts','cheese','pork','beef','crustaceans','mollusks','seeds','spices','sauce','soup','snacks','candies','alcoholic beverage','game meat','lamb','veal','chicken','turkey']);
+function shortName(n){
+  const segs = n.split(/,\s*|\s—\s/); let s = segs[0];
+  if(GENERIC_HEADS.has(s.toLowerCase()) && segs[1]) s = segs[1].toLowerCase()==='broilers or fryers' && segs[2] ? `${segs[0]} ${segs[2]}` : (['pork','beef','chicken','turkey','cheese','fish','nuts'].includes(s.toLowerCase()) ? `${segs[0]} ${segs[1]}` : segs[1]);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+const portionOpts = f => [...(f.portions||[]).map(([l,g])=>({label:l.replace(/^1 /,''), g})), {label:'g', g:1}, {label:'oz', g:28.35}];
+function macrosFor(f, grams){ const k = grams/100; return { cal:Math.round(f.kcal*k), protein:Math.round(f.p*k*10)/10, carbs:Math.round(f.c*k*10)/10, fat:Math.round(f.f*k*10)/10 }; }
+
+const fb = () => S.fb || (S.fb = {q:'', items:[], servings:1, name:'', fav:false, online:null, onlineState:'', pick:null});
+function recentFoods(){ const n=nutritionSettings(); if(!Array.isArray(n.recentFoods)) n.recentFoods=[]; return n.recentFoods; }
+
+function fbResultsHtml(){
+  const B = fb(), q = B.q.trim().toLowerCase();
+  if(!q){
+    const rec = recentFoods().slice(0,6);
+    return rec.length ? `<div class="k small muted" style="font-weight:600;margin:10px 0 4px">RECENT</div>${rec.map((r,i)=>fbRow({...r, recent:true}, 'r'+i)).join('')}` : `<p class="hint" style="margin:8px 0 0">Start typing — e.g. “egg”, “chicken breast”, “banana”.</p>`;
+  }
+  const favHits = favorites().filter(f=>f.name.toLowerCase().includes(q)).slice(0,3);
+  const recHits = recentFoods().filter(r=>r.name.toLowerCase().includes(q)).slice(0,3);
+  const local = FOODS ? searchLocal(q) : [];
+  B.list = [...favHits.map(f=>({fav:true, name:f.name, cal:f.cal, protein:f.protein, carbs:f.carbs||0, fat:f.fat||0})), ...recHits.map(r=>({...r, recent:true})), ...local, ...(B.online||[])];
+  return `${B.list.map((f,i)=>fbRow(f, i)).join('') || (FOODS?'<p class="hint">No matches in the built-in list.</p>':'<p class="hint">Loading foods…</p>')}
+    <div class="row" style="margin-top:8px;gap:6px">
+      ${B.online ? '' : `<button class="btn sm" id="fbOnline" ${B.onlineState==='loading'?'disabled':''}>${B.onlineState==='loading'?'Searching…':'🔎 Search more foods'}</button>`}
+      <button class="btn sm ghost" id="fbManual">✎ Enter manually</button>
+    </div>
+    ${B.onlineState && B.onlineState!=='loading' ? `<p class="hint" style="color:var(--warn)">${esc(B.onlineState)}</p>` : ''}`;
+}
+function fbRow(f, i){
+  const B = fb(), open = B.pick===String(i);
+  const sub = f.fav ? `★ favorite · ${f.cal} cal · ${f.protein} g protein per serving`
+    : f.recent ? `${esc(f.label)} · ${f.cal} cal · ${f.protein} g protein`
+    : `${f.kcal} cal · ${f.p} g protein per 100 g${f.online?' · online':''}`;
+  let editor = '';
+  if(open){
+    if(f.fav || f.recent){
+      editor = `<div class="fbedit"><div class="row" style="gap:6px"><input type="number" inputmode="decimal" id="fbAmt" value="1" min="0" step="0.25" style="width:80px"><span class="small muted">× ${f.fav?'serving':esc(f.label)}</span></div>
+        <div class="small" id="fbPrev" style="margin:6px 0"></div><button class="btn sm primary" id="fbAdd">Add to meal</button></div>`;
+    } else {
+      const opts = portionOpts(f);
+      const du = defaultUnit(opts);
+      editor = `<div class="fbedit"><div class="row" style="gap:6px"><input type="number" inputmode="decimal" id="fbAmt" value="${opts[du].label==='g'?100:1}" min="0" step="0.25" style="width:80px">
+        <select id="fbUnit" style="flex:1">${opts.map((o,j)=>`<option value="${j}" ${j===du?'selected':''}>${esc(o.label)}${o.label!=='g'&&o.label!=='oz'?` (${o.g} g)`:''}</option>`).join('')}</select></div>
+        <div class="small" id="fbPrev" style="margin:6px 0"></div><button class="btn sm primary" id="fbAdd">Add to meal</button></div>`;
+    }
+  }
+  return `<div class="fbrow ${open?'open':''}"><button class="fbhit" data-fbpick="${i}"><b>${esc(f.name)}</b><span>${sub}</span></button>${editor}</div>`;
+}
+function fbHtml(){
+  const B = fb();
+  const tot = B.items.reduce((t,x)=>({cal:t.cal+x.cal, protein:t.protein+x.protein, carbs:t.carbs+x.carbs, fat:t.fat+x.fat}), {cal:0,protein:0,carbs:0,fat:0});
+  const s = num(B.servings)||1;
+  return `<div class="fb">
+    ${B.manual ? `<form id="mealForm" style="margin-top:10px">
+        <div class="row" style="justify-content:space-between"><b class="small">Enter manually</b><button type="button" class="btn sm ghost" id="fbBack">← Search instead</button></div>
+        <input type="text" name="name" placeholder="What did you eat? e.g. turkey sandwich" required style="margin-top:6px">
+        <div class="grid2" style="margin-top:8px">
+          <input type="number" inputmode="numeric" name="cal" placeholder="Calories" min="0">
+          <input type="number" inputmode="numeric" name="protein" placeholder="Protein (g)" min="0">
+          <input type="number" inputmode="numeric" name="carbs" placeholder="Carbs (g, optional)" min="0">
+          <input type="number" inputmode="numeric" name="fat" placeholder="Fat (g, optional)" min="0">
+        </div>
+        <label class="toggle" style="margin-top:8px"><input type="checkbox" name="fav"><span class="small">Also save as a favorite</span></label>
+        <button class="btn primary block" style="margin-top:8px">Add ${esc((S.mealType||'meal').toLowerCase())}</button>
+      </form>` : `
+      <input type="search" id="fbQ" placeholder="Search foods…" value="${esc(B.q)}" autocomplete="off" style="margin-top:10px">
+      <div id="fbResults">${fbResultsHtml()}</div>`}
+    ${B.items.length ? `<div class="fbmeal">
+      <div class="k small muted" style="font-weight:600;margin-bottom:6px">THIS ${esc((S.mealType||'meal').toUpperCase())}</div>
+      ${B.items.map((x,i)=>`<div class="meal"><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(x.name)}</div><div class="hint">${esc(x.label)} · ${x.cal} cal · ${x.protein} g protein</div></div><button class="x" data-fbdel="${i}" aria-label="Remove">×</button></div>`).join('')}
+      <div class="row" style="justify-content:space-between;margin-top:8px"><span class="small muted">Servings of this meal</span><input type="number" inputmode="decimal" id="fbServ" value="${B.servings}" min="0.25" step="0.25" style="width:80px"></div>
+      <div style="margin:8px 0"><b>${Math.round(tot.cal*s)} cal</b> <span class="muted small">· ${Math.round(tot.protein*s)} g protein · ${Math.round(tot.carbs*s)} g carbs · ${Math.round(tot.fat*s)} g fat</span></div>
+      <input type="text" id="fbName" placeholder="Meal name (optional)" value="${esc(B.name)}">
+      <label class="toggle" style="margin-top:8px"><input type="checkbox" id="fbFav" ${B.fav?'checked':''}><span class="small">Save as a favorite</span></label>
+      <button class="btn primary block" id="fbLog" style="margin-top:8px">Log ${esc((S.mealType||'meal').toLowerCase())}</button>
+    </div>` : ''}
+    <p class="hint" style="margin-top:8px">Food data: USDA FoodData Central.</p>
+  </div>`;
+}
+function bindFb(d, date){
+  const B = fb();
+  const refresh = (focus) => { const box = $('#fbResults'); if(box){ box.innerHTML = fbResultsHtml(); bindFbResults(d, date); } };
+  const q = $('#fbQ');
+  if(q){
+    loadFoods().then(()=>{ if(B.q) refresh(); }).catch(()=>{ const box=$('#fbResults'); if(box && B.q) box.insertAdjacentHTML('afterbegin','<p class="hint" style="color:var(--warn)">Couldn’t load the food list — check your connection.</p>'); });
+    let t; q.addEventListener('input', ()=>{ clearTimeout(t); t=setTimeout(()=>{ B.q=q.value; B.pick=null; B.online=null; B.onlineState=''; refresh(); }, 120); });
+  }
+  bindFbResults(d, date);
+  $('#fbBack')?.addEventListener('click', ()=>{ B.manual=false; S.rerenderNutrition(); });
+  $('#mealForm')?.addEventListener('submit', async e=>{
+    e.preventDefault(); const f=new FormData(e.target); const name=String(f.get('name')||'').trim(); if(!name) return;
+    const m = {name:name.slice(0,80), cal:Math.round(num(f.get('cal')))||0, protein:Math.round(num(f.get('protein')))||0, carbs:Math.round(num(f.get('carbs')))||0, fat:Math.round(num(f.get('fat')))||0};
+    logMeal(d, date, m); if(f.get('fav')) await addFav(m);
+    toast('Meal added'); S.fb=null; S.manualOpen=false; S.rerenderNutrition();
+  });
+  document.querySelectorAll('[data-fbdel]').forEach(b=>b.onclick=()=>{ B.items.splice(+b.dataset.fbdel,1); S.rerenderNutrition(); });
+  $('#fbServ')?.addEventListener('change', e=>{ B.servings = Math.max(0.25, num(e.target.value)||1); S.rerenderNutrition(); });
+  $('#fbName')?.addEventListener('input', e=>{ B.name = e.target.value; });
+  $('#fbFav')?.addEventListener('change', e=>{ B.fav = e.target.checked; });
+  $('#fbLog')?.addEventListener('click', async ()=>{
+    const s = num(B.servings)||1;
+    const tot = B.items.reduce((t,x)=>({cal:t.cal+x.cal, protein:t.protein+x.protein, carbs:t.carbs+x.carbs, fat:t.fat+x.fat}), {cal:0,protein:0,carbs:0,fat:0});
+    const auto = B.items.length<=3 ? B.items.map(x=>x.short).join(', ') : `${B.items.slice(0,2).map(x=>x.short).join(', ')} + ${B.items.length-2} more`;
+    const m = {name:(B.name.trim()||auto).slice(0,80), cal:tot.cal*s, protein:tot.protein*s, carbs:tot.carbs*s, fat:tot.fat*s, items:B.items.map(x=>({name:x.name, label:x.label, cal:x.cal, protein:x.protein})), servings:s};
+    logMeal(d, date, m);
+    if(B.fav) await addFav({...m, cal:tot.cal, protein:tot.protein, carbs:tot.carbs, fat:tot.fat});
+    // remember individual foods for quick re-adding
+    const rec = recentFoods(); for(const x of B.items){ const i = rec.findIndex(r=>r.name===x.name && r.label===x.label); if(i>=0) rec.splice(i,1); rec.unshift({name:x.name, label:x.label, cal:x.cal, protein:x.protein, carbs:x.carbs, fat:x.fat}); }
+    nutritionSettings().recentFoods = rec.slice(0,30); saveAccount();
+    toast('Meal logged'); S.fb = null; S.manualOpen = false; S.rerenderNutrition();
+  });
+}
+function bindFbResults(d, date){
+  const B = fb();
+  document.querySelectorAll('[data-fbpick]').forEach(b=>b.onclick=()=>{ B.pick = B.pick===b.dataset.fbpick ? null : b.dataset.fbpick; const box=$('#fbResults'); box.innerHTML = fbResultsHtml(); bindFbResults(d, date); });
+  $('#fbManual')?.addEventListener('click', ()=>{ B.manual = true; S.rerenderNutrition(); });
+  $('#fbOnline')?.addEventListener('click', async ()=>{
+    B.onlineState = 'loading'; const box=$('#fbResults'); box.innerHTML = fbResultsHtml(); bindFbResults(d, date);
+    try{ B.online = await searchUSDA(B.q.trim()); B.onlineState = B.online.length ? '' : 'Nothing found online either — try different words, or enter it manually.'; }
+    catch(e){ console.error(e); B.online = null; B.onlineState = 'Couldn’t reach the online food database right now. The built-in list still works, or enter it manually.'; }
+    const bx=$('#fbResults'); if(bx){ bx.innerHTML = fbResultsHtml(); bindFbResults(d, date); }
+  });
+  // portion editor
+  const sel = B.pick!=null ? (String(B.pick).startsWith('r') ? {...recentFoods()[+String(B.pick).slice(1)], recent:true} : (B.list||[])[+B.pick]) : null;
+  if(!sel) return;
+  const amt = $('#fbAmt'), unit = $('#fbUnit'), prev = $('#fbPrev');
+  const calc = () => {
+    const a = Math.max(0, num(amt.value));
+    if(sel.fav || sel.recent) return {...{cal:Math.round(sel.cal*a), protein:Math.round(sel.protein*a*10)/10, carbs:Math.round((sel.carbs||0)*a*10)/10, fat:Math.round((sel.fat||0)*a*10)/10}, label: sel.fav ? `${a} serving${a===1?'':'s'}` : (a===1 ? sel.label : `${a} × ${sel.label}`)};
+    const o = portionOpts(sel)[+unit.value], g = a*o.g;
+    return {...macrosFor(sel, g), label: o.label==='g' ? `${a} g` : o.label==='oz' ? `${a} oz` : `${a} ${o.label}`};
+  };
+  const show = () => { const m = calc(); prev.innerHTML = `<b>${m.cal} cal</b> <span class="muted">· ${m.protein} g protein · ${m.carbs} g carbs · ${m.fat} g fat</span>`; };
+  amt.oninput = show; if(unit) unit.onchange = show; show();
+  setTimeout(()=>amt.focus(), 30);
+  $('#fbAdd').onclick = () => {
+    const m = calc(); if(!(num(amt.value)>0)) return;
+    const short = shortName(sel.name);
+    B.items.push({name: sel.name, short, label: m.label, cal:m.cal, protein:m.protein, carbs:m.carbs, fat:m.fat});
+    B.pick = null; B.q = ''; B.online = null; B.onlineState = '';
+    S.rerenderNutrition();
+    setTimeout(()=>$('#fbQ')?.focus(), 50);
+  };
+}
+
 // ----- favorites -----
 const favorites = () => { const n=nutritionSettings(); if(!Array.isArray(n.favorites)) n.favorites=[]; return n.favorites; };
 const favKey = m => String(m.name||'').trim().toLowerCase();
@@ -873,7 +1110,8 @@ async function addFav(m){
 async function removeFav(m){ nutritionSettings().favorites = favorites().filter(f=>favKey(f)!==favKey(m)); await saveAccount(); toast('Removed from favorites'); }
 function logMeal(d, date, m){
   d.meals.push({name:String(m.name).slice(0,80), type:S.mealType||guessMealType(), cal:Math.round(num(m.cal))||0, protein:Math.round(num(m.protein))||0,
-    ...(m.carbs?{carbs:Math.round(num(m.carbs))}:{}), ...(m.fat?{fat:Math.round(num(m.fat))}:{}), ...(m.src?{src:m.src}:{}), ts:Date.now()});
+    ...(m.carbs?{carbs:Math.round(num(m.carbs))}:{}), ...(m.fat?{fat:Math.round(num(m.fat))}:{}), ...(m.src?{src:m.src}:{}),
+    ...(Array.isArray(m.items)&&m.items.length?{items:m.items}:{}), ...(m.servings&&m.servings!==1?{servings:m.servings}:{}), ts:Date.now()});
   saveDaySoon(date);
 }
 
