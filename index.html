@@ -191,6 +191,9 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick label{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--panel2);font-size:14px;cursor:pointer}
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
+.practice{display:grid;gap:4px;font-size:13px}
+.practice div{display:flex;gap:8px;background:var(--panel2);border-radius:8px;padding:6px 8px}
+.practice .pd{color:var(--muted);min-width:46px}
 .section-h{margin:18px 2px 10px}
 .prblock{margin:10px 16px 0;padding:10px 12px;border-radius:12px;background:rgba(127,179,255,.10);border:1px solid rgba(127,179,255,.35)}
 .logex.prx{border:1px solid rgba(127,179,255,.45)}
@@ -1980,6 +1983,8 @@ function programsSectionHtml(){
               <div class="posestrip">${f.poses.filter((p,i,a)=>!(p.side==='left' && a[i-1] && a[i-1].name===p.name)).map(p=>poseFig(p,'ps')).join('')}</div></button>`).join('')}</div>`}
         <details style="margin-top:8px"><summary class="small muted">How it works</summary><div class="small" style="margin-top:6px;display:grid;gap:4px">
           ${def.warmup?`<div><b>Warm-up:</b> ${esc(def.warmup)}</div>`:''}<div>${esc(def.howTo)}</div><div class="hint">${esc(def.source)}</div></div></details>
+        ${def.kind==='tracks' ? practiceButtons('pr', entry.id) : (S.user&&FB?`<div class="row" style="margin-top:10px"><button class="btn sm" data-askcoach="pr:${entry.id}">💬 Ask the coach</button></div>`:'')}
+        ${practiceHtml('pr', entry.id)}
       </div>`; }).join('')}
     ${avail.length ? `<div class="card">${avail.map(([id,def])=>{ const open = S.prStart===id; const mode = S.prMode || def.defaultMode; const days = S.prDays || suggestedDays(def, mode);
       return `<div class="msopt"><div class="row" style="justify-content:space-between;align-items:flex-start"><div style="flex:1"><b>${def.icon} ${esc(def.title)}</b>${st.done.some(d=>d.id===id)?' <span class="chip on">✓ done</span>':''}
@@ -1998,6 +2003,7 @@ function programsSectionHtml(){
   `;
 }
 function bindPrograms(){
+  bindPractice();
   const rer = ()=>{ const y=window.scrollY; viewPlan(); window.scrollTo(0,y); };
   document.querySelectorAll('[data-propen]').forEach(b=>b.onclick=()=>{ S.prStart = S.prStart===b.dataset.propen ? null : b.dataset.propen; S.prMode=null; S.prDays=null; rer(); });
   document.querySelectorAll('input[name=prmode]').forEach(r=>r.onchange=()=>{ S.prMode=r.value; S.prDays=null; rer(); });
@@ -2215,7 +2221,9 @@ function viewMilestones(){
             <div class="muted">${def.levels.map((l,i)=>`${i+1}. ${esc(l.name)}`).join(' · ')}</div>
             <div class="hint">${esc(def.source||'')}</div>
           </div></details>
-        <div class="row" style="margin-top:10px"><button class="btn sm" data-mslevel="${esc(m.id)}:-1" ${m.level===0?'disabled':''}>‹ Back a level</button><button class="btn sm" data-mslevel="${esc(m.id)}:1" ${m.level>=def.levels.length-1?'disabled':''}>Skip ahead ›</button></div>
+        ${practiceButtons('ms', m.id)}
+        ${practiceHtml('ms', m.id)}
+        <div class="row" style="margin-top:10px"><button class="btn sm ghost" data-mslevel="${esc(m.id)}:-1" ${m.level===0?'disabled':''}>‹ Back a level</button><button class="btn sm ghost" data-mslevel="${esc(m.id)}:1" ${m.level>=def.levels.length-1?'disabled':''}>Skip ahead ›</button></div>
       </div>`; }).join('') : `<div class="card"><h3>No milestones yet</h3><p class="small muted" style="margin:6px 0 0">Milestones are short programs toward a first — your first push-up, pull-up or mile. Practice blocks show up on your plan days automatically.</p></div>`}
 
     <div class="card"><h3 style="margin-bottom:8px">Start a milestone</h3>
@@ -2238,7 +2246,63 @@ function viewMilestones(){
       </div>
     </div>`;
 }
+
+// ----- practice log + coach check-in for milestones and programs -----
+// Sessions logged for a milestone (any level) or a program, newest first.
+function practiceHistory(kind, id, limit=5){
+  const out = [];
+  for(const w of S.workouts){
+    const ex = w.exercises.filter(e=> kind==='ms' ? (e.ms && e.ms.id===id) : (e.prog && e.prog.id===id));
+    if(ex.length) out.push({w, ex});
+    if(out.length>=limit) break;
+  }
+  return out;
+}
+function practiceHtml(kind, id){
+  const h = practiceHistory(kind, id);
+  if(!h.length) return `<div class="hint" style="margin-top:10px">No practice logged yet.</div>`;
+  return `<div class="k small muted" style="font-weight:600;margin:12px 0 4px">RECENT PRACTICE</div>
+    <div class="practice">${h.map(({w,ex})=>`<div><span class="pd">${parseYmd(w.date).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span>
+      <span>${ex.map(e=>{ const lvName = kind==='ms' ? (msDef(id)?.levels[e.ms.level]?.name || e.name) : e.name; return `${esc(lvName)}: <b>${e.sets.map(s=>fmtSetShort(s, EXBY[e.id]||{p:e.pattern})).join(', ')}</b>`; }).join(' · ')}</span></div>`).join('')}</div>`;
+}
+const fmtSetShort = (s, ex) => (ex.p==='cardio'||ex.p==='mobility') ? `${s.r} min` : ex.t ? `${s.r}s` : s.w ? `${s.w}×${s.r}` : `${s.r}`;
+function startPracticeDraft(kind, id){
+  const p = profile();
+  if(kind==='ms'){
+    const m = msState().active.find(x=>x.id===id), def = msDef(id); if(!m||!def) return;
+    const lv = def.levels[m.level];
+    S.draft = { dayIdx:null, dayName:`${def.title} practice`, date: todayStr(), returnTo:'programs',
+      exercises:[{id:lv.ex, sets:blankSets(EXBY[lv.ex], lv.sets||3), ms:{id, level:m.level}}], cardioMin:'', effort:'', notes:'' };
+  } else {
+    const entry = prState().active.find(e=>e.id===id); if(!entry) return;
+    S.draft = { dayIdx:null, dayName: prDef(id).title, date: todayStr(), returnTo:'programs', exercises: progDraftEntries(entry), cardioMin:'', effort:'', notes:'' };
+  }
+  go('workout');
+}
+function askCoachAbout(kind, id){
+  let msg;
+  if(kind==='ms'){
+    const m = msState().active.find(x=>x.id===id), def = msDef(id); const lv = def.levels[m.level];
+    const h = practiceHistory('ms', id, 4).map(({w,ex})=>`${w.date}: ${ex.map(e=>`${def.levels[e.ms.level]?.name||e.name} ${e.sets.map(s=>s.r).join(', ')}`).join('; ')}`).join(' | ');
+    msg = `Check-in on my "${def.title}" milestone. I'm on level ${m.level+1} of ${def.levels.length} (${lv.name}, target ${lv.plan}, move up at ${goalText(lv.goal)}). Recent practice: ${h || 'nothing logged yet'}. Should I stay at this level, add reps, add sets, or move up? What should my next session look like?`;
+  } else {
+    const entry = prState().active.find(e=>e.id===id), def = prDef(id);
+    const h = practiceHistory('pr', id, 4).map(({w,ex})=>`${w.date}: ${ex.map(e=>`${e.name} ${e.sets.map(s=>s.r).join(', ')}`).join('; ')}`).join(' | ');
+    const lv = def.kind==='tracks' ? Object.entries(def.tracks).map(([k,t])=>`${t.label} level ${entry.tracks[k]+1} (${trackLevels(entry,k)[entry.tracks[k]].name})`).join(', ') : `${prSessions(entry)} of ${def.total} sessions done`;
+    msg = `Check-in on my "${def.title}" program: ${lv}. Recent sessions: ${h || 'nothing logged yet'}. What should I change or focus on next session?`;
+  }
+  go('coach'); setTimeout(()=>sendCoach(msg), 60);
+}
+function practiceButtons(kind, id){
+  return `<div class="row" style="margin-top:10px;gap:6px"><button class="btn sm primary" data-practice="${kind}:${esc(id)}">📝 Log practice</button>${S.user&&FB?`<button class="btn sm" data-askcoach="${kind}:${esc(id)}">💬 Ask the coach</button>`:''}</div>`;
+}
+function bindPractice(){
+  document.querySelectorAll('[data-practice]').forEach(b=>b.onclick=()=>{ const [k,...r]=b.dataset.practice.split(':'); startPracticeDraft(k, r.join(':')); });
+  document.querySelectorAll('[data-askcoach]').forEach(b=>b.onclick=()=>{ const [k,...r]=b.dataset.askcoach.split(':'); askCoachAbout(k, r.join(':')); });
+}
+
 function bindMilestones(){
+  bindPractice();
   const rer = ()=>{ const y=window.scrollY; viewPlan(); window.scrollTo(0,y); };
   document.querySelectorAll('[data-msopen]').forEach(b=>b.onclick=()=>{ S.msStart = S.msStart===b.dataset.msopen ? null : b.dataset.msopen; rer(); });
   document.querySelectorAll('[data-msgo]').forEach(b=>b.onclick=async ()=>{
@@ -2431,7 +2495,7 @@ function viewWorkout(){
       <div id="lerr" class="small" style="color:var(--danger);margin-top:10px"></div>
       <button class="btn primary block" id="savew" style="margin-top:10px">Save workout</button>
     </div>`;
-  $('#cancel').onclick = ()=>{ S.draft=null; go('plan'); };
+  $('#cancel').onclick = ()=>{ if(d.returnTo==='programs') S.planTab='programs'; S.draft=null; go('plan'); };
   $('#ldate').onchange = e=> d.date = e.target.value || todayStr();
   $('#cmin').oninput = e=> d.cardioMin = e.target.value;
   $('#effort').oninput = e=> d.effort = e.target.value;
@@ -2483,7 +2547,7 @@ async function saveWorkout(){
     S.draft = null; S.calSel = w.date; S.calMonth = ymOf(w.date);
     const msgs = [...await checkMilestones(w), ...await checkPrograms(w)];
     toast(msgs.length ? msgs.join(' · ') : 'Workout saved 💪');
-    if(S.msCelebrate || S.prCelebrate){ S.planTab = 'programs'; go('plan'); } else go('log');
+    if(S.msCelebrate || S.prCelebrate || d.returnTo==='programs'){ S.planTab = 'programs'; go('plan'); } else go('log');
   }catch(e){ console.error(e); btn.disabled=false; btn.textContent='Save workout'; $('#lerr').textContent = e && e.code==='quota_exceeded' ? 'Storage is full — delete some old workouts first.' : 'Couldn’t save — check your connection and try again.'; }
 }
 
