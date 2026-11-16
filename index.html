@@ -470,7 +470,14 @@ const GOALS = {
   strength:{label:'Get stronger',sub:'Lift heavier'},
   endurance:{label:'Endurance',sub:'Stamina and heart health'},
   general:{label:'General fitness',sub:'Feel better overall'},
+  mobility:{label:'Flexibility & mobility',sub:'Move easier, fewer aches'},
+  event:{label:'Train for an event',sub:'A race, hike or sport'},
 };
+// Goals that shape the weekly plan's sets/reps (others are added on top as notes and coaching)
+const PLAN_GOALS = ['fat_loss','muscle','strength','endurance','general'];
+const allGoals = p => Array.isArray(p.goals) && p.goals.length ? p.goals : [p.goal||'general'];
+const has = (p, g) => allGoals(p).includes(g);
+const goalsLabel = p => allGoals(p).map(g=>GOALS[g]?.label).filter(Boolean).join(', ');
 const LEVELS = {1:'Beginner',2:'Intermediate',3:'Advanced'};
 
 const TEMPLATES = {
@@ -525,10 +532,10 @@ function buildPlan(p, seed){
   });
   return {seed, createdAt:Date.now(), sig:planSig(p), days};
 }
-const planSig = p => [p.goal,p.level,p.days,p.minutes,[...(p.gear||[])].sort().join('+'),[...(p.activities||[])].sort().join('+'),!!p.lowImpact].join('|');
+const planSig = p => [p.goal,[...allGoals(p)].sort().join('+'),p.level,p.days,p.minutes,[...(p.gear||[])].sort().join('+'),[...(p.activities||[])].sort().join('+'),!!p.lowImpact].join('|');
 
 function rx(ex, p){
-  const goal=p.goal, lvl=+p.level, comp=COMPOUND.has(ex.p);
+  const goal = PLAN_GOALS.includes(p.goal) ? p.goal : (p.goal==='event' ? 'endurance' : 'general'), lvl=+p.level, comp=COMPOUND.has(ex.p);
   if(ex.p==='cardio') return {sets:1, text: goal==='endurance' ? '30–40 min · easy to moderate' : '20 min · steady', kind:'cardio'};
   if(ex.t){ const sec = goal==='endurance'?45:[0,20,30,45][lvl]; const sets=lvl===1?2:3; return {sets, text:`${sets} × ${sec} sec · rest 30–45 sec`, kind:'timed'}; }
   let s,r,rest;
@@ -551,6 +558,11 @@ function dayNotes(day, p){
   if(p.goal==='general') out.push('<b>Optional:</b> 10 min easy cardio to finish.');
   if(p.goal==='strength') out.push('<b>Load:</b> pick weights where the last rep is hard but clean; add 5 lb when you hit every rep.');
   if(p.goal==='muscle') out.push('<b>Effort:</b> stop 1–2 reps short of failure; add weight once you hit the top of the rep range.');
+  // secondary goals
+  if(p.goal!=='fat_loss' && has(p,'fat_loss')) out.push('<b>For fat loss:</b> keep rests short and add 10–15 min of cardio after if you have time.');
+  if(p.goal!=='endurance' && (has(p,'endurance') || has(p,'event'))) out.push('<b>For endurance:</b> finish with 10–20 min of steady cardio, or do the last round as a circuit.');
+  if(has(p,'mobility')) out.push('<b>For mobility:</b> finish with 5 minutes of stretching for the muscles you worked.');
+  if(p.goal!=='strength' && has(p,'strength')) out.push('<b>For strength:</b> make your first exercise heavier — fewer reps, longer rest.');
   return out;
 }
 
@@ -562,8 +574,9 @@ function bodyStats(p){
   const act = p.days<=2?1.375:p.days<=4?1.55:1.725;
   const tdee = bmr*act;
   let target = tdee;
-  if(p.goal==='fat_loss') target = Math.max(tdee-500, p.sex==='male'?1500:1200);
-  if(p.goal==='muscle') target = tdee+300;
+  if(has(p,'fat_loss') && has(p,'muscle')) target = Math.max(tdee-250, p.sex==='male'?1500:1200);   // lose fat + build muscle: small deficit
+  else if(p.goal==='fat_loss' || has(p,'fat_loss')) target = Math.max(tdee-500, p.sex==='male'?1500:1200);
+  else if(p.goal==='muscle' || has(p,'muscle')) target = tdee+300;
   const bmiCat = bmi<18.5?'Underweight':bmi<25?'Healthy range':bmi<30?'Overweight':'Obese range';
   return {bmi, bmiCat, bmr, tdee, target, proteinLo:Math.round(p.weight*0.7), proteinHi:Math.round(p.weight*1.0)};
 }
@@ -670,6 +683,7 @@ function normalizeProfile(raw){
     heightFt: Math.round(num(r.heightFt)), heightIn: Math.round(num(r.heightIn)),
     sex: pickOne(String(r.sex).toLowerCase(), ['male','female'], 'male'),
     goal: pickOne(r.goal, Object.keys(GOALS), 'general'),
+    goals: [...new Set((Array.isArray(r.goals)?r.goals:[]).filter(g=>g in GOALS))],
     level: pickOne(+r.level, [1,2,3], 1),
     days: pickOne(+r.days, [2,3,4,5,6], 3),
     minutes: pickOne(+r.minutes, [30,45,60], 45),
@@ -678,6 +692,8 @@ function normalizeProfile(raw){
     lowImpact: r.lowImpact===true || r.lowImpact==='true' || r.lowImpact==='on',
     notes: String(r.notes||'').trim().slice(0,600),
   };
+  // the main focus is always one of the goals
+  if(!p.goals.includes(p.goal)) p.goals.unshift(p.goal);
   if(p.heightIn>11){ p.heightFt += Math.floor(p.heightIn/12); p.heightIn %= 12; }
   const err = [];
   if(!(p.age>=16 && p.age<=90)) err.push('age (16–90)');
@@ -1219,7 +1235,7 @@ function profileFormSave(formEl, fields){
   const f = new FormData(formEl);
   const vals = {};
   for(const k of fields){
-    if(k==='gear'||k==='activities') vals[k] = f.getAll(k);
+    if(k==='gear'||k==='activities'||k==='goals') vals[k] = f.getAll(k);
     else if(k==='lowImpact') vals[k] = !!f.get('lowImpact');
     else vals[k] = f.get(k);
   }
@@ -1290,8 +1306,10 @@ function viewProfile(){
     <form class="card" id="pfWorkout" novalidate>
       <h2>Workout settings</h2>
       <p class="small muted" style="margin-top:0">Your weekly plan is rebuilt from these when you save${plan()&&plan().edited?' — this replaces the changes you made on the Plan page':''}.</p>
-      <label class="f">Main goal</label>
-      ${choiceCards('goal',GOALS,p.goal)}
+      <label class="f">Your goals <span class="muted" style="font-weight:400">(pick any)</span></label>
+      <div class="choices">${Object.entries(GOALS).map(([v,o],i)=>`<div><input type="checkbox" id="goals-${i}" name="goals" value="${v}" ${allGoals(p).includes(v)?'checked':''}><label for="goals-${i}"><b>${o.label}</b><span>${o.sub}</span></label></div>`).join('')}</div>
+      <label class="f">Main focus <span class="muted" style="font-weight:400">(shapes your sets, reps and calories)</span></label>
+      <div class="seg" id="mainFocus">${Object.entries(GOALS).map(([v,o],i)=>`<input type="radio" id="goal-${i}" name="goal" value="${v}" ${v===p.goal?'checked':''}><label for="goal-${i}" data-g="${v}" ${allGoals(p).includes(v)?'':'hidden'}>${o.label}</label>`).join('')}</div>
       <label class="f">Experience</label>
       ${radios('level',[[1,'Beginner'],[2,'Intermediate'],[3,'Advanced']],p.level)}
       <label class="f">Workouts per week</label>
@@ -1327,6 +1345,14 @@ function viewProfile(){
       else { toast('Personal info saved'); viewProfile(); }
     });
   } else {
+    // Main focus only offers the goals that are checked
+    const syncFocus = () => {
+      const sel = [...document.querySelectorAll('input[name=goals]:checked')].map(c=>c.value);
+      document.querySelectorAll('#mainFocus label').forEach(l=>l.hidden = !sel.includes(l.dataset.g));
+      const cur = document.querySelector('input[name=goal]:checked');
+      if(sel.length && (!cur || !sel.includes(cur.value))) document.querySelector(`input[name=goal][value="${sel[0]}"]`).checked = true;
+    };
+    document.querySelectorAll('input[name=goals]').forEach(c=>c.onchange=syncFocus);
     document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{
       const ps = GEAR_PRESETS[b.dataset.preset];
       document.querySelectorAll('input[name=gear]').forEach(c=>c.checked=ps.gear.includes(c.value));
@@ -1334,7 +1360,8 @@ function viewProfile(){
     });
     $('#pfWorkout').addEventListener('submit', async e=>{
       e.preventDefault();
-      const {p:np, err} = profileFormSave(e.target, ['goal','level','days','minutes','gear','activities','lowImpact']);
+      if(!document.querySelector('input[name=goals]:checked')){ e.target.querySelector('.perr').textContent = 'Pick at least one goal.'; return; }
+      const {p:np, err} = profileFormSave(e.target, ['goal','goals','level','days','minutes','gear','activities','lowImpact']);
       if(err.length){ e.target.querySelector('.perr').innerHTML = 'Add your age, height and weight on the <a href="#" id="toPersonal">Personal info</a> tab first.'; $('#toPersonal').onclick=ev=>{ev.preventDefault(); S.profileTab='personal'; viewProfile();}; return; }
       e.target.querySelector('button:not([type])').disabled = true;
       const {hadPlan, changed} = await applyProfile(np);
@@ -1374,7 +1401,7 @@ function viewPlan(){
       <div class="row" style="justify-content:space-between"><h2 style="margin:0">${p.name?esc(p.name)+'’s':'Your'} week</h2>
       ${replacing?'':`<button class="btn sm" id="shuffle">${ICON_SWAP.replace('<svg','<svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"')}New exercises</button>`}</div>
       <div class="chips" style="margin-top:10px">
-        <span class="chip on">${GOALS[p.goal].label}</span><span class="chip">${LEVELS[p.level]}</span>
+        <span class="chip on">${GOALS[p.goal].label}</span>${allGoals(p).filter(g=>g!==p.goal).map(g=>`<span class="chip">${GOALS[g].label}</span>`).join('')}<span class="chip">${LEVELS[p.level]}</span>
         <span class="chip">${pl.days.length}×/week</span><span class="chip">${p.minutes} min</span><span class="chip">${esc(gearSummary(p))}</span>
         ${p.lowImpact?'<span class="chip">Low impact</span>':''}
       </div>
@@ -2551,6 +2578,7 @@ function coachContext(){
   lines.push('PROFILE: '+JSON.stringify(p));
   lines.push(`AVAILABLE EQUIPMENT: ${(p.gear||[]).map(k=>GEAR[k]).join(', ') || 'none (bodyweight only)'}.`);
   lines.push(`AVAILABLE CARDIO: ${(p.activities||[]).map(k=>ACTIVITIES[k]).join(', ') || 'none listed'}.`);
+  lines.push(`GOALS: ${goalsLabel(p)}. MAIN FOCUS: ${GOALS[p.goal].label}. Tailor every recommendation (workouts, cardio, nutrition, programs, milestones) to the whole set of goals, prioritizing the main focus; point out when two goals pull in different directions and how to balance them.`);
   lines.push(`ESTIMATES: BMI ${st.bmi.toFixed(1)} (${st.bmiCat}), maintenance ~${Math.round(st.tdee)} cal/day, goal ~${Math.round(st.target)} cal/day, protein ${st.proteinLo}-${st.proteinHi} g/day.`);
   if(pl) lines.push('CURRENT PLAN (day index: weekday name — exercise ids with prescription):\n' + pl.days.map((d,i)=>`${i}: ${d.weekday} ${d.name} — ` + d.exercises.map(id=>EXBY[id]?`${id} (${rx(EXBY[id],p).text})`:id).join('; ')).join('\n'));
   const recent = S.workouts.slice(0,12);
@@ -2578,15 +2606,15 @@ STYLE
 - Use the user's name occasionally if known.
 
 ONBOARDING MODE (when there is no profile)
-- Collect, one or two questions at a time, in a natural conversation: name; age; sex (male/female, only used for the calorie formula — explain briefly if asked); height (feet + inches); weight (lb); main goal; experience; workouts per week; minutes per workout; what equipment they can use (at home and/or a gym); what cardio they can or like to do; whether they need low-impact (no jumping/running); and helpful context (work schedule, kids, best times to train, injuries, likes/dislikes).
-- Map answers to allowed values: goal ∈ fat_loss | muscle | strength | endurance | general; level ∈ 1 (beginner) | 2 (intermediate) | 3 (advanced); days ∈ 2–6; minutes ∈ 30 | 45 | 60 (round to nearest); gear = array of any of: ${Object.entries(GEAR).map(([k,l])=>`${k} (${l})`).join(', ')} — empty array means bodyweight only; activities = array of any of: ${Object.entries(ACTIVITIES).map(([k,l])=>`${k} (${l})`).join(', ')}; lowImpact true/false. "Full gym" usually means all equipment plus treadmill, bike, elliptical and rower. If an answer is unclear, ask. Suggest a sensible default if they're unsure (e.g. 3 days, 30–45 minutes for busy parents).
-- When you have everything required, put the complete profile in "profile" (fields: name, age, sex, heightFt, heightIn, weight, goal, level, days, minutes, gear, activities, lowImpact, notes). "notes" is a short summary of their context (schedule, kids, injuries, preferences). In "reply", briefly summarize and say their plan is ready on the Plan tab. Until then, "profile" must be null.
+- Collect, one or two questions at a time, in a natural conversation: name; age; sex (male/female, only used for the calorie formula — explain briefly if asked); height (feet + inches); weight (lb); their goals (they can have several) and which one is their main focus; experience; workouts per week; minutes per workout; what equipment they can use (at home and/or a gym); what cardio they can or like to do; whether they need low-impact (no jumping/running); and helpful context (work schedule, kids, best times to train, injuries, likes/dislikes).
+- Map answers to allowed values: goals = array of any of fat_loss | muscle | strength | endurance | general | mobility | event (training for a race, hike or sport); goal = their main focus, one of the goals; level ∈ 1 (beginner) | 2 (intermediate) | 3 (advanced); days ∈ 2–6; minutes ∈ 30 | 45 | 60 (round to nearest); gear = array of any of: ${Object.entries(GEAR).map(([k,l])=>`${k} (${l})`).join(', ')} — empty array means bodyweight only; activities = array of any of: ${Object.entries(ACTIVITIES).map(([k,l])=>`${k} (${l})`).join(', ')}; lowImpact true/false. "Full gym" usually means all equipment plus treadmill, bike, elliptical and rower. If an answer is unclear, ask. Suggest a sensible default if they're unsure (e.g. 3 days, 30–45 minutes for busy parents).
+- When you have everything required, put the complete profile in "profile" (fields: name, age, sex, heightFt, heightIn, weight, goals, goal, level, days, minutes, gear, activities, lowImpact, notes). "notes" is a short summary of their context (schedule, kids, injuries, preferences). In "reply", briefly summarize and say their plan is ready on the Plan tab. Until then, "profile" must be null.
 
 COACHING MODE (profile exists)
 - Use the PROFILE, PLAN and RECENT WORKOUTS below to give specific advice: what to do today, quick swaps, progression (when they hit the top of the rep range, add 5 lb or reps), recovery, consistency, motivation.
 - You may propose changes as "actions" the user can tap to apply. Only propose an action when it clearly helps; explain it in "reply". Allowed actions:
   {"type":"swap_exercise","day":<day index>,"from":"<exercise id in that day>","to":"<exercise id from the library>","label":"Swap X for Y on Monday"}
-  {"type":"update_profile","changes":{<any of: days, minutes, gear, activities, goal, level, lowImpact, weight, notes>},"label":"..."}  (gear/activities are the FULL new arrays)
+  {"type":"update_profile","changes":{<any of: days, minutes, gear, activities, goals (FULL new array — when changing goals, also send goal = the main focus), goal (main focus), level, lowImpact, weight, notes>},"label":"..."}  (gear/activities are the FULL new arrays)
   {"type":"regenerate_plan","label":"Shuffle in new exercises"}
   {"type":"start_milestone","id":"<built-in milestone id>","level":<starting level number, 1 = first>,"label":"Start First pull-up at level 2"}
   {"type":"set_milestone_level","id":"<active milestone id>","level":<level number, 1 = first>,"label":"Go back to knee push-ups"}
@@ -2689,7 +2717,7 @@ function validateAction(a){
     return {...a, label: a.label || `Swap ${EXBY[a.from].name} for ${to.name} (${d.weekday})`};
   }
   if(a.type==='update_profile' && a.changes && typeof a.changes==='object'){
-    const allowed = ['days','minutes','gear','activities','goal','level','lowImpact','weight','notes'];
+    const allowed = ['days','minutes','gear','activities','goals','goal','level','lowImpact','weight','notes'];
     const changes = Object.fromEntries(Object.entries(a.changes).filter(([k])=>allowed.includes(k)));
     if(!Object.keys(changes).length) return null;
     return {...a, changes, label: a.label || 'Update my profile'};
