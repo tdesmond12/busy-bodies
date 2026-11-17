@@ -3414,7 +3414,7 @@ async function askAI(contents, system, perModelMs=30000){
       log.push(`${name}: ${/timeout/.test(m)?`no reply in ${perModelMs/1000}s`:m.replace(/^.*?generateContent:\s*/,'').slice(0,90)} (${secs}s)`);
       if(S.goodModel===name) S.goodModel = null;
       // anything other than slow / busy / missing model is a real error — stop here
-      if(!/timeout|not found|404|is not supported|NOT_FOUND|\b50[0-9]\b|high demand|overloaded|UNAVAILABLE|try again later/i.test(m)) break;
+      if(!/timeout|not found|404|is not supported|NOT_FOUND|\b50[0-9]\b|\b429\b|quota|RESOURCE_EXHAUSTED|rate limit|high demand|overloaded|UNAVAILABLE|try again later/i.test(m)) break;
     }
   }
   const err = new Error(log.join(' | ')); err.attempts = log; throw err;
