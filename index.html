@@ -853,6 +853,13 @@ function fastStats(date){
 }
 
 // ----- sleep (stored on the day you wake up: d.sleep = {bed, wake, wakes:[{at, min}]}) -----
+// iOS fires 'change' while the time wheel is still spinning; redrawing then closes the picker.
+// So: save on change, redraw on blur.
+function timeInput(el, onValue, redraw){
+  let dirty = false;
+  el.onchange = () => { onValue(el.value); dirty = true; };
+  el.onblur = () => { if(dirty){ dirty = false; setTimeout(redraw, 0); } };
+}
 const WAKE_MINS = [5,10,15,20,30,45,60,90,120];
 function sleepStats(d){
   const sl = d && d.sleep; if(!sl) return null;
@@ -1016,18 +1023,20 @@ async function viewNutrition(){
   document.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{ d.water = Math.max(0, d.water + +b.dataset.w); saveDaySoon(date); rerender(); });
   $('#wGoalBtn').onclick = ()=>{ $('#wGoalEdit').hidden = !$('#wGoalEdit').hidden; };
   { const sl = () => (d.sleep = d.sleep || {bed:'', wake:'', wakes:[]});
-    const done = () => { const x = d.sleep; if(x && !x.bed && !x.wake && !(x.wakes||[]).length) delete d.sleep; saveDaySoon(date); rerender(); };
-    $('#slBed').onchange = e => { sl().bed = e.target.value; done(); };
-    $('#slWake').onchange = e => { sl().wake = e.target.value; done(); };
+    const save = () => { const x = d.sleep; if(x && !x.bed && !x.wake && !(x.wakes||[]).length) delete d.sleep; saveDaySoon(date); };
+    const done = () => { save(); rerender(); };
+    timeInput($('#slBed'), v => { sl().bed = v; save(); }, rerender);
+    timeInput($('#slWake'), v => { sl().wake = v; save(); }, rerender);
     $('#slAddWake').onclick = () => { sl().wakes = [...(sl().wakes||[]), {at:'', min:10}]; done(); setTimeout(()=>{ const ins = document.querySelectorAll('[data-wkat]'); ins[ins.length-1]?.focus(); }, 50); };
-    document.querySelectorAll('[data-wkat]').forEach(el => el.onchange = () => { sl().wakes[+el.dataset.wkat].at = el.value; done(); });
+    document.querySelectorAll('[data-wkat]').forEach(el => timeInput(el, v => { sl().wakes[+el.dataset.wkat].at = v; save(); }, rerender));
     document.querySelectorAll('[data-wkmin]').forEach(el => el.onchange = () => { sl().wakes[+el.dataset.wkmin].min = +el.value; done(); });
     document.querySelectorAll('[data-wkdel]').forEach(el => el.onclick = () => { sl().wakes.splice(+el.dataset.wkdel, 1); done(); });
   }
-  const setFast = (k, v) => { d.fast = {...(d.fast||{}), [k]: v||''}; if(!d.fast.first && !d.fast.last) delete d.fast; saveDaySoon(date); rerender(); };
+  const setFastQuiet = (k, v) => { d.fast = {...(d.fast||{}), [k]: v||''}; if(!d.fast.first && !d.fast.last) delete d.fast; saveDaySoon(date); };
+  const setFast = (k, v) => { setFastQuiet(k, v); rerender(); };
   if(fastingOn()){
-  $('#fastFirst').onchange = e => setFast('first', e.target.value);
-  $('#fastLast').onchange = e => setFast('last', e.target.value);
+  timeInput($('#fastFirst'), v => setFastQuiet('first', v), rerender);
+  timeInput($('#fastLast'), v => setFastQuiet('last', v), rerender);
   document.querySelectorAll('[data-fastnow]').forEach(b=>b.onclick = e=>{ e.preventDefault(); setFast(b.dataset.fastnow, nowHM()); });
   $('#fastClear')?.addEventListener('click', ()=>{ delete d.fast; saveDaySoon(date); rerender(); });
   $('#fastPlan').onchange = async e => { ns.fastPlan = e.target.value; await saveAccount(); rerender(); };
