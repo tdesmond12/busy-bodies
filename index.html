@@ -108,8 +108,9 @@ nav.tabs a.on{color:var(--accent)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 label.f{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:14px 0 6px}
-input[type=text],input[type=number],input[type=date],select,textarea{
+input[type=text],input[type=number],input[type=date],input[type=time],select,textarea{
   width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:11px 12px;font:inherit;font-size:16px}
+input[type=time]{color-scheme:dark;min-height:46px}
 textarea{min-height:70px;resize:vertical}
 input:focus,select:focus,textarea:focus{outline:2px solid rgba(198,244,50,.5);border-color:transparent}
 .seg{display:flex;flex-wrap:wrap;gap:6px}
@@ -201,6 +202,8 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.wakes{display:grid;gap:6px}
+#sleepCard .iconbtn{flex:none}
 .bcview{position:relative;margin-top:12px;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:4/3}
 .bcview video{width:100%;height:100%;object-fit:cover;display:block}
 .bcframe{position:absolute;left:12%;right:12%;top:32%;bottom:32%;border:3px solid var(--accent);border-radius:10px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
@@ -848,6 +851,42 @@ function fastStats(date){
   else if(date===todayStr() && first==null && prevLast!=null){ out.current = 1440 - prevLast + hm(nowHM()); out.since = prevLast; }
   return out;
 }
+
+// ----- sleep (stored on the day you wake up: d.sleep = {bed, wake, wakes:[{at, min}]}) -----
+const WAKE_MINS = [5,10,15,20,30,45,60,90,120];
+function sleepStats(d){
+  const sl = d && d.sleep; if(!sl) return null;
+  const bed = hm(sl.bed), wake = hm(sl.wake); if(bed==null || wake==null) return null;
+  const inBed = (wake - bed + 1440) % 1440 || 1440;
+  const wakes = (sl.wakes||[]).filter(w=>w.at || w.min), awake = wakes.reduce((a,w)=>a+(+w.min||0),0);
+  return {inBed, awake, asleep: Math.max(0, inBed-awake), wakes: wakes.length};
+}
+function sleepCardHtml(date){
+  const d = S.days[date], sl = d.sleep || {}, st = sleepStats(d);
+  const wk = [...Array(7)].map((_,i)=>sleepStats(S.days[shiftDate(date,-i)])).filter(Boolean);
+  const avg = wk.length>=2 ? Math.round(wk.reduce((a,x)=>a+x.asleep,0)/wk.length) : null;
+  return `<div class="card" id="sleepCard">
+    <div class="row" style="justify-content:space-between"><h3>Sleep</h3><span class="hint">${date===todayStr()?'last night':`night before ${parseYmd(date).toLocaleDateString(undefined,{weekday:'short'})}`}</span></div>
+    <div class="grid2" style="margin-top:10px">
+      <label class="field"><span class="small muted">Bedtime</span><input type="time" id="slBed" value="${esc(sl.bed||'')}"></label>
+      <label class="field"><span class="small muted">Woke up</span><input type="time" id="slWake" value="${esc(sl.wake||'')}"></label>
+    </div>
+    ${(sl.wakes||[]).length?`<div class="small muted" style="margin:12px 0 6px">Woke up during the night <span style="opacity:.7">· time · how long awake</span></div>
+      <div class="wakes">${sl.wakes.map((w,i)=>`<div class="row" style="gap:6px;flex-wrap:nowrap">
+        <input type="time" data-wkat="${i}" value="${esc(w.at||'')}" aria-label="Time you woke" style="flex:1">
+        <select data-wkmin="${i}" aria-label="Minutes awake" style="flex:1">${WAKE_MINS.map(m=>`<option value="${m}" ${+w.min===m?'selected':''}>${m<60?`${m} min`:`${m/60} hr${m>60?'s':''}`}</option>`).join('')}</select>
+        <button class="iconbtn" data-wkdel="${i}" aria-label="Remove">${ICON_X}</button></div>`).join('')}</div>`:''}
+    <button class="btn sm ghost" id="slAddWake" style="margin-top:10px">+ Add a time you woke up</button>
+    ${st ? `<div class="stats" style="margin-top:12px;grid-template-columns:repeat(3,1fr)">
+        <div class="stat"><div class="v" style="font-size:22px">${fmtDur(st.asleep)}</div><div class="k">asleep</div></div>
+        <div class="stat"><div class="v" style="font-size:22px">${fmtDur(st.inBed)}</div><div class="k">in bed</div></div>
+        <div class="stat"><div class="v" style="font-size:22px">${st.wakes}${st.awake?` <span class="muted" style="font-size:.6em">(${st.awake}m)</span>`:''}</div><div class="k">wake-ups</div></div>
+      </div>
+      <div class="hint" style="margin-top:6px">${st.asleep<7*60?'Under 7 hours — most adults do best with 7–9.':st.asleep>9*60?'Over 9 hours.':'In the 7–9 hour range ✓'}${avg!=null?` · 7-night average ${fmtDur(avg)}`:''}</div>`
+      : `<p class="hint" style="margin:8px 0 0">Log when you went to bed last night and when you got up. Add any times you woke up in the night.</p>`}
+  </div>`;
+}
+
 function fastingCardHtml(date){
   const d = S.days[date], f = d.fast || {}, ns = nutritionSettings(), target = +ns.fastPlan || 0, fs = fastStats(date);
   const prev = S.days[shiftDate(date,-1)] || {}, prevLast = (prev.fast||{}).last;
@@ -873,6 +912,7 @@ async function viewNutrition(){
   if(!S.days[date]) $('#app').innerHTML = '<div class="loading">Loading…</div>';
   const d = await loadDay(date);
   await loadDay(shiftDate(date,-1)).catch(()=>{});   // for overnight fasting
+  if(!S.sleepLoaded?.[date]){ try{ const got = await S.store.listDaysRange(shiftDate(date,-7), shiftDate(date,-2)); for(const [k,v] of Object.entries(got)) if(!S.days[k]) S.days[k] = {...emptyDay(), ...v}; }catch(e){} (S.sleepLoaded = S.sleepLoaded||{})[date] = 1; }
   if(location.hash!=='#nutrition') return;
   const p = profile(), st = p ? bodyStats(p) : null, t = dayTotals(d), ns = nutritionSettings(), wg = waterGoal();
   const calGoal = st ? Math.round(st.target/10)*10 : 2000, proGoal = st ? st.proteinLo : 120;
@@ -920,6 +960,8 @@ async function viewNutrition(){
       <div id="scanBox">${scanHtml()}</div>
 
     </div>
+
+    ${sleepCardHtml(date)}
 
     ${fastingOn() ? fastingCardHtml(date) : ''}
 
@@ -973,6 +1015,15 @@ async function viewNutrition(){
   // water
   document.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{ d.water = Math.max(0, d.water + +b.dataset.w); saveDaySoon(date); rerender(); });
   $('#wGoalBtn').onclick = ()=>{ $('#wGoalEdit').hidden = !$('#wGoalEdit').hidden; };
+  { const sl = () => (d.sleep = d.sleep || {bed:'', wake:'', wakes:[]});
+    const done = () => { const x = d.sleep; if(x && !x.bed && !x.wake && !(x.wakes||[]).length) delete d.sleep; saveDaySoon(date); rerender(); };
+    $('#slBed').onchange = e => { sl().bed = e.target.value; done(); };
+    $('#slWake').onchange = e => { sl().wake = e.target.value; done(); };
+    $('#slAddWake').onclick = () => { sl().wakes = [...(sl().wakes||[]), {at:'', min:10}]; done(); setTimeout(()=>{ const ins = document.querySelectorAll('[data-wkat]'); ins[ins.length-1]?.focus(); }, 50); };
+    document.querySelectorAll('[data-wkat]').forEach(el => el.onchange = () => { sl().wakes[+el.dataset.wkat].at = el.value; done(); });
+    document.querySelectorAll('[data-wkmin]').forEach(el => el.onchange = () => { sl().wakes[+el.dataset.wkmin].min = +el.value; done(); });
+    document.querySelectorAll('[data-wkdel]').forEach(el => el.onclick = () => { sl().wakes.splice(+el.dataset.wkdel, 1); done(); });
+  }
   const setFast = (k, v) => { d.fast = {...(d.fast||{}), [k]: v||''}; if(!d.fast.first && !d.fast.last) delete d.fast; saveDaySoon(date); rerender(); };
   if(fastingOn()){
   $('#fastFirst').onchange = e => setFast('first', e.target.value);
@@ -3231,6 +3282,9 @@ function coachContext(){
       rows.push(`${dt}: eating ${dd.fast.first?fmtClock(dd.fast.first):'?'}–${dd.fast.last?fmtClock(dd.fast.last):'?'}${fs.fasted!=null?`, fasted ${fmtDur(fs.fasted)} before first meal`:''}`); }
     const fsT = fastStats(todayStr());
     if(fastingOn()) lines.push(`INTERMITTENT FASTING: target ${ns.fastPlan?FAST_PLANS[ns.fastPlan]+' ('+ns.fastPlan+'h fast)':'none set'}.${fsT.current>0?` Currently fasting ${fmtDur(fsT.current)}.`:''}\n${rows.join('\n') || 'No fasting times logged in the last 7 days.'}`); }
+  { const rows = []; for(let i=0;i<7;i++){ const dt = shiftDate(todayStr(),-i), dd = S.days[dt], st = sleepStats(dd); if(!st) continue;
+      rows.push(`night before ${dt}: bed ${fmtClock(dd.sleep.bed)}, up ${fmtClock(dd.sleep.wake)}, asleep ~${fmtDur(st.asleep)}${st.wakes?`, woke ${st.wakes}x (${st.awake} min awake${(dd.sleep.wakes||[]).filter(w=>w.at).length?' at '+dd.sleep.wakes.filter(w=>w.at).map(w=>fmtClock(w.at)).join(', '):''})`:''}`); }
+    if(rows.length) lines.push('SLEEP (last 7 nights, newest first):\n' + rows.join('\n')); }
   if(nd){ const t=dayTotals(nd); lines.push(`NUTRITION TODAY: ${t.cal} cal, ${t.protein} g protein, ${nd.water} oz water (goal ${waterGoal()} oz). Meals: ${nd.meals.map(m=>m.name).join('; ')||'none logged'}.${(S.account.nutrition?.supplements||[]).length?' Supplements taken: '+S.account.nutrition.supplements.filter(x=>nd.supps[x.id]).map(x=>x.name).join(', ')+' (of '+S.account.nutrition.supplements.map(x=>x.name).join(', ')+').':''}`); }
   const mst = msState();
   lines.push(mst.active.length ? 'ACTIVE MILESTONES:\n' + mst.active.map(m=>{ const def=msDef(m.id); if(!def) return ''; const {best,sessions,lv}=msBestAtLevel(m); return `- id ${m.id}: ${def.title}, level ${m.level+1} of ${def.levels.length} (${lv.name}; ${lv.plan}; moves up at ${goalText(lv.goal)}; ${lv.goal.sessions?`${sessions} sessions done`:`best at this level: ${best??'none yet'}`}). Levels: ${def.levels.map((l,i)=>`${i+1}=${l.name}`).join(', ')}`; }).join('\n') : 'ACTIVE MILESTONES: none.');
@@ -3286,6 +3340,7 @@ COACHING MODE (profile exists)
 - For swaps, use the same movement pattern when possible. Use ONLY ids from the library.
 - When the user shares lasting info (new injury, schedule change, preference), propose an update_profile action with updated "notes" (keep the old notes and add the new info).
 - COACH INSIGHTS: you keep a short running list of what you've learned about how this user trains and what works for them — patterns in their logs and things they've told you (e.g. "Progresses best by adding a set before adding reps", "Usually skips Friday workouts — Fridays are busy", "Prefers short home workouts on weekdays", "Waist-high push-ups: stalled at 8–10 reps for 2 weeks"). Read them before answering. When you notice a new pattern from their data or conversation, or an insight is outdated, return the FULL updated list in "insights" (at most 8 short items, each under 120 characters; merge and drop stale ones). Only include things grounded in their logs or their own words — no guesses about health, diagnoses or personality. Otherwise set "insights" to null. These notes are your private working notes: don't mention them, list them or quote them; just let them shape your advice. If the user asks what you've noticed about them, answer naturally in your own words.
+- SLEEP: if they log sleep (see SLEEP), factor it in. After a short or broken night (under ~6 hours, or lots of waking), suggest keeping the workout but easing intensity or volume, and expect more hunger/cravings. Consistently short sleep slows recovery, strength gains and fat loss — point it out kindly with one practical fix (consistent bedtime, wind-down, caffeine cutoff, late-meal timing). Busy parents often have kid wake-ups; be realistic, not preachy. Don't diagnose sleep disorders; if they describe loud snoring, gasping or constant exhaustion, suggest mentioning it to their doctor.
 - WEIGHT: if they log weight (see WEIGHT LOG), judge progress by the 7-day average, not single weigh-ins. A healthy fat-loss pace is about 0.5–1% of body weight per week. If the trend stalls for 2–3 weeks, look at calories/protein/consistency before cutting more; if it drops much faster, suggest eating a bit more to protect muscle.
 - INTERMITTENT FASTING: if they log fasting (see INTERMITTENT FASTING), factor it into advice: when to train relative to their eating window (hard strength or interval sessions usually go better fed or near the first meal; easy cardio, walks and yoga are fine fasted), getting enough protein (spread over 2–3 meals) and calories inside a shorter window to keep muscle, hydration and electrolytes while fasting, signs to ease off (dizziness, shakiness, poor sleep, workouts falling apart), and how fasting fits their weight-loss goal (it mainly helps by making a calorie deficit easier — total calories and protein still matter most). Be realistic, not hype; note the evidence is mixed beyond that. If they mention diabetes, blood-sugar medication, pregnancy or breastfeeding, a history of disordered eating, or being under 18, suggest they check with their doctor before fasting and don't push longer fasts.
 - Nutrition: the app has a Nutrition tab where the user logs meals (calories/protein), water and supplements. Give general, sensible guidance (protein, simple meals for busy families, hydration, the calorie estimate). Don't recommend specific supplement doses; suggest checking with a doctor or pharmacist.
@@ -3467,7 +3522,7 @@ function checkinWeek(){
 const checkinDue = () => { if(!S.user || !FB || !profile()) return false; const w = checkinWeek(); const done = (S.account.checkins||[]); if(done.includes(w.start)) return false;
   // Only offer it for a week where something was logged.
   const inW = d => d>=w.start && d<=w.end;
-  return S.workouts.some(x=>inW(x.date)) || bodyLog().some(e=>inW(e.date)) || Object.entries(S.days).some(([k,d])=>inW(k) && ((d.meals||[]).length || d.fast)); };
+  return S.workouts.some(x=>inW(x.date)) || bodyLog().some(e=>inW(e.date)) || Object.entries(S.days).some(([k,d])=>inW(k) && ((d.meals||[]).length || d.fast || d.sleep)); };
 async function weekSummary(w){
   const days = await S.store.listDaysRange(w.start, w.end).catch(()=>({}));
   for(const [k,v] of Object.entries(days)) if(!S.days[k]) S.days[k] = {...emptyDay(), ...v};
@@ -3483,6 +3538,8 @@ async function weekSummary(w){
     lines.push(`Nutrition: logged ${nd.length} of 7 days; average ${avg('cal')} cal (target ~${Math.round(st.target)}) and ${avg('protein')} g protein (target ${st.proteinLo}–${st.proteinHi} g).`); }
   else lines.push('Nutrition: nothing logged this week.');
   if(fastingOn()){ const rs = [...Array(7)].map((_,i)=>fastResult(shiftDate(w.start,i))).filter(Boolean); lines.push(`Fasting (${FAST_PLANS[nutritionSettings().fastPlan||'16']} goal): goal hit ${rs.filter(r=>r.hit).length} of ${rs.length} logged days${rs.length?`, average ${(rs.reduce((a,r)=>a+r.hours,0)/rs.length).toFixed(1)} h`:''}.`); }
+  { const ss = [...Array(7)].map((_,i)=>sleepStats(S.days[shiftDate(w.start,i)])).filter(Boolean);
+    if(ss.length) lines.push(`Sleep: logged ${ss.length} nights, average ${fmtDur(Math.round(ss.reduce((a,x)=>a+x.asleep,0)/ss.length))} asleep, ${ss.filter(x=>x.asleep<420).length} nights under 7 h, ${ss.reduce((a,x)=>a+x.wakes,0)} total wake-ups.`); }
   const wl = sortedLog().filter(e=>e.date>=shiftDate(w.start,-7) && e.date<=w.end);
   const inW = wl.filter(e=>e.date>=w.start), before = wl.filter(e=>e.date<w.start);
   if(inW.length){ const a = xs => xs.reduce((x,e)=>x+e.lb,0)/xs.length; lines.push(`Weight: ${inW.length} weigh-ins, average ${fmtLb(a(inW))} lb${before.length?` (previous week ${fmtLb(a(before))} lb, change ${signLb(a(inW)-a(before))})`:''}.`); }
