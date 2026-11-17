@@ -149,6 +149,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(198,244,50,.5);bo
 .day{padding:0;overflow:hidden}
 .dayhead{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
 .dow{font:800 15px "Barlow Condensed";background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:4px 8px;text-transform:uppercase}
+select.dowsel{font:800 15px "Barlow Condensed",sans-serif;color:var(--accent-ink);flex:none;appearance:none;-webkit-appearance:none;border:0;width:auto;max-width:78px;min-height:0;line-height:1.2;padding:4px 20px 4px 8px;cursor:pointer;
+  background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23151a05' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 6px center}
 .note{padding:10px 16px;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line)}
 .note b{color:var(--text)}
 .ex{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--line)}
@@ -199,6 +201,8 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.fastnow{margin-top:10px;padding:8px 10px;border-radius:10px;background:var(--panel2);font-size:14px}
+.field{display:grid;gap:4px}
 .chartscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:4px}
 .chartscroll svg{display:block}
 .chartscroll.many{-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 28px);mask-image:linear-gradient(90deg,transparent 0,#000 28px)}
@@ -807,10 +811,51 @@ function bar(val, goal, label, unit){
     <div class="track"><div class="fill ${val>=goal?'done':''}" style="width:${pct}%"></div></div></div>`;
 }
 
+
+// ----- intermittent fasting -----
+// Each day stores its eating window: d.fast = {first:'HH:MM', last:'HH:MM'}.
+// Fasting hours for a day = time from the previous day's last meal to this day's first meal.
+const FAST_PLANS = {'':'Not tracking a target', '12':'12:12', '14':'14:10', '16':'16:8', '18':'18:6', '20':'20:4', '23':'OMAD (23:1)'};
+const hm = t => { if(!t || !/^\d{1,2}:\d{1,2}/.test(t)) return null; const [h,m]=String(t).split(':').map(Number); return h*60+(m||0); };
+const fmtClock = t => { const v=hm(t); if(v==null) return ''; const h=Math.floor(v/60), m=v%60; return `${(h%12)||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`; };
+const fmtDur = mins => `${Math.floor(mins/60)}h${mins%60?` ${mins%60}m`:''}`;
+const nowHM = () => { const d=new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+function fastStats(date){
+  const d = S.days[date] || {}, prev = S.days[shiftDate(date,-1)] || {};
+  const f = d.fast || {}, first = hm(f.first), last = hm(f.last), prevLast = hm((prev.fast||{}).last);
+  const out = {};
+  if(first!=null && last!=null) out.window = (last - first + 1440) % 1440;
+  if(first!=null && prevLast!=null) out.fasted = 1440 - prevLast + first;
+  // fasting right now (today, after last meal)
+  if(date===todayStr() && last!=null && hm(nowHM())>=last){ out.current = hm(nowHM()) - last; out.since = last; }
+  else if(date===todayStr() && first==null && prevLast!=null){ out.current = 1440 - prevLast + hm(nowHM()); out.since = prevLast; }
+  return out;
+}
+function fastingCardHtml(date){
+  const d = S.days[date], f = d.fast || {}, ns = nutritionSettings(), target = +ns.fastPlan || 0, fs = fastStats(date);
+  const prev = S.days[shiftDate(date,-1)] || {}, prevLast = (prev.fast||{}).last;
+  return `<div class="card">
+    <div class="row" style="justify-content:space-between"><h3>Intermittent fasting</h3>
+      <select id="fastPlan" class="btn sm ghost" style="width:auto;min-height:0;padding:4px 8px">${Object.entries(FAST_PLANS).map(([k,l])=>`<option value="${k}" ${String(ns.fastPlan||'')===k?'selected':''}>${k?'Goal: ':''}${l}</option>`).join('')}</select></div>
+    <div style="display:grid;gap:10px;margin-top:10px">
+      <label class="field"><span class="small muted">First meal</span><div class="row" style="gap:6px;flex-wrap:nowrap"><input type="time" id="fastFirst" style="flex:1" value="${esc(f.first||'')}"><button class="btn sm" data-fastnow="first">Now</button></div></label>
+      <label class="field"><span class="small muted">Last meal</span><div class="row" style="gap:6px;flex-wrap:nowrap"><input type="time" id="fastLast" style="flex:1" value="${esc(f.last||'')}"><button class="btn sm" data-fastnow="last">Now</button></div></label>
+    </div>
+    ${fs.fasted!=null ? `<div style="margin-top:12px">${target ? bar(fs.fasted/60, target, 'Overnight fast', 'h') : `<div class="small"><b>Fasted ${fmtDur(fs.fasted)}</b></div>`}
+        <div class="hint">From ${fmtClock(prevLast)} yesterday to ${fmtClock(f.first)}${target?` · ${fs.fasted/60>=target?'goal reached ✓':`${fmtDur(target*60-fs.fasted)} short of your goal`}`:''}</div></div>`
+      : f.first ? `<div class="hint" style="margin-top:10px">Add yesterday’s last meal to see how long you fasted.</div>` : ''}
+    ${fs.window!=null ? `<div class="small" style="margin-top:8px">Eating window: <b>${fmtDur(fs.window)}</b> <span class="muted">(${fmtClock(f.first)} – ${fmtClock(f.last)})</span></div>` : ''}
+    ${fs.current!=null && fs.current>0 ? `<div class="fastnow">⏱ Fasting now: <b>${fmtDur(fs.current)}</b>${target?` <span class="muted">· goal ${target}h${fs.current>=target*60?' ✓':` at ${(g=>fmtClock(`${Math.floor(g/60)}:${g%60}`))((fs.since+target*60)%1440)}`}</span>`:''}</div>` : ''}
+    ${f.first||f.last?'<button class="btn sm ghost" id="fastClear" style="margin-top:8px">Clear times</button>':''}
+    ${!f.first && !f.last && fs.fasted==null ? '<p class="hint" style="margin:8px 0 0">Log when you ate your first and last meal. Your fast is counted from yesterday’s last meal to today’s first.</p>':''}
+  </div>`;
+}
+
 async function viewNutrition(){
   const date = S.nDate || (S.nDate = todayStr());
   if(!S.days[date]) $('#app').innerHTML = '<div class="loading">Loading…</div>';
   const d = await loadDay(date);
+  await loadDay(shiftDate(date,-1)).catch(()=>{});   // for overnight fasting
   if(location.hash!=='#nutrition') return;
   const p = profile(), st = p ? bodyStats(p) : null, t = dayTotals(d), ns = nutritionSettings(), wg = waterGoal();
   const calGoal = st ? Math.round(st.target/10)*10 : 2000, proGoal = st ? st.proteinLo : 120;
@@ -857,6 +902,8 @@ async function viewNutrition(){
       <div id="scanBox">${scanHtml()}</div>
 
     </div>
+
+    ${fastingCardHtml(date)}
 
     <div class="card">
       <div class="row" style="justify-content:space-between"><h3>Water</h3><button class="btn sm ghost" id="wGoalBtn">Goal: ${wg} oz</button></div>
@@ -907,6 +954,12 @@ async function viewNutrition(){
   // water
   document.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{ d.water = Math.max(0, d.water + +b.dataset.w); saveDaySoon(date); rerender(); });
   $('#wGoalBtn').onclick = ()=>{ $('#wGoalEdit').hidden = !$('#wGoalEdit').hidden; };
+  const setFast = (k, v) => { d.fast = {...(d.fast||{}), [k]: v||''}; if(!d.fast.first && !d.fast.last) delete d.fast; saveDaySoon(date); rerender(); };
+  $('#fastFirst').onchange = e => setFast('first', e.target.value);
+  $('#fastLast').onchange = e => setFast('last', e.target.value);
+  document.querySelectorAll('[data-fastnow]').forEach(b=>b.onclick = e=>{ e.preventDefault(); setFast(b.dataset.fastnow, nowHM()); });
+  $('#fastClear')?.addEventListener('click', ()=>{ delete d.fast; saveDaySoon(date); rerender(); });
+  $('#fastPlan').onchange = async e => { ns.fastPlan = e.target.value; await saveAccount(); rerender(); };
   $('#wGoalSave').onclick = async ()=>{ const v=Math.round(num($('#wGoalIn').value)); if(v<16||v>300){ toast('Enter a goal between 16 and 300 oz'); return; } ns.waterGoal=v; await saveAccount(); rerender(); };
   // supplements
   document.querySelectorAll('[data-supp]').forEach(c=>c.onchange=()=>{ if(c.checked) d.supps[c.dataset.supp]=true; else delete d.supps[c.dataset.supp]; saveDaySoon(date); rerender(); });
@@ -1571,7 +1624,7 @@ function viewPlan(){
         <span class="chip">${pl.days.length}×/week</span><span class="chip">${p.minutes} min</span><span class="chip">${esc(gearSummary(p))}</span>
         ${p.lowImpact?'<span class="chip">Low impact</span>':''}
       </div>
-      <p class="small muted" style="margin:10px 0 0">${replacing?`<b>${esc(prDef(replacing.id).title)}</b> is your plan right now. `:''}Tap <b>↻</b> to swap an exercise or <b>✕</b> to remove it. ${free.length?`Rest days: ${free.filter(w=>!progsOn(w).length).join(', ')||'none'} — light walking counts.`:''}</p>
+      <p class="small muted" style="margin:10px 0 0">${replacing?`<b>${esc(prDef(replacing.id).title)}</b> is your plan right now. `:''}Tap a day (like <b>MON</b>) to move that workout, <b>↻</b> to swap an exercise, or <b>✕</b> to remove it. ${free.length?`Rest days: ${free.filter(w=>!progsOn(w).length).join(', ')||'none'} — light walking counts.`:''}</p>
     </div>
     ${[...pl.days.map((d,di)=>({d,di,w:d.weekday})), ...free.filter(w=>progsOn(w).length).map(w=>({rest:true,w}))].sort((a,b)=>WEEK.indexOf(a.w)-WEEK.indexOf(b.w)).map(({d,di,rest,w})=> rest ? `
       <div class="card day">
@@ -1580,7 +1633,7 @@ function viewPlan(){
         <div class="dayfoot"><button class="btn primary block" data-logrest="${w}">Log this session</button></div>
       </div>` : `
       <div class="card day">
-        <div class="dayhead"><span class="dow">${d.weekday}</span><h3>${esc(d.name)}</h3>${d.weekday===todayDow?'<span class="chip on" style="margin-left:4px">Today</span>':''}
+        <div class="dayhead"><select class="dow dowsel" data-dow="${di}" aria-label="Move ${esc(d.name)} to another day">${WEEK.map(w=>{ return `<option value="${w}" ${w===d.weekday?'selected':''}>${w}</option>`; }).join('')}</select><h3>${esc(d.name)}</h3>${d.weekday===todayDow?'<span class="chip on" style="margin-left:4px">Today</span>':''}
           <button class="iconbtn" data-delday="${di}" style="margin-left:auto" aria-label="Remove ${d.weekday}">${ICON_X}</button></div>
         ${progsOn(d.weekday).filter(e=>e.mode==='addon' || d.prog===e.id).map(progBlockHtml).join('')}
         ${(msMap[di]||[]).map(msBlockHtml).join('')}
@@ -1625,6 +1678,15 @@ function viewPlan(){
     if(!s.value) return; const di=+s.dataset.addex;
     plan().days[di].exercises.push(s.value); S.addExDay = null;
     await savePlanEdit(`Added ${EXBY[s.value].name}`);
+  });
+  $('#app').querySelectorAll('[data-dow]').forEach(sel=>sel.onchange = async ()=>{
+    const di=+sel.dataset.dow, d=plan().days[di], from=d.weekday, to=sel.value; if(from===to) return;
+    const other = plan().days.find((x,j)=>j!==di && x.weekday===to);
+    // Program days that replace the plan are tied to the program's schedule — keep it in sync.
+    const moveProg = (day, a, b) => { if(!day.prog) return; const e = prState().active.find(x=>x.id===day.prog); if(e) e.days = e.days.map(w=>w===a?b:w).sort((x,y)=>WEEK.indexOf(x)-WEEK.indexOf(y)); };
+    d.weekday = to; moveProg(d, from, to);
+    if(other){ other.weekday = from; moveProg(other, to, from); }
+    await savePlanEdit(other ? `Swapped: ${d.name} on ${to}, ${other.name} on ${from}` : `Moved ${d.name} to ${to}`);
   });
   $('#app').querySelectorAll('[data-delday]').forEach(b=>b.onclick = async ()=>{
     const di=+b.dataset.delday, d=plan().days[di];
@@ -2928,6 +2990,11 @@ function coachContext(){
   lines.push(recent.length ? 'RECENT WORKOUTS (newest first):\n' + recent.map(w=>`${w.date} ${w.dayName}${w.effort?` effort ${w.effort}/10`:''}${w.cardioMin?` +${w.cardioMin}min cardio`:''}: ` + w.exercises.map(e=>`${e.name} ${e.sets.map(s=>s.w?`${s.w}x${s.r}`:s.r).join(',')}`).join('; ') + (w.notes?` | notes: "${w.notes}"`:'')).join('\n') : 'RECENT WORKOUTS: none logged yet.');
   const wk = weekStart(now).getTime();
   const nd = S.days[todayStr()];
+  { const ns = nutritionSettings(), rows = [];
+    for(let i=0;i<7;i++){ const dt = shiftDate(todayStr(), -i), dd = S.days[dt]; if(!dd || !dd.fast) continue; const fs = fastStats(dt);
+      rows.push(`${dt}: eating ${dd.fast.first?fmtClock(dd.fast.first):'?'}–${dd.fast.last?fmtClock(dd.fast.last):'?'}${fs.fasted!=null?`, fasted ${fmtDur(fs.fasted)} before first meal`:''}`); }
+    const fsT = fastStats(todayStr());
+    if(rows.length || ns.fastPlan) lines.push(`INTERMITTENT FASTING: target ${ns.fastPlan?FAST_PLANS[ns.fastPlan]+' ('+ns.fastPlan+'h fast)':'none set'}.${fsT.current>0?` Currently fasting ${fmtDur(fsT.current)}.`:''}\n${rows.join('\n') || 'No fasting times logged in the last 7 days.'}`); }
   if(nd){ const t=dayTotals(nd); lines.push(`NUTRITION TODAY: ${t.cal} cal, ${t.protein} g protein, ${nd.water} oz water (goal ${waterGoal()} oz). Meals: ${nd.meals.map(m=>m.name).join('; ')||'none logged'}.${(S.account.nutrition?.supplements||[]).length?' Supplements taken: '+S.account.nutrition.supplements.filter(x=>nd.supps[x.id]).map(x=>x.name).join(', ')+' (of '+S.account.nutrition.supplements.map(x=>x.name).join(', ')+').':''}`); }
   const mst = msState();
   lines.push(mst.active.length ? 'ACTIVE MILESTONES:\n' + mst.active.map(m=>{ const def=msDef(m.id); if(!def) return ''; const {best,sessions,lv}=msBestAtLevel(m); return `- id ${m.id}: ${def.title}, level ${m.level+1} of ${def.levels.length} (${lv.name}; ${lv.plan}; moves up at ${goalText(lv.goal)}; ${lv.goal.sessions?`${sessions} sessions done`:`best at this level: ${best??'none yet'}`}). Levels: ${def.levels.map((l,i)=>`${i+1}=${l.name}`).join(', ')}`; }).join('\n') : 'ACTIVE MILESTONES: none.');
@@ -2982,6 +3049,7 @@ COACHING MODE (profile exists)
 - For swaps, use the same movement pattern when possible. Use ONLY ids from the library.
 - When the user shares lasting info (new injury, schedule change, preference), propose an update_profile action with updated "notes" (keep the old notes and add the new info).
 - COACH INSIGHTS: you keep a short running list of what you've learned about how this user trains and what works for them — patterns in their logs and things they've told you (e.g. "Progresses best by adding a set before adding reps", "Usually skips Friday workouts — Fridays are busy", "Prefers short home workouts on weekdays", "Waist-high push-ups: stalled at 8–10 reps for 2 weeks"). Read them before answering. When you notice a new pattern from their data or conversation, or an insight is outdated, return the FULL updated list in "insights" (at most 8 short items, each under 120 characters; merge and drop stale ones). Only include things grounded in their logs or their own words — no guesses about health, diagnoses or personality. Otherwise set "insights" to null. These notes are your private working notes: don't mention them, list them or quote them; just let them shape your advice. If the user asks what you've noticed about them, answer naturally in your own words.
+- INTERMITTENT FASTING: if they log fasting (see INTERMITTENT FASTING), factor it into advice: when to train relative to their eating window (hard strength or interval sessions usually go better fed or near the first meal; easy cardio, walks and yoga are fine fasted), getting enough protein (spread over 2–3 meals) and calories inside a shorter window to keep muscle, hydration and electrolytes while fasting, signs to ease off (dizziness, shakiness, poor sleep, workouts falling apart), and how fasting fits their weight-loss goal (it mainly helps by making a calorie deficit easier — total calories and protein still matter most). Be realistic, not hype; note the evidence is mixed beyond that. If they mention diabetes, blood-sugar medication, pregnancy or breastfeeding, a history of disordered eating, or being under 18, suggest they check with their doctor before fasting and don't push longer fasts.
 - Nutrition: the app has a Nutrition tab where the user logs meals (calories/protein), water and supplements. Give general, sensible guidance (protein, simple meals for busy families, hydration, the calorie estimate). Don't recommend specific supplement doses; suggest checking with a doctor or pharmacist.
 
 SAFETY
@@ -3149,7 +3217,7 @@ function msgHtml(m, i){
 async function sendCoach(text){
   if(S.coachBusy) return;
   S.chat = S.chat.filter(m=>!m.transient); S.lastFailed = '';
-  loadDay(todayStr()).catch(()=>{}); // so the coach can see today's nutrition
+  for(let i=0;i<8;i++) loadDay(shiftDate(todayStr(),-i)).catch(()=>{}); // so the coach can see today's nutrition and recent fasting
   if(!S.chat.length) S.chat.push({role:'model', text:greeting(), ts:Date.now()});
   S.chat.push({role:'user', text, ts:Date.now()});
   S.coachBusy = true; viewCoach();
