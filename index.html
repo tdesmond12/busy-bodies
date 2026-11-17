@@ -914,7 +914,14 @@ function fastingCardHtml(date){
   </div>`;
 }
 
+// Never leave the tab stuck on "Loading…": show what went wrong and a retry.
 async function viewNutrition(){
+  try{ return await viewNutritionInner(); }
+  catch(e){ console.error(e);
+    if(location.hash==='#nutrition') $('#app').innerHTML = `<div class="card"><h3>Something went wrong showing this day</h3><p class="small muted">${esc(String(e && e.message || e))}</p>
+      <div class="row" style="gap:8px"><button class="btn" onclick="viewNutrition()">Try again</button><button class="btn ghost" onclick="S.nDate=shiftDate(S.nDate||todayStr(),-1);viewNutrition()">‹ Previous day</button></div></div>`; }
+}
+async function viewNutritionInner(){
   const date = S.nDate || (S.nDate = todayStr());
   if(!S.days[date]) $('#app').innerHTML = '<div class="loading">Loading…</div>';
   const d = await loadDay(date);
@@ -947,7 +954,7 @@ async function viewNutrition(){
       <h3 style="margin-bottom:4px">Food diary</h3>
       ${MEAL_TYPES.map(mt=>{ const rows = d.meals.map((m,i)=>[m,i]).filter(([m])=>(m.type||'Snack')===mt); const sub = rows.reduce((a,[m])=>a+(m.cal||0),0);
         return `<div class="msec"><div class="msec-h"><b>${mt}</b><span class="muted small">${sub?sub.toLocaleString()+' cal':''}</span></div>
-          ${rows.map(([m,i])=>`<div class="meal"><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(m.name)}</div><div class="hint">${[m.label, m.brand, m.cal?`${m.cal} cal`:'', m.protein?`${m.protein} g protein`:'', m.src==='photo'?'📷':'', m.servings&&m.servings!==1?`${m.servings}× servings`:''].filter(Boolean).map(esc).join(', ')}</div>${m.items&&m.items.length?`<div class="hint">${m.items.map(x=>`${esc(shortName(x.name))} (${esc(x.label)})`).join(' · ')}</div>`:''}</div>
+          ${rows.map(([m,i])=>`<div class="meal"><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(m.name)}</div><div class="hint">${[m.label, m.brand, m.cal?`${m.cal} cal`:'', m.protein?`${m.protein} g protein`:'', m.src==='photo'?'📷':'', m.servings&&m.servings!==1?`${m.servings}× servings`:''].filter(Boolean).map(esc).join(', ')}</div>${m.items&&m.items.length?`<div class="hint">${m.items.map(x=>{ const n = x.name || x.food || '', l = x.label || x.portion || ''; return `${esc(shortName(n))}${l?` (${esc(l)})`:''}`; }).join(' · ')}</div>`:''}</div>
             <button class="star ${isFav(m)?'on':''}" data-favmeal="${i}" aria-label="${isFav(m)?'Saved as favorite':'Save as favorite'}">${isFav(m)?'★':'☆'}</button><button class="x" data-delmeal="${i}" aria-label="Remove">×</button></div>`).join('')}
           <button class="addfood" data-addfood="${mt}">+ Add food</button></div>`; }).join('')}
 
@@ -1153,6 +1160,7 @@ function defaultUnit(opts){
 }
 const GENERIC_HEADS = new Set(['beverages','fish','cereals','nuts','cheese','pork','beef','crustaceans','mollusks','seeds','spices','sauce','soup','snacks','candies','alcoholic beverage','game meat','lamb','veal','chicken','turkey']);
 function shortName(n){
+  n = String(n||''); if(!n) return '';
   const segs = n.split(/,\s*|\s—\s/); let s = segs[0];
   if(GENERIC_HEADS.has(s.toLowerCase()) && segs[1]) s = segs[1].toLowerCase()==='broilers or fryers' && segs[2] ? `${segs[0]} ${segs[2]}` : (['pork','beef','chicken','turkey','cheese','fish','nuts'].includes(s.toLowerCase()) ? `${segs[0]} ${segs[1]}` : segs[1]);
   return s.charAt(0).toUpperCase() + s.slice(1);
