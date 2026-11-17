@@ -201,6 +201,12 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+#fastProg .stats{grid-template-columns:repeat(3,1fr)}
+.fgrid-h,.fgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.fgrid-h{margin:14px 0 4px;font-size:11px;color:var(--muted);text-align:center}
+.fcell{aspect-ratio:1;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:700;max-height:40px}
+.fcell.hit{background:#c6f432;color:#151a05}.fcell.miss{background:#ffb547;color:#2a1a00}.fcell.none{background:var(--panel2)}.fcell.fut{background:transparent;border:1px dashed var(--line)}
+.fcell.today{outline:2px solid var(--text);outline-offset:1px}
 .fastnow{margin-top:10px;padding:8px 10px;border-radius:10px;background:var(--panel2);font-size:14px}
 .field{display:grid;gap:4px}
 .chartscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:4px}
@@ -815,6 +821,7 @@ function bar(val, goal, label, unit){
 // ----- intermittent fasting -----
 // Each day stores its eating window: d.fast = {first:'HH:MM', last:'HH:MM'}.
 // Fasting hours for a day = time from the previous day's last meal to this day's first meal.
+const fastingOn = () => { const ns = nutritionSettings(); return ns.fastOn ?? !!ns.fastPlan; };
 const FAST_PLANS = {'':'Not tracking a target', '12':'12:12', '14':'14:10', '16':'16:8', '18':'18:6', '20':'20:4', '23':'OMAD (23:1)'};
 const hm = t => { if(!t || !/^\d{1,2}:\d{1,2}/.test(t)) return null; const [h,m]=String(t).split(':').map(Number); return h*60+(m||0); };
 const fmtClock = t => { const v=hm(t); if(v==null) return ''; const h=Math.floor(v/60), m=v%60; return `${(h%12)||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`; };
@@ -836,7 +843,7 @@ function fastingCardHtml(date){
   const prev = S.days[shiftDate(date,-1)] || {}, prevLast = (prev.fast||{}).last;
   return `<div class="card">
     <div class="row" style="justify-content:space-between"><h3>Intermittent fasting</h3>
-      <select id="fastPlan" class="btn sm ghost" style="width:auto;min-height:0;padding:4px 8px">${Object.entries(FAST_PLANS).map(([k,l])=>`<option value="${k}" ${String(ns.fastPlan||'')===k?'selected':''}>${k?'Goal: ':''}${l}</option>`).join('')}</select></div>
+      <select id="fastPlan" class="btn sm ghost" style="width:auto;min-height:0;padding:4px 8px">${Object.entries(FAST_PLANS).filter(([k])=>k).map(([k,l])=>`<option value="${k}" ${String(ns.fastPlan||'16')===k?'selected':''}>Goal: ${l}</option>`).join('')}</select></div>
     <div style="display:grid;gap:10px;margin-top:10px">
       <label class="field"><span class="small muted">First meal</span><div class="row" style="gap:6px;flex-wrap:nowrap"><input type="time" id="fastFirst" style="flex:1" value="${esc(f.first||'')}"><button class="btn sm" data-fastnow="first">Now</button></div></label>
       <label class="field"><span class="small muted">Last meal</span><div class="row" style="gap:6px;flex-wrap:nowrap"><input type="time" id="fastLast" style="flex:1" value="${esc(f.last||'')}"><button class="btn sm" data-fastnow="last">Now</button></div></label>
@@ -903,7 +910,7 @@ async function viewNutrition(){
 
     </div>
 
-    ${fastingCardHtml(date)}
+    ${fastingOn() ? fastingCardHtml(date) : ''}
 
     <div class="card">
       <div class="row" style="justify-content:space-between"><h3>Water</h3><button class="btn sm ghost" id="wGoalBtn">Goal: ${wg} oz</button></div>
@@ -955,11 +962,13 @@ async function viewNutrition(){
   document.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{ d.water = Math.max(0, d.water + +b.dataset.w); saveDaySoon(date); rerender(); });
   $('#wGoalBtn').onclick = ()=>{ $('#wGoalEdit').hidden = !$('#wGoalEdit').hidden; };
   const setFast = (k, v) => { d.fast = {...(d.fast||{}), [k]: v||''}; if(!d.fast.first && !d.fast.last) delete d.fast; saveDaySoon(date); rerender(); };
+  if(fastingOn()){
   $('#fastFirst').onchange = e => setFast('first', e.target.value);
   $('#fastLast').onchange = e => setFast('last', e.target.value);
   document.querySelectorAll('[data-fastnow]').forEach(b=>b.onclick = e=>{ e.preventDefault(); setFast(b.dataset.fastnow, nowHM()); });
   $('#fastClear')?.addEventListener('click', ()=>{ delete d.fast; saveDaySoon(date); rerender(); });
   $('#fastPlan').onchange = async e => { ns.fastPlan = e.target.value; await saveAccount(); rerender(); };
+  }
   $('#wGoalSave').onclick = async ()=>{ const v=Math.round(num($('#wGoalIn').value)); if(v<16||v>300){ toast('Enter a goal between 16 and 300 oz'); return; } ns.waterGoal=v; await saveAccount(); rerender(); };
   // supplements
   document.querySelectorAll('[data-supp]').forEach(c=>c.onchange=()=>{ if(c.checked) d.supps[c.dataset.supp]=true; else delete d.supps[c.dataset.supp]; saveDaySoon(date); rerender(); });
@@ -1488,6 +1497,11 @@ function viewProfile(){
       <div class="perr small" style="color:var(--danger);margin-top:12px"></div>
       <button class="btn primary block" style="margin-top:12px">${has?'Save personal info':'Save and continue'}</button>
     </form>
+    <div class="card" id="fastSetting">
+      <h2>Intermittent fasting</h2>
+      <label class="toggle"><input type="checkbox" id="fastOn" ${fastingOn()?'checked':''}><span>I do intermittent fasting <span class="muted small">— log meal times on Nutrition, track fasts on Progress, and the coach factors it in</span></span></label>
+      ${fastingOn()?`<label class="f" for="fastPlanP">Fasting goal</label><select id="fastPlanP">${Object.entries(FAST_PLANS).filter(([k])=>k).map(([k,l])=>`<option value="${k}" ${String(nutritionSettings().fastPlan||'16')===k?'selected':''}>${l} — fast ${k} hours</option>`).join('')}</select>`:''}
+    </div>
     <div class="card">
       <h2>Your data</h2>
       <p class="small muted" style="margin-top:0">${S.user?'Your data is saved to your account. You can still download a backup copy.':'Everything is saved in this browser on this device. Download a backup now and then. You can restore it here or on another device.'}</p>
@@ -1537,6 +1551,8 @@ function viewProfile(){
   if(tab==='personal'){
     document.querySelectorAll('[data-reset]').forEach(b=>b.onclick=()=>resetAccount(b));
     bindAccountCard();
+    $('#fastOn').onchange = async e => { const ns = nutritionSettings(); ns.fastOn = e.target.checked; if(ns.fastOn && !ns.fastPlan) ns.fastPlan = '16'; await saveAccount(); toast(ns.fastOn?'Intermittent fasting on':'Intermittent fasting off'); const y=window.scrollY; viewProfile(); window.scrollTo(0,y); };
+    $('#fastPlanP')?.addEventListener('change', async e => { nutritionSettings().fastPlan = e.target.value; await saveAccount(); toast(`Fasting goal: ${FAST_PLANS[e.target.value]}`); });
     $('#exportBtn').onclick = exportData;
     $('#importFile').onchange = importData;
     $('#pfPersonal').addEventListener('submit', async e=>{
@@ -2760,9 +2776,45 @@ async function saveWorkout(){
 }
 
 // ----- progress -----
+
+// ----- Progress: intermittent fasting -----
+const fastTarget = () => +nutritionSettings().fastPlan || 16;
+function fastResult(date){ const fs = fastStats(date); return fs.fasted==null ? null : {hours: fs.fasted/60, hit: fs.fasted >= fastTarget()*60}; }
+function fastProgressShell(){ return fastingOn() ? `<div class="card" id="fastProg"><h3>Intermittent fasting</h3><div class="hint">Loading…</div></div>` : ''; }
+async function fillFastProgress(){
+  const box = $('#fastProg'); if(!box) return;
+  const today = todayStr(), weeks = 10;
+  const start = new Date(parseYmd(today)); start.setDate(start.getDate() - ((start.getDay()+6)%7) - 7*(weeks-1));
+  const from = shiftDate(ymd(start), -1);
+  try{ const got = await S.store.listDaysRange(from, today); for(const [k,v] of Object.entries(got)) if(!S.days[k]) S.days[k] = {...emptyDay(), ...v}; }
+  catch(e){ console.warn(e); }
+  if(!box.isConnected) return;
+  for(let dt=from; dt<=today; dt=shiftDate(dt,1)) if(!S.days[dt]) S.days[dt] = emptyDay();
+  const tgt = fastTarget();
+  // streaks (today counts once its first meal is logged)
+  let streak = 0; for(let dt = fastResult(today) ? today : shiftDate(today,-1); dt>=ymd(start); dt=shiftDate(dt,-1)){ const r=fastResult(dt); if(r && r.hit) streak++; else break; }
+  let best = 0, run = 0; for(let dt=ymd(start); dt<=today; dt=shiftDate(dt,1)){ const r=fastResult(dt); if(r && r.hit){ run++; best=Math.max(best,run); } else if(dt!==today) run=0; }
+  const last30 = [...Array(30)].map((_,i)=>fastResult(shiftDate(today,-i))).filter(Boolean);
+  const hits30 = last30.filter(r=>r.hit).length, avg = last30.length ? last30.reduce((a,r)=>a+r.hours,0)/last30.length : 0;
+  const cells = [];
+  for(let i=0;i<weeks*7;i++){ const dt = shiftDate(ymd(start), i), r = dt<=today ? fastResult(dt) : null, future = dt>today;
+    cells.push(`<div class="fcell ${future?'fut':r?(r.hit?'hit':'miss'):'none'}${dt===today?' today':''}" title="${prettyDate(dt)}${r?`: ${fmtDur(Math.round(r.hours*60))}`:''}">${r?Math.floor(r.hours):''}</div>`); }
+  box.innerHTML = `<div class="row" style="justify-content:space-between"><h3>Intermittent fasting</h3><span class="hint">Goal ${FAST_PLANS[nutritionSettings().fastPlan||'16']}</span></div>
+    <div class="stats" style="margin-top:10px">
+      <div class="stat"><div class="v">${streak}</div><div class="k">day streak</div></div>
+      <div class="stat"><div class="v">${hits30}<span class="muted" style="font-size:.6em">/${last30.length||0}</span></div><div class="k">goals hit, 30 days</div></div>
+      <div class="stat"><div class="v">${last30.length?avg.toFixed(1):'–'}<span class="muted" style="font-size:.6em">h</span></div><div class="k">average fast</div></div>
+    </div>
+    <div class="fgrid-h">${WEEK.map(w=>`<span>${w[0]}</span>`).join('')}</div>
+    <div class="fgrid">${cells.join('')}</div>
+    <div class="clegend" style="margin-top:8px"><span><i style="background:#c6f432"></i>hit ${tgt}h goal</span><span><i style="background:#ffb547"></i>fasted, short of goal</span><span><i style="background:var(--panel2)"></i>not logged</span><span class="muted">number = hours fasted</span></div>
+    ${best>streak?`<div class="hint" style="margin-top:6px">Best streak in this view: ${best} days</div>`:''}
+    ${!last30.length?`<p class="hint" style="margin:8px 0 0">Log your first and last meal times on the Nutrition tab. A day counts when the fast from the night before reaches your goal.</p>`:''}`;
+}
+
 function viewProgress(){
   const p = profile(), W = S.workouts, target = p ? +p.days : 3;
-  if(!W.length){ $('#app').innerHTML = `<div class="card empty"><h2>No workouts yet</h2><p>Log your first session and your progress shows up here.</p><button class="btn primary" onclick="go('plan')">Go to your plan</button></div>` + milestonesProgressHtml(); return; }
+  if(!W.length){ $('#app').innerHTML = `<div class="card empty"><h2>No workouts yet</h2><p>Log your first session and your progress shows up here.</p><button class="btn primary" onclick="go('plan')">Go to your plan</button></div>` + fastProgressShell() + milestonesProgressHtml(); fillFastProgress(); return; }
   const now = new Date(), thisWk = weekStart(now).getTime();
   const weeks = []; for(let i=7;i>=0;i--){ const s=weekStart(now); s.setDate(s.getDate()-7*i); weeks.push({start:s, n:0}); }
   const byWeek = new Map(weeks.map(w=>[w.start.getTime(),w]));
@@ -2802,6 +2854,7 @@ function viewProgress(){
         <div class="stat"><div class="k">Volume (30 days)</div><div class="v">${vol>=10000?(vol/1000).toFixed(1)+'k':Math.round(vol).toLocaleString()}</div><div class="s">lb lifted</div></div>
       </div>
     </div>
+    ${fastProgressShell()}
     ${milestonesProgressHtml()}
     <div class="card"><h3 style="margin-bottom:8px">Workouts per week</h3>${chart}</div>
     ${prs.length?`<div class="card"><h3 style="margin-bottom:6px">Personal bests</h3>
@@ -2817,6 +2870,7 @@ function viewProgress(){
           <button class="btn sm ghost danger" data-del="${esc(w.id)}" style="margin-top:8px;padding-left:0">Delete workout</button></div>
       </details>`; }).join('')}
     </div>`;
+  fillFastProgress();
   $('#app').querySelectorAll('[data-del]').forEach(b=>b.onclick = async ()=>{
     if(!b.dataset.armed){ b.dataset.armed='1'; b.textContent='Tap again to delete'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.armed; b.textContent='Delete workout'; } },3000); return; }
     b.disabled = true;
@@ -2994,7 +3048,7 @@ function coachContext(){
     for(let i=0;i<7;i++){ const dt = shiftDate(todayStr(), -i), dd = S.days[dt]; if(!dd || !dd.fast) continue; const fs = fastStats(dt);
       rows.push(`${dt}: eating ${dd.fast.first?fmtClock(dd.fast.first):'?'}–${dd.fast.last?fmtClock(dd.fast.last):'?'}${fs.fasted!=null?`, fasted ${fmtDur(fs.fasted)} before first meal`:''}`); }
     const fsT = fastStats(todayStr());
-    if(rows.length || ns.fastPlan) lines.push(`INTERMITTENT FASTING: target ${ns.fastPlan?FAST_PLANS[ns.fastPlan]+' ('+ns.fastPlan+'h fast)':'none set'}.${fsT.current>0?` Currently fasting ${fmtDur(fsT.current)}.`:''}\n${rows.join('\n') || 'No fasting times logged in the last 7 days.'}`); }
+    if(fastingOn()) lines.push(`INTERMITTENT FASTING: target ${ns.fastPlan?FAST_PLANS[ns.fastPlan]+' ('+ns.fastPlan+'h fast)':'none set'}.${fsT.current>0?` Currently fasting ${fmtDur(fsT.current)}.`:''}\n${rows.join('\n') || 'No fasting times logged in the last 7 days.'}`); }
   if(nd){ const t=dayTotals(nd); lines.push(`NUTRITION TODAY: ${t.cal} cal, ${t.protein} g protein, ${nd.water} oz water (goal ${waterGoal()} oz). Meals: ${nd.meals.map(m=>m.name).join('; ')||'none logged'}.${(S.account.nutrition?.supplements||[]).length?' Supplements taken: '+S.account.nutrition.supplements.filter(x=>nd.supps[x.id]).map(x=>x.name).join(', ')+' (of '+S.account.nutrition.supplements.map(x=>x.name).join(', ')+').':''}`); }
   const mst = msState();
   lines.push(mst.active.length ? 'ACTIVE MILESTONES:\n' + mst.active.map(m=>{ const def=msDef(m.id); if(!def) return ''; const {best,sessions,lv}=msBestAtLevel(m); return `- id ${m.id}: ${def.title}, level ${m.level+1} of ${def.levels.length} (${lv.name}; ${lv.plan}; moves up at ${goalText(lv.goal)}; ${lv.goal.sessions?`${sessions} sessions done`:`best at this level: ${best??'none yet'}`}). Levels: ${def.levels.map((l,i)=>`${i+1}=${l.name}`).join(', ')}`; }).join('\n') : 'ACTIVE MILESTONES: none.');
