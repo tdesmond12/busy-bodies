@@ -199,6 +199,11 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.learned{margin-top:8px;font-size:12px;color:var(--muted);cursor:pointer}
+.notes .nlist{display:grid;gap:6px}
+.notes .nlist div{display:flex;gap:8px;align-items:center;background:var(--panel2);border-radius:10px;padding:8px 10px;font-size:14px}
+.notes .nlist span{flex:1}
+.notes .nlist .iconbtn{width:28px;height:28px;flex:none}
 .chartscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:4px}
 .chartscroll svg{display:block}
 .chartscroll.many{-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 28px);mask-image:linear-gradient(90deg,transparent 0,#000 28px)}
@@ -2937,8 +2942,19 @@ function coachContext(){
   lines.push('PROGRAMS THEY CAN START: ' + Object.entries(PROGRAMS).filter(([id])=>!ps.active.some(e=>e.id===id)).map(([id,def])=>`${id} = ${def.title} (${def.perWeek}x/week, ${def.total} sessions)`).join('; '));
   lines.push('BUILT-IN MILESTONES THEY CAN START: ' + Object.entries(MILESTONES).filter(([id,def])=>msEligible(def,p) && !mst.active.some(m=>m.id===id)).map(([id,def])=>`${id} = ${def.title} (levels: ${def.levels.map((l,i)=>`${i+1}=${l.name}`).join(', ')})`).join('; '));
   lines.push(`Workouts logged this week: ${S.workouts.filter(w=>weekStart(parseYmd(w.date)).getTime()===wk).length} of ${pl?pl.days.length:p.days} planned.`);
+  // Longer-term pattern data (cheap summary of the last 12 weeks) so the coach can spot habits.
+  const cutoff = new Date(parseYmd(todayStr())); cutoff.setDate(cutoff.getDate()-84);
+  const older = S.workouts.filter(w=>parseYmd(w.date)>=cutoff);
+  if(older.length){
+    const byDow = {}; older.forEach(w=>{ const d=WEEK[(parseYmd(w.date).getDay()+6)%7]; byDow[d]=(byDow[d]||0)+1; });
+    const exTrend = {}; [...older].reverse().forEach(w=>w.exercises.forEach(e=>{ const top=Math.max(0,...e.sets.map(s=>num(s.w)*100+num(s.r))); if(!top) return; const best=e.sets.reduce((a,s)=> (num(s.w)*100+num(s.r))>(num(a.w)*100+num(a.r))?s:a, e.sets[0]); (exTrend[e.name]=exTrend[e.name]||[]).push(`${w.date.slice(5)} ${best.w?best.w+'x':''}${best.r}`); }));
+    lines.push(`LAST 12 WEEKS: ${older.length} workouts. By weekday: ${WEEK.map(d=>`${d} ${byDow[d]||0}`).join(', ')}.\nBest set per session by exercise (oldest→newest):\n` + Object.entries(exTrend).slice(0,20).map(([n,v])=>`- ${n}: ${v.slice(-8).join(', ')}`).join('\n'));
+  }
+  const ins = coachInsights();
+  lines.push(ins.length ? `COACH INSIGHTS (your own running notes about what works for this user — use them):\n` + ins.map(x=>`- ${x}`).join('\n') : 'COACH INSIGHTS: none yet.');
   return lines.join('\n');
 }
+const coachInsights = () => (S.account && S.account.coachInsights && S.account.coachInsights.items) || [];
 
 function coachSystemPrompt(){
   return `You are the Busy Bodies coach: a friendly, practical fitness coach inside a workout-tracker web app for busy working parents. You are talking with the app's user on their phone.
@@ -2970,6 +2986,7 @@ COACHING MODE (profile exists)
 - EQUIPMENT RULE: only recommend exercises from the library below and cardio from AVAILABLE CARDIO — this applies to everything you write, not just actions. The library already contains only what this user can do. If the user wants something that needs equipment or an activity they don't have, say so and offer an update_profile action that adds it (e.g. they mention they joined a gym or bought a kettlebell).
 - For swaps, use the same movement pattern when possible. Use ONLY ids from the library.
 - When the user shares lasting info (new injury, schedule change, preference), propose an update_profile action with updated "notes" (keep the old notes and add the new info).
+- COACH INSIGHTS: you keep a short running list of what you've learned about how this user trains and what works for them — patterns in their logs and things they've told you (e.g. "Progresses best by adding a set before adding reps", "Usually skips Friday workouts — Fridays are busy", "Prefers short home workouts on weekdays", "Waist-high push-ups: stalled at 8–10 reps for 2 weeks"). Read them before answering. When you notice a new pattern from their data or conversation, or an insight is outdated, return the FULL updated list in "insights" (at most 8 short items, each under 120 characters; merge and drop stale ones). Only include things grounded in their logs or their own words — no guesses about health, diagnoses or personality. Otherwise set "insights" to null. Don't announce routine note-taking in your reply.
 - Nutrition: the app has a Nutrition tab where the user logs meals (calories/protein), water and supplements. Give general, sensible guidance (protein, simple meals for busy families, hydration, the calorie estimate). Don't recommend specific supplement doses; suggest checking with a doctor or pharmacist.
 
 SAFETY
@@ -2978,7 +2995,7 @@ SAFETY
 
 OUTPUT
 Respond with ONLY a JSON object, no markdown fences:
-{"reply": "<message to the user>", "profile": <object or null>, "actions": [<zero or more actions>]}
+{"reply": "<message to the user>", "profile": <object or null>, "actions": [<zero or more actions>], "insights": <full updated array of strings, or null>}
 
 EXERCISE LIBRARY — ${profile() ? 'only what this user can do' : 'all exercises'} (id | name | pattern | level | needs):
 ${libForPrompt(profile())}
@@ -3031,7 +3048,7 @@ async function askAI(contents, system, perModelMs=30000){
 }
 function parseCoach(text){
   let t = (text||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/```$/,'').trim();
-  try{ const o = JSON.parse(t); return { reply: String(o.reply||'').trim() || '…', profile: o.profile && typeof o.profile==='object' ? o.profile : null, actions: Array.isArray(o.actions) ? o.actions.slice(0,4) : [] }; }
+  try{ const o = JSON.parse(t); return { reply: String(o.reply||'').trim() || '…', profile: o.profile && typeof o.profile==='object' ? o.profile : null, actions: Array.isArray(o.actions) ? o.actions.slice(0,4) : [], insights: Array.isArray(o.insights) ? o.insights.map(x=>String(x||'').trim().slice(0,160)).filter(Boolean).slice(0,8) : null }; }
   catch{ return { reply: t || 'Sorry, I lost my train of thought — could you say that again?', profile:null, actions:[] }; }
 }
 function greeting(){
@@ -3103,7 +3120,13 @@ function viewCoach(){
   }
   const msgs = S.chat.length ? S.chat : [{role:'model', text:greeting(), ts:Date.now(), seed:true}];
   $('#app').innerHTML = `
-    <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">Coach</h2>${S.chat.length?'<button class="btn sm ghost" id="clearChat">Clear chat</button>':''}</div>
+    <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">Coach</h2><div class="row" style="gap:6px">${profile()?`<button class="btn sm" id="notesBtn">📓 Notes${coachInsights().length?` (${coachInsights().length})`:''}</button>`:''}${S.chat.length?'<button class="btn sm ghost" id="clearChat">Clear chat</button>':''}</div></div>
+    ${S.showNotes ? `<div class="card notes"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><h3 style="margin:0">Coach’s notes on you</h3><button class="iconbtn" id="closeNotes" style="flex:none" aria-label="Close">${ICON_X}</button></div>
+      <p class="hint" style="margin:4px 0 10px">The coach keeps these notes from your logs and your chats, and reads them before every answer. Remove anything that’s wrong.</p>
+      ${coachInsights().length ? `<div class="nlist">${coachInsights().map((x,i)=>`<div><span>${esc(x)}</span><button class="iconbtn" data-delnote="${i}" aria-label="Remove note">${ICON_X}</button></div>`).join('')}</div>
+        <div class="hint" style="margin-top:8px">Last updated ${new Date(S.account.coachInsights.updated).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</div>`
+      : `<div class="small muted">Nothing yet — the coach adds notes as it spots patterns in your workouts and conversations.</div>`}
+      <button class="btn sm" id="refreshNotes" style="margin-top:10px">Review my history and update notes</button></div>` : ''}
     <div class="chat" id="chat">${msgs.map((m,i)=>msgHtml(m,i)).join('')}${S.coachBusy?'<div class="typing" id="typing">Coach is typing…</div>':''}</div>
     <div class="composer"><div class="inner">
       ${profile()?`<div class="chips">${COACH_STARTERS.map(s=>`<span class="chip" data-q="${esc(s)}">${esc(s)}</span>`).join('')}</div>`:''}
@@ -3116,6 +3139,14 @@ function viewCoach(){
   ta.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey && window.matchMedia('(pointer:fine)').matches){ e.preventDefault(); $('#coachForm').requestSubmit(); } });
   $('#coachForm').onsubmit = e=>{ e.preventDefault(); const t=ta.value.trim(); if(t) sendCoach(t); };
   document.querySelectorAll('[data-q]').forEach(c=>c.onclick=()=>sendCoach(c.dataset.q));
+  $('#notesBtn')?.addEventListener('click', ()=>{ S.showNotes=!S.showNotes; viewCoach(); window.scrollTo(0,0); });
+  $('#closeNotes')?.addEventListener('click', ()=>{ S.showNotes=false; viewCoach(); });
+  document.querySelectorAll('[data-shownotes]').forEach(el=>el.onclick=()=>{ S.showNotes=true; viewCoach(); window.scrollTo(0,0); });
+  document.querySelectorAll('[data-delnote]').forEach(b=>b.onclick=async ()=>{
+    const items = coachInsights().filter((_,i)=>i!==+b.dataset.delnote);
+    S.account.coachInsights = {items, updated: Date.now()}; await saveAccount(); viewCoach(); window.scrollTo(0,0);
+  });
+  $('#refreshNotes')?.addEventListener('click', ()=>{ S.showNotes=false; sendCoach('Look over my workout history and our chats and update your notes on what works for me. Then give me a quick summary of what you noticed.'); });
   $('#clearChat')?.addEventListener('click', async e=>{
     const b=e.currentTarget; if(!b.dataset.armed){ b.dataset.armed='1'; b.textContent='Tap again to clear'; return; }
     S.chat=[]; await S.store.saveChat([]); viewCoach();
@@ -3126,11 +3157,11 @@ function viewCoach(){
     const v = validateAction(a); if(!v){ toast('That change no longer fits your plan'); b.disabled=false; return; }
     const msg = await applyAction(v); a.applied = true; await S.store.saveChat(S.chat).catch(()=>{}); toast(msg); viewCoach();
   });
-  window.scrollTo(0, document.body.scrollHeight);
+  if(!S.showNotes) window.scrollTo(0, document.body.scrollHeight);
 }
 function msgHtml(m, i){
   const acts = (m.actions||[]).map((a,ai)=> a.applied ? `<div class="done">✓ ${esc(a.label)}</div>` : `<button class="btn sm" data-act="${i}:${ai}">Apply: ${esc(a.label)}</button>`).join('');
-  return `<div class="msg ${m.role}">${m.role==='model'?mdLite(m.text):esc(m.text).replace(/\n/g,'<br>')}${acts?`<div class="acts">${acts}</div>`:''}</div>`;
+  return `<div class="msg ${m.role}">${m.role==='model'?mdLite(m.text):esc(m.text).replace(/\n/g,'<br>')}${acts?`<div class="acts">${acts}</div>`:''}${m.learned?`<div class="learned" data-shownotes>📓 Updated my notes about you</div>`:''}</div>`;
 }
 
 async function sendCoach(text){
@@ -3168,6 +3199,9 @@ async function sendCoach(text){
     const {p, err} = normalizeProfile(out.profile);
     if(!err.length){ await applyProfile(p); msg.text += '\n\n✓ **Your plan is ready** — check the Plan tab.'; toast('Your plan is ready'); }
     else msg.text += `\n\n(I still need your ${err.join(' and ')}.)`;
+  }
+  if(out.insights && !out.error && profile() && JSON.stringify(out.insights)!==JSON.stringify(coachInsights())){
+    S.account.coachInsights = {items: out.insights, updated: Date.now()}; await saveAccount(); msg.learned = true;
   }
   const acts = out.actions.map(validateAction).filter(Boolean).map(a=>({...a, applied:false}));
   if(acts.length) msg.actions = acts;
