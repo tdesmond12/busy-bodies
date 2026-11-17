@@ -199,6 +199,9 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.chartscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:4px}
+.chartscroll svg{display:block}
+.chartscroll.many{-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 28px);mask-image:linear-gradient(90deg,transparent 0,#000 28px)}
 .chartblk{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
 .clegend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--muted);margin-top:4px}
 .clegend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
@@ -2392,11 +2395,10 @@ function bindMilestones(){
 // ----- practice charts (Progress → Programs & milestones → Charts) -----
 // sessions: oldest→newest [{date, lv, lvName, sets:[n], goal:n|null}]
 function practiceChartSvg(sessions, unit){
-  sessions = sessions.slice(-10);
   if(!sessions.length) return `<div class="hint">No practice logged yet — use Log practice on the card.</div>`;
   const maxSets = Math.max(...sessions.map(x=>x.sets.length), 1);
   const maxV = Math.max(1, ...sessions.flatMap(x=>[...x.sets, x.goal||0])) * 1.12;
-  const H = 110, top = 14, colW = 30, gap = 10, Wd = Math.max(sessions.length*(colW+gap), 340), left = 0;
+  const H = 110, top = 14, colW = 30, gap = 10, Wd = Math.max(sessions.length*(colW+gap), 300), left = 0;
   const y = v => top + (H-top) - (v/maxV)*(H-top);
   const bw = Math.max(4, Math.min(9, (colW - (maxSets-1)*2)/maxSets));
   let prevLv = null;
@@ -2411,7 +2413,10 @@ function practiceChartSvg(sessions, unit){
       <text x="${cx+colW/2}" y="${H+13}" fill="#9aa3ad" font-size="9.5" text-anchor="middle">${d.getMonth()+1}/${d.getDate()}</text>`;
   }).join('');
   const firstLv = `<text x="2" y="${top-1}" fill="#9aa3ad" font-size="9">L${sessions[0].lv+1}</text>`;
-  return `<svg viewBox="0 0 ${Wd} ${H+18}" width="100%" style="max-height:170px" role="img" aria-label="Practice sessions"><line x1="0" x2="${Wd}" y1="${H}" y2="${H}" stroke="#2b3037"/>${firstLv}${cols}</svg>`;
+  // Full history, one fixed-width column per session; scrolls sideways and opens at the newest end.
+  const many = sessions.length > 7;
+  setTimeout(()=>document.querySelectorAll('.chartscroll').forEach(el=>{ if(!el.dataset.init){ el.dataset.init='1'; el.scrollLeft = el.scrollWidth; } }));
+  return `${many?`<div class="hint" style="text-align:right">${sessions.length} sessions · ← swipe for earlier</div>`:''}<div class="chartscroll${many?' many':''}"><svg viewBox="0 0 ${Wd} ${H+18}" width="${Wd}" height="${H+18}" role="img" aria-label="Practice sessions"><line x1="0" x2="${Wd}" y1="${H}" y2="${H}" stroke="#2b3037"/>${firstLv}${cols}</svg></div>`;
 }
 const chartLegend = (goal=true) => `<div class="clegend"><span><i style="background:#c6f432"></i>${goal?'hit the goal':'set'}</span>${goal?`<span><i style="background:#5b6b7d"></i>below goal</span><span><i class="dash"></i>goal for that level</span>`:''}<span class="muted">number = best set</span></div>`;
 function msChartSessions(id){
