@@ -202,6 +202,18 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.medladder{display:flex;gap:4px;margin:8px 0 6px}
+.medladder span{flex:1;text-align:center;font-size:11px;font-weight:700;padding:4px 0;border-radius:6px;background:var(--panel2);color:var(--muted)}
+.medladder span.done{background:color-mix(in srgb,var(--accent) 35%,transparent);color:var(--text)}
+.medladder span.cur{background:var(--accent);color:var(--accent-ink)}
+.medtech{display:grid;gap:6px;margin-top:10px}
+.medtech .btn{display:flex;flex-direction:column;align-items:flex-start;text-align:left;width:100%;gap:2px}
+.breathe{width:200px;height:200px;display:grid;place-items:center;margin:10px auto}
+.breathe span{width:100%;height:100%;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--accent) 55%,transparent),color-mix(in srgb,var(--accent) 12%,transparent));animation:breathe 10s ease-in-out infinite}
+.breathe.paused span{animation-play-state:paused}
+@keyframes breathe{0%{transform:scale(.55)}40%{transform:scale(1)}100%{transform:scale(.55)}}
+.player.med .pl-cue{transition:opacity .4s;min-height:72px;font-size:17px;line-height:1.45}
+@media (prefers-reduced-motion:reduce){.breathe span{animation:none;transform:scale(.8)}}
 .wakes{display:grid;gap:6px}
 #sleepCard .iconbtn{flex:none}
 .bcview{position:relative;margin-top:12px;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:4/3}
@@ -482,6 +494,7 @@ E('Assisted Pistol Squat','squat','none',2,'Hold a door frame or post, sit down 
 E('Box Pistol Squat','squat','none',3,'One-leg squat down to a chair or couch, tap, and stand back up without the other foot touching down.','m');
 E('Tuck L-Sit','core','none',3,'Hands on the floor or two sturdy chairs, push down and lift your hips and tucked knees off the ground.','tm');
 E('Yoga Flow','mobility','none',1,'Move slowly, breathe through your nose, never force a stretch.','m');
+E('Meditation','mobility','none',1,'Sit comfortably, follow the breath, and gently come back each time your mind wanders.','m');
 
 // ---------- equipment + activities ----------
 const GEAR = {
@@ -1904,6 +1917,7 @@ function viewPlan(){
   $('#app').querySelectorAll('[data-logday]').forEach(b=>b.onclick = ()=>{ startDraft(+b.dataset.logday); go('workout'); });
   $('#app').querySelectorAll('[data-logrest]').forEach(b=>b.onclick = ()=>{ startDraft(null, null, b.dataset.logrest); go('workout'); });
   $('#app').querySelectorAll('[data-flow]').forEach(b=>b.onclick = ()=>{ const [id,f]=b.dataset.flow.split(':'); playFlow(id,f); });
+  $('#app').querySelectorAll('.prblock [data-med]').forEach(b=>b.onclick = ()=>{ const [id,t]=b.dataset.med.split(':'); playMeditation(id,t); });
   $('#customLog').onclick = ()=>{ startDraft(null); go('workout'); };
 }
 
@@ -2105,6 +2119,30 @@ const PROGRAMS = {
     ],
   },
 };
+// Meditation: start tiny, stay consistent, add a couple of minutes once a length feels easy.
+// Ladder and techniques follow common beginner guidance (start ~3–5 min, build gradually toward 10–20).
+PROGRAMS.meditation = {
+  title:'Meditation: Start Small', icon:'🪷', kind:'meditate', perWeek:7, perStage:5, defaultMode:'addon', addonOnly:true,
+  blurb:'Start with 3 minutes a day and build up to the daily length you choose. Short, guided, and timed for you.',
+  source:'Built from common beginner guidance: start with a few minutes, keep it daily, add a minute or two once it feels easy, and aim for 10–20 minutes. Techniques: breath focus, breath counting, body scan and loving-kindness.',
+  howTo:'Same time each day helps (after drop-off, at lunch, or before bed). Sit comfortably, set your phone face up, and tap a technique. Your mind will wander — noticing that and coming back IS the practice. After 5 sessions at your current length you’ll be asked if you want to add a little time. If meditation ever stirs up something upsetting, open your eyes, move, or switch to a walking or body-based practice — and it’s fine to stop.',
+  ladder:[3,5,7,10,12,15,20,25,30], goals:[10,15,20,30],
+  techniques:{
+    breath:{name:'Breath focus', icon:'🌬️', blurb:'Rest your attention on the feeling of breathing.'},
+    count:{name:'Counting breaths', icon:'🔢', blurb:'Count each out-breath from 1 to 10, then start over.'},
+    body:{name:'Body scan', icon:'🫧', blurb:'Move your attention slowly from feet to head.'},
+    kind:{name:'Kindness', icon:'💛', blurb:'Send simple good wishes to yourself and others.'},
+    silent:{name:'Silent timer', icon:'🔔', blurb:'Just a bell to start and end.'},
+  },
+};
+const medStages = entry => { const g = entry.goalMin || 10; const L = PROGRAMS.meditation.ladder.filter(m=>m<=g); if(L[L.length-1]!==g) L.push(g); return L; };
+const medMin = entry => medStages(entry)[Math.min(entry.stage||0, medStages(entry).length-1)];
+const prTotal = entry => { const def = prDef(entry.id); return def.kind==='meditate' ? medStages(entry).length * def.perStage : def.total; };
+function medSessions(entry, opts={}){
+  return S.workouts.filter(w=>w.date>=entry.started).flatMap(w=>w.exercises.filter(e=>e.prog && e.prog.id===entry.id).map(e=>({w, e, min:num(e.sets[0]?.r)})))
+    .filter(x=>!opts.atStage || ((x.w.createdAt||0) >= (entry.stageTs||0) && x.min >= medMin(entry)));
+}
+function medSuggest(entry){ const order = (entry.stage||0)===0 ? ['breath','count'] : ['breath','count','body','breath','kind']; return order[medSessions(entry).length % order.length]; }
 const flowMinutes = f => Math.max(1, Math.round(f.poses.reduce((a,p)=>a+p.secs,0)/60));
 
 const prState = () => {
@@ -2117,16 +2155,19 @@ const trackLevels = (entry, track) => { const t = PROGRAMS[entry.id].tracks[trac
 function prSessions(entry){ return S.workouts.filter(w=>w.date>=entry.started && w.exercises.some(e=>e.prog && e.prog.id===entry.id)).length; }
 function suggestedDays(def, mode){
   const pl = plan(), used = pl ? pl.days.map(d=>d.weekday) : [];
+  if(def.perWeek>=7) return [...WEEK];
   const spread = {2:['Mon','Thu'],3:['Mon','Wed','Fri'],4:['Mon','Tue','Thu','Fri']}[def.perWeek] || ['Mon','Wed','Fri'];
   if(mode==='replace') return used.length>=def.perWeek ? used.slice(0, def.perWeek) : spread;
   const rest = WEEK.filter(w=>!used.includes(w));
   // add-on: rest days first, then plan days
   return [...rest.filter(w=>w!=='Sun'), ...(rest.includes('Sun')?['Sun']:[]), ...used].slice(0, def.perWeek).sort((a,b)=>WEEK.indexOf(a)-WEEK.indexOf(b));
 }
-async function startProgram(id, mode, days){
+async function startProgram(id, mode, days, goalMin){
   const def = prDef(id), st = prState(), p = profile();
   if(st.active.some(e=>e.id===id)) return;
+  if(def.addonOnly) mode = 'addon';
   const entry = { id, mode, days:[...days].sort((a,b)=>WEEK.indexOf(a)-WEEK.indexOf(b)), started: todayStr() };
+  if(def.kind==='meditate'){ entry.goalMin = def.goals.includes(+goalMin) ? +goalMin : 10; entry.stage = 0; entry.stageTs = Date.now(); }
   if(def.kind==='tracks'){
     entry.tracks = Object.fromEntries(Object.keys(def.tracks).map(k=>[k,0]));
     entry.variant = { pull: haveSet(p).has('pullup') ? 'bar' : 'nobar' };
@@ -2152,17 +2193,22 @@ const progsOn = wd => prState().active.filter(e=>e.days.includes(wd));
 function nextFlow(entry){ const def=prDef(entry.id); return def.flows[prSessions(entry) % def.flows.length]; }
 function progBlockHtml(entry){
   const def = prDef(entry.id), n = prSessions(entry);
+  if(def.kind==='meditate'){ const t = medSuggest(entry), T = def.techniques[t];
+    return `<div class="prblock"><div><b>${def.icon} Meditation</b> <span class="muted small">· ${medMin(entry)} min</span></div>
+      <div class="small">Suggested: ${T.icon} ${esc(T.name)}</div>
+      <div class="row" style="margin-top:8px;gap:6px"><button class="btn sm primary" data-med="${entry.id}:${t}">▶ Start ${medMin(entry)} min</button></div></div>`; }
   if(def.kind==='flows'){ const f = nextFlow(entry);
-    return `<div class="prblock"><div><b>${def.icon} ${esc(def.title)}</b> <span class="muted small">· session ${Math.min(n+1,def.total)} of ${def.total}</span></div>
+    return `<div class="prblock"><div><b>${def.icon} ${esc(def.title)}</b> <span class="muted small">· session ${Math.min(n+1,prTotal(entry))} of ${prTotal(entry)}</span></div>
       <div class="small">Suggested: ${esc(f.name)} · ${flowMinutes(f)} min</div>
       <div class="row" style="margin-top:8px;gap:6px">${def.flows.map(fl=>`<button class="btn sm ${fl.id===f.id?'primary':''}" data-flow="${entry.id}:${fl.id}">▶ ${esc(fl.name)}</button>`).join('')}</div></div>`; }
-  return `<div class="prblock"><div><b>${def.icon} ${esc(def.title)}</b> <span class="muted small">· session ${Math.min(n+1,def.total)} of ${def.total}</span></div>
+  return `<div class="prblock"><div><b>${def.icon} ${esc(def.title)}</b> <span class="muted small">· session ${Math.min(n+1,prTotal(entry))} of ${prTotal(entry)}</span></div>
     <div class="small" style="margin-top:4px;display:grid;gap:2px">${Object.entries(def.tracks).map(([k,t])=>{ const lv=trackLevels(entry,k)[entry.tracks[k]]; return `<div><span class="muted">${t.label}:</span> ${esc(lv.name)} — ${esc(lv.plan)}</div>`; }).join('')}</div>
     <div class="hint">Warm-up: ${esc(def.warmup)}</div></div>`;
 }
 // Draft entries for a program session (calisthenics → one exercise per movement; yoga → minutes).
 function progDraftEntries(entry, flowId){
   const def = prDef(entry.id);
+  if(def.kind==='meditate') return [{id:'meditation', sets:[{w:'', r:String(medMin(entry))}], prog:{id:entry.id, stage:entry.stage||0}}];
   if(def.kind==='flows'){ const f = def.flows.find(x=>x.id===flowId) || nextFlow(entry); return [{id:'yoga-flow', sets:[{w:'', r:String(flowMinutes(f))}], prog:{id:entry.id, flow:f.id}, label:`${def.title}: ${f.name}`}]; }
   return Object.keys(def.tracks).map(k=>{ const lv = trackLevels(entry,k)[entry.tracks[k]]; return {id:lv.ex, sets:blankSets(EXBY[lv.ex], lv.sets||3), prog:{id:entry.id, track:k, level:entry.tracks[k]}}; });
 }
@@ -2181,6 +2227,20 @@ async function checkPrograms(w){
         msgs.push(`🎯 ${def.tracks[k].label}: goal hit! Move up?`); S.planTab = 'programs'; S.askUp = true;
       }
     }
+    if(def.kind==='meditate' && w.exercises.some(e=>e.prog && e.prog.id===entry.id)){
+      const last = medStages(entry).length-1, atStage = medSessions(entry, {atStage:true}).length;
+      if((entry.stage||0) < last && atStage >= def.perStage && entry.ready!==entry.stage){
+        entry.ready = entry.stage||0; changed = true; S.planTab = 'programs'; S.askUp = true;
+        msgs.push(`🪷 ${def.perStage} sessions at ${medMin(entry)} min — ready for ${medStages(entry)[entry.stage+1]}?`);
+      }
+      if(!entry.completed && (entry.stage||0) >= last && atStage >= def.perStage){
+        entry.completed = todayStr(); changed = true;
+        st.done.push({id:entry.id, title:def.title, icon:def.icon, date:w.date, started:entry.started});
+        msEvent('done', 'prog:'+entry.id, 0); msState().events[msState().events.length-1].title = `${def.title} · ${entry.goalMin} min`;
+        S.prCelebrate = entry.id; msgs.push(`🏆 You reached ${entry.goalMin} minutes of meditation!`);
+      }
+      continue;
+    }
     if(!entry.completed && w.exercises.some(e=>e.prog && e.prog.id===entry.id) && prSessions(entry) >= def.total){
       entry.completed = todayStr(); changed = true;
       st.done.push({id:entry.id, title:def.title, icon:def.icon, date:w.date, started:entry.started});
@@ -2190,6 +2250,88 @@ async function checkPrograms(w){
   }
   if(changed) await saveAccount();
   return msgs;
+}
+
+
+// ----- guided meditation player -----
+function medCues(tech, total){
+  const end = Math.max(30, total-25), C = [];
+  const add = (t, txt) => { if(t>=0 && t<end) C.push([Math.round(t), txt]); };
+  const wander = ['Your mind will wander — that’s normal. Noticing it and coming back is the practice.', 'No need to change the breath. Just feel it.', 'If a thought pulls you away, name it “thinking”, and return.', 'Let your shoulders and jaw soften.', 'Back to this breath. Just this one.'];
+  if(tech==='breath'){
+    add(0,'Sit comfortably. Close your eyes or let your gaze rest low. Notice where you feel the breath most — nose, chest or belly.');
+    for(let t=45, i=0; t<end; t+=Math.max(45, Math.round(total/7)), i++) add(t, wander[i%wander.length]);
+  } else if(tech==='count'){
+    add(0,'Breathe normally. On each out-breath, silently count: one… two… up to ten. Then start again at one.');
+    for(let t=50, i=0; t<end; t+=Math.max(50, Math.round(total/6)), i++) add(t, ['Lost count? No problem — start again at one.','Count only the out-breaths, up to ten.','If you reach twenty-three, just smile and go back to one.','Let the counting be light, like a whisper.'][i%4]);
+  } else if(tech==='body'){
+    add(0,'Get comfortable — sitting or lying down. Take a slow breath and let your body be heavy.');
+    const parts = ['your feet and toes','your ankles and calves','your knees and thighs','your hips and seat','your belly, rising and falling','your chest and upper back','your hands and arms','your shoulders — let them drop','your neck and throat','your jaw, cheeks and eyes','your whole body, all at once'];
+    const step = (end-20)/parts.length; parts.forEach((p,i)=>add(20+i*step, `Bring your attention to ${p}. Just notice what’s there — warmth, pressure, tingling, or nothing at all.`));
+  } else if(tech==='kind'){
+    add(0,'Settle in. Picture yourself, and silently repeat: may I be happy, may I be healthy, may I be safe, may I live with ease.');
+    const who = ['someone you love — maybe your kids or partner','a friend who’s having a hard time','someone neutral — a neighbor or a cashier you saw today','someone you find difficult, if that feels OK — or go back to yourself','everyone, everywhere'];
+    const step = (end-30)/who.length; who.forEach((x,i)=>add(30+i*step, `Now bring to mind ${x}. May you be happy. May you be healthy. May you be safe. May you live with ease.`));
+  } else add(0,'Sit quietly. Rest in whatever is here. The bell will ring at the end.');
+  C.push([end, 'Begin to widen your attention to the room around you. When the bell rings, take a breath and open your eyes.']);
+  return C;
+}
+function bell(ctx, when=0, freq=528){
+  if(!ctx) return; const t = ctx.currentTime + when, o = ctx.createOscillator(), g = ctx.createGain(), o2 = ctx.createOscillator(), g2 = ctx.createGain();
+  o.type='sine'; o.frequency.value=freq; o2.type='sine'; o2.frequency.value=freq*2.76;
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.35,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+4.5);
+  g2.gain.setValueAtTime(0.0001,t); g2.gain.exponentialRampToValueAtTime(0.08,t+0.02); g2.gain.exponentialRampToValueAtTime(0.0001,t+2);
+  o.connect(g).connect(ctx.destination); o2.connect(g2).connect(ctx.destination); o.start(t); o2.start(t); o.stop(t+4.6); o2.stop(t+2.1);
+}
+async function playMeditation(progId, tech){
+  const def = prDef(progId), entry = prState().active.find(e=>e.id===progId); if(!entry) return;
+  const T = def.techniques[tech] || def.techniques.breath, total = medMin(entry)*60, cues = medCues(tech, total);
+  let left = total, elapsed = 0, paused = false, timer = null, lock = null, ctx = null, ci = 0;
+  try{ ctx = new (window.AudioContext||window.webkitAudioContext)(); await ctx.resume(); }catch(e){}
+  try{ lock = await navigator.wakeLock?.request('screen'); }catch(e){}
+  const el = document.createElement('div'); el.className = 'player med'; document.body.appendChild(el);
+  const end = () => { clearInterval(timer); try{ lock && lock.release(); }catch(e){} setTimeout(()=>{ try{ ctx && ctx.close(); }catch(e){} }, 5000); };
+  const clock = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  const finishScreen = (early) => {
+    end(); if(!early) bell(ctx);
+    const mins = Math.max(1, Math.round(elapsed/60));
+    el.innerHTML = `<div class="pl-inner" style="justify-content:center;text-align:center">
+      <div style="font-size:54px">${early?'👏':'🪷'}</div><h2>${early?'Every minute counts':'Nicely done'}</h2>
+      <p class="muted">${esc(T.name)} · ${mins} min</p>
+      <button class="btn primary block" id="plLog">Log this session</button>
+      <button class="btn ghost block" id="plClose" style="margin-top:8px">Close without logging</button></div>`;
+    $('#plClose').onclick = ()=>el.remove();
+    $('#plLog').onclick = async ()=>{
+      $('#plLog').disabled = true;
+      const w = { date: todayStr(), dayName:'Meditation', exercises:[{id:'meditation', name:`Meditation: ${T.name}`, pattern:'mobility', sets:[{r:mins}], prog:{id:progId, stage:entry.stage||0, tech}}], cardioMin:0, effort:null, notes:'', createdAt:Date.now() };
+      try{
+        const id = await S.store.addWorkout(w); S.workouts.unshift({...w,id}); S.workouts.sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
+        const msgs = await checkPrograms(w); el.remove(); toast(msgs.length?msgs.join(' · '):'Meditation logged 🪷');
+        S.planTab = 'programs'; S.askUp = false; go('plan');
+      }catch(e){ console.error(e); $('#plLog').disabled=false; toast('Couldn’t save — try again'); }
+    };
+  };
+  const render = () => {
+    const cue = [...cues].reverse().find(c=>c[0]<=elapsed);
+    el.innerHTML = `<div class="pl-inner">
+      <div class="row" style="justify-content:space-between"><span class="small muted">${T.icon} ${esc(T.name)} · ${medMin(entry)} min</span><button class="iconbtn" id="plX" aria-label="End">✕</button></div>
+      <div class="nbar"><div class="track"><div class="fill" style="width:${Math.round(elapsed/total*100)}%"></div></div></div>
+      <div class="pl-pose"><div class="breathe ${paused?'paused':''}"><span></span></div>
+        <div class="pl-time">${clock(left)}</div>
+        <div class="pl-cue" id="medCue">${esc(cue?cue[1]:'')}</div></div>
+      <div class="small muted" style="text-align:center;min-height:20px">${paused?'Paused':'Breathe with the circle if it helps — in as it grows, out as it shrinks'}</div>
+      <div class="grid2"><button class="btn" id="plEnd">End early</button><button class="btn primary" id="plPause">${paused?'▶ Resume':'❚❚ Pause'}</button></div>
+    </div>`;
+    $('#plX').onclick = $('#plEnd').onclick = ()=>{ if(elapsed>=45) finishScreen(true); else { end(); el.remove(); } };
+    $('#plPause').onclick = ()=>{ paused=!paused; render(); };
+  };
+  bell(ctx); render();
+  timer = setInterval(()=>{ if(paused) return; left--; elapsed++;
+    if(left<=0){ finishScreen(false); return; }
+    const t = el.querySelector('.pl-time'); if(t) t.textContent = clock(left);
+    const f = el.querySelector('.fill'); if(f) f.style.width = Math.round(elapsed/total*100)+'%';
+    if(ci < cues.length && cues.some(c=>c[0]===elapsed)){ const c = cues.find(c=>c[0]===elapsed); const m = $('#medCue'); if(m){ m.style.opacity=0; setTimeout(()=>{ m.textContent=c[1]; m.style.opacity=1; }, 400); } if(elapsed>0 && (tech==='body'||tech==='kind')) bell(ctx, 0, 880); }
+  }, 1000);
 }
 
 // ----- guided yoga player -----
@@ -2241,6 +2383,23 @@ async function playFlow(progId, flowId){
   render();
 }
 
+
+function medCardHtml(entry){
+  const def = prDef(entry.id), L = medStages(entry), st = entry.stage||0, atStage = medSessions(entry,{atStage:true}).length, all = medSessions(entry), sug = medSuggest(entry);
+  const totalMin = all.reduce((a,x)=>a+x.min,0);
+  return `<div style="margin-top:10px">
+    <div class="row" style="justify-content:space-between"><b>Now: ${medMin(entry)} min a day</b><span class="hint">Goal ${entry.goalMin} min</span></div>
+    <div class="medladder">${L.map((m,i)=>`<span class="${i<st?'done':i===st?'cur':''}">${m}</span>`).join('')}</div>
+    <div class="small muted">${st>=L.length-1 ? (entry.completed?`🏆 You reached your ${entry.goalMin}-minute goal. Keep the habit going!`:`At your goal — ${Math.min(atStage,def.perStage)} of ${def.perStage} sessions to finish`) : `${Math.min(atStage,def.perStage)} of ${def.perStage} sessions at ${medMin(entry)}+ min before adding time`} · ${all.length} sessions, ${totalMin} min total</div>
+    ${entry.ready===st && st<L.length-1 ? `<div class="upask"><div><b>🪷 ${def.perStage} sessions done!</b> Ready to go from ${medMin(entry)} to <b>${L[st+1]} minutes</b>?</div>
+      <div class="hint" style="margin:2px 0 8px">Only move up if ${medMin(entry)} minutes has started to feel easy. Staying longer is completely fine.</div>
+      <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm primary" data-medup="${entry.id}">Move up</button><button class="btn sm" data-medstay="${entry.id}">Stay here</button>${S.user&&FB?`<button class="btn sm" data-prupask="${entry.id}:stage">💬 Ask the coach</button>`:''}</div></div>` : ''}
+    <div class="medtech">${Object.entries(def.techniques).map(([k,T])=>`<button class="btn ${k===sug?'primary':''}" data-med="${entry.id}:${k}"><span>${T.icon} ${esc(T.name)}${k===sug?' <span class="small" style="opacity:.8">· suggested</span>':''}</span><span class="small" style="opacity:.75;font-weight:400">${esc(T.blurb)}</span></button>`).join('')}</div>
+    <div class="row" style="margin-top:6px;gap:6px"><button class="btn sm ghost" data-medlvl="${entry.id}:-1" ${st===0?'disabled':''}>‹ Shorter</button><button class="btn sm ghost" data-medlvl="${entry.id}:1" ${st>=L.length-1?'disabled':''}>Longer ›</button>
+      <select class="btn sm ghost" data-medgoal="${entry.id}" style="width:auto;min-height:0;padding:4px 8px">${def.goals.map(g=>`<option value="${g}" ${g===entry.goalMin?'selected':''}>Goal ${g} min</option>`).join('')}</select></div>
+  </div>`;
+}
+
 // ----- Programs section (Plan → Programs) -----
 function programsSectionHtml(){
   const st = prState(), p = profile();
@@ -2249,7 +2408,7 @@ function programsSectionHtml(){
   const hasReplace = st.active.some(e=>e.mode==='replace');
   return `
     ${cele ? `<div class="card hero celebrate"><div style="font-size:40px">🏆</div><h2>${esc(cele.title)} — complete!</h2>
-      <p class="muted" style="margin-top:0">${cele.total} sessions done. You can keep going with it, or stop it from its card below.</p>
+      <p class="muted" style="margin-top:0">${(e=>e?prTotal(e):cele.total)(st.active.find(x=>x.id===S.prCelebrate))} sessions done. You can keep going with it, or stop it from its card below.</p>
       <button class="btn ghost" id="closePrCele">Nice</button></div>` : ''}
     <h2 class="section-h">Programs</h2>
     ${st.active.map(entry=>{ const def=prDef(entry.id); const n=prSessions(entry);
@@ -2257,8 +2416,8 @@ function programsSectionHtml(){
         <div class="row" style="justify-content:space-between;align-items:flex-start"><div><h3>${def.icon} ${esc(def.title)}</h3>
           <div class="hint">${entry.mode==='replace'?'Replacing your plan':'Added on top of your plan'} · ${entry.days.join(', ')} · started ${relDay(entry.started)}</div></div>
           <button class="btn sm ghost danger" data-stoppr="${entry.id}" style="padding:2px 4px">Stop</button></div>
-        <div class="nbar" style="margin-top:10px"><div class="row" style="justify-content:space-between"><span class="k">Sessions</span><span><b>${n}</b><span class="muted"> / ${def.total}${entry.completed?' ✓':''}</span></span></div><div class="track"><div class="fill ${n>=def.total?'done':''}" style="width:${Math.min(100,Math.round(n/def.total*100))}%"></div></div></div>
-        ${def.kind==='tracks' ? `<div class="tracks">${Object.entries(def.tracks).map(([k,t])=>{ const levels=trackLevels(entry,k), lv=levels[entry.tracks[k]];
+        ${def.kind==='meditate' ? medCardHtml(entry) : `<div class="nbar" style="margin-top:10px"><div class="row" style="justify-content:space-between"><span class="k">Sessions</span><span><b>${n}</b><span class="muted"> / ${def.total}${entry.completed?' ✓':''}</span></span></div><div class="track"><div class="fill ${n>=def.total?'done':''}" style="width:${Math.min(100,Math.round(n/def.total*100))}%"></div></div></div>`}
+        ${def.kind==='meditate' ? '' : def.kind==='tracks' ? `<div class="tracks">${Object.entries(def.tracks).map(([k,t])=>{ const levels=trackLevels(entry,k), lv=levels[entry.tracks[k]];
             return `<div class="trk"><div class="row" style="justify-content:space-between"><b>${t.label}</b><span class="hint">Level ${entry.tracks[k]+1}/${levels.length}</span></div>
               <div class="ladder" style="margin:6px 0">${levels.map((l,i)=>`<span class="${i<entry.tracks[k]?'done':i===entry.tracks[k]?'cur':''}"></span>`).join('')}</div>
               <div class="small">${esc(lv.name)} <span class="muted">· ${esc(lv.plan)}</span></div>
@@ -2269,20 +2428,23 @@ function programsSectionHtml(){
               <div class="posestrip">${f.poses.filter((p,i,a)=>!(p.side==='left' && a[i-1] && a[i-1].name===p.name)).map(p=>poseFig(p,'ps')).join('')}</div></button>`).join('')}</div>`}
         <details style="margin-top:8px"><summary class="small muted">How it works</summary><div class="small" style="margin-top:6px;display:grid;gap:4px">
           ${def.warmup?`<div><b>Warm-up:</b> ${esc(def.warmup)}</div>`:''}<div>${esc(def.howTo)}</div><div class="hint">${esc(def.source)}</div></div></details>
-        ${def.kind==='tracks' ? practiceButtons('pr', entry.id) : (S.user&&FB?`<div class="row" style="margin-top:10px"><button class="btn sm" data-askcoach="pr:${entry.id}">💬 Ask the coach</button></div>`:'')}
+        ${def.kind!=='flows' ? practiceButtons('pr', entry.id) : (S.user&&FB?`<div class="row" style="margin-top:10px"><button class="btn sm" data-askcoach="pr:${entry.id}">💬 Ask the coach</button></div>`:'')}
         ${practiceHtml('pr', entry.id)}
       </div>`; }).join('')}
     ${avail.length ? `<div class="card">${avail.map(([id,def])=>{ const open = S.prStart===id; const mode = S.prMode || def.defaultMode; const days = S.prDays || suggestedDays(def, mode);
       return `<div class="msopt"><div class="row" style="justify-content:space-between;align-items:flex-start"><div style="flex:1"><b>${def.icon} ${esc(def.title)}</b>${st.done.some(d=>d.id===id)?' <span class="chip on">✓ done</span>':''}
-          <div class="small muted">${esc(def.blurb)}</div><div class="hint">${def.perWeek}×/week · ${def.total} sessions</div></div>
+          <div class="small muted">${esc(def.blurb)}</div><div class="hint">${def.kind==='meditate' ? 'Daily · 3 min to start, build to your goal' : `${def.perWeek}×/week · ${def.total} sessions`}</div></div>
           <button class="btn sm" data-propen="${id}">${open?'Close':'Start'}</button></div>
         ${open ? `<div style="margin-top:10px">
+          ${def.kind==='meditate' ? `<div class="small muted" style="margin:0 0 4px">Build up to how many minutes a day?</div>
+            <div class="seg">${def.goals.map(g=>`<input type="radio" id="mg-${g}" name="medgoal" value="${g}" ${(+S.prGoal||10)===g?'checked':''}><label for="mg-${g}">${g} min</label>`).join('')}</div>
+            <div class="hint" style="margin:6px 0">10 minutes a day is a great goal for most people; you can change it later. It’s added on top of your plan.</div>` : `
           <div class="seg">
             <input type="radio" id="pm-add" name="prmode" value="addon" ${mode==='addon'?'checked':''}><label for="pm-add">Add on top</label>
             <input type="radio" id="pm-rep" name="prmode" value="replace" ${mode==='replace'?'checked':''} ${hasReplace?'disabled':''}><label for="pm-rep">Replace my plan</label>
           </div>
-          <div class="hint" style="margin:6px 0">${mode==='replace'?'Your current plan is saved and comes back if you stop the program.':'Your plan stays as it is; program sessions are added on the days you pick.'}${hasReplace?' (Another program is already replacing your plan.)':''}</div>
-          <div class="small muted" style="margin:8px 0 4px">Which days? (${def.perWeek} recommended)</div>
+          <div class="hint" style="margin:6px 0">${mode==='replace'?'Your current plan is saved and comes back if you stop the program.':'Your plan stays as it is; program sessions are added on the days you pick.'}${hasReplace?' (Another program is already replacing your plan.)':''}</div>`}
+          <div class="small muted" style="margin:8px 0 4px">Which days? (${def.perWeek>=7?'every day is best':def.perWeek+' recommended'})</div>
           <div class="seg daypick">${WEEK.map(w=>`<input type="checkbox" id="pd-${w}" value="${w}" ${days.includes(w)?'checked':''}><label for="pd-${w}">${w}</label>`).join('')}</div>
           <button class="btn primary block" data-prgo="${id}" style="margin-top:10px">Start ${esc(def.title)}</button></div>` : ''}
       </div>`; }).join('')}</div>` : ''}
@@ -2298,7 +2460,7 @@ function bindPrograms(){
     const id=b.dataset.prgo, def=prDef(id), mode=S.prMode||def.defaultMode;
     const days=[...document.querySelectorAll('.daypick input:checked')].map(x=>x.value);
     if(!days.length){ toast('Pick at least one day'); return; }
-    await startProgram(id, mode, days); S.prStart=null; S.prMode=null; S.prDays=null;
+    await startProgram(id, mode, days, S.prGoal||10); S.prStart=null; S.prMode=null; S.prDays=null; S.prGoal=null;
     toast(`Started ${def.title}`); rer();
   });
   document.querySelectorAll('[data-stoppr]').forEach(b=>b.onclick=async ()=>{
@@ -2322,6 +2484,14 @@ function bindPrograms(){
     const max = trackLevels(entry,k).length-1; entry.tracks[k] = Math.max(0, Math.min(max, entry.tracks[k] + +d)); if(entry.ready) delete entry.ready[k]; await saveAccount(); rer();
   });
   document.querySelectorAll('[data-flow]').forEach(b=>b.onclick=()=>{ const [id,f]=b.dataset.flow.split(':'); playFlow(id,f); });
+  document.querySelectorAll('input[name=medgoal]').forEach(r=>r.onchange=()=>{ S.prGoal=+r.value; });
+  document.querySelectorAll('[data-med]').forEach(b=>b.onclick=()=>{ const [id,t]=b.dataset.med.split(':'); playMeditation(id,t); });
+  const medEntry = id => prState().active.find(e=>e.id===id);
+  const setStage = async (entry, st) => { const L = medStages(entry); entry.stage = Math.max(0, Math.min(L.length-1, st)); entry.stageTs = Date.now(); delete entry.ready; if(entry.stage < L.length-1) delete entry.completed; await saveAccount(); };
+  document.querySelectorAll('[data-medup]').forEach(b=>b.onclick=async ()=>{ const e=medEntry(b.dataset.medup); await setStage(e, (e.stage||0)+1); toast(`🪷 Now ${medMin(e)} minutes`); rer(); });
+  document.querySelectorAll('[data-medstay]').forEach(b=>b.onclick=async ()=>{ const e=medEntry(b.dataset.medstay); e.stageTs = Date.now(); delete e.ready; await saveAccount(); toast('Staying at '+medMin(e)+' min — you’ll be asked again after 5 more'); rer(); });
+  document.querySelectorAll('[data-medlvl]').forEach(b=>b.onclick=async ()=>{ const [id,d]=b.dataset.medlvl.split(':'); const e=medEntry(id); await setStage(e, (e.stage||0)+(+d)); rer(); });
+  document.querySelectorAll('[data-medgoal]').forEach(sel=>sel.onchange=async ()=>{ const e=medEntry(sel.dataset.medgoal); const cur=medMin(e); e.goalMin=+sel.value; const L=medStages(e); let i=L.findIndex(m=>m>=cur); e.stage = i<0 ? L.length-1 : i; delete e.ready; if(e.stage<L.length-1) delete e.completed; await saveAccount(); toast(`Goal: ${e.goalMin} minutes a day`); rer(); });
   $('#closePrCele')?.addEventListener('click', ()=>{ S.prCelebrate=null; rer(); });
 }
 
@@ -2591,10 +2761,12 @@ function askCoachAbout(kind, id, upFor){
   } else {
     const entry = prState().active.find(e=>e.id===id), def = prDef(id);
     const h = practiceHistory('pr', id, 4).map(({w,ex})=>`${w.date}: ${ex.map(e=>`${e.name} ${e.sets.map(s=>s.r).join(', ')}`).join('; ')}`).join(' | ');
-    const lv = def.kind==='tracks' ? Object.entries(def.tracks).map(([k,t])=>`${t.label} level ${entry.tracks[k]+1} (${trackLevels(entry,k)[entry.tracks[k]].name})`).join(', ') : `${prSessions(entry)} of ${def.total} sessions done`;
-    const nxt = upFor && def.tracks?.[upFor] ? trackLevels(entry,upFor)[entry.tracks[upFor]+1] : null;
+    const lv = def.kind==='tracks' ? Object.entries(def.tracks).map(([k,t])=>`${t.label} level ${entry.tracks[k]+1} (${trackLevels(entry,k)[entry.tracks[k]].name})`).join(', ')
+      : def.kind==='meditate' ? `${medMin(entry)}-minute sessions (stage ${(entry.stage||0)+1} of ${medStages(entry).length}, goal ${entry.goalMin} min/day), ${medSessions(entry,{atStage:true}).length} of ${def.perStage} sessions done at this length`
+      : `${prSessions(entry)} of ${def.total} sessions done`;
+    const nxt = upFor && def.tracks?.[upFor] ? trackLevels(entry,upFor)[entry.tracks[upFor]+1] : (upFor==='stage' && def.kind==='meditate') ? {name:`${medStages(entry)[(entry.stage||0)+1]}-minute sessions`, plan:'daily'} : null;
     msg = `Check-in on my "${def.title}" program: ${lv}. Recent sessions: ${h || 'nothing logged yet'}. ` +
-      (nxt ? `I just hit the goal for my ${def.tracks[upFor].label} track. Should I move up to ${nxt.name} (${nxt.plan}) or stay a bit longer? (If I should move up I'll tap Move up on the card.)` : `What should I change or focus on next session?`);
+      (nxt ? `I just hit the goal for my ${def.tracks?.[upFor]?.label || 'current'} ${def.kind==='meditate'?'meditation length':'track'}. Should I move up to ${nxt.name} (${nxt.plan}) or stay a bit longer? (If I should move up I'll tap Move up on the card.)` : `What should I change or focus on next session?`);
   }
   go('coach'); setTimeout(()=>sendCoach(msg), 60);
 }
@@ -2716,6 +2888,9 @@ function practiceChartsHtml(){
     if(def.kind==='tracks'){
       out.push(`<div class="chartblk"><b>${def.icon} ${esc(def.title)}</b>${Object.entries(def.tracks).map(([k,t])=>{ const ss = trackChartSessions(e,k); const lv = trackLevels(e,k)[e.tracks[k]];
         return `<div style="margin-top:10px"><div class="row" style="justify-content:space-between"><span class="small" style="font-weight:600">${t.label}</span><span class="hint">L${e.tracks[k]+1} · ${esc(lv.name)}</span></div>${practiceChartSvg(ss, ss.length?ss[ss.length-1].unit:'reps')}</div>`; }).join('')}${chartLegend()}</div>`);
+    } else if(def.kind==='meditate'){
+      const L = medStages(e), ss = [...medSessions(e)].reverse().map(x=>({date:x.w.date, lv:x.e.prog.stage||0, lvName:`${L[x.e.prog.stage||0]} min`, sets:[x.min], goal:L[x.e.prog.stage||0], unit:'min'}));
+      out.push(`<div class="chartblk"><div class="row" style="justify-content:space-between"><b>${def.icon} Meditation</b><span class="hint">${medMin(e)} of ${e.goalMin} min</span></div><div class="hint" style="margin-bottom:4px">Minutes per session</div>${practiceChartSvg(ss,'min')}${ss.length?chartLegend():''}</div>`);
     } else {
       out.push(`<div class="chartblk"><div class="row" style="justify-content:space-between"><b>${def.icon} ${esc(def.title)}</b><span class="hint">sessions per week</span></div>${weeklyFlowsSvg(e)}</div>`);
     }
@@ -2740,8 +2915,8 @@ function milestonesProgressHtml(){
     <div class="seg" style="margin-top:10px"><input type="radio" id="mp-o" name="mptab" ${tab==='overview'?'checked':''} onchange="S.mpTab='overview';reProgress()"><label for="mp-o">Overview</label><input type="radio" id="mp-c" name="mptab" ${tab==='charts'?'checked':''} onchange="S.mpTab='charts';reProgress()"><label for="mp-c">Charts</label></div>
     ${tab==='charts' ? practiceChartsHtml() + '</div>' : `
     ${ps.active.map(e=>{ const def=prDef(e.id), n=prSessions(e);
-      return `<div style="margin-top:12px"><div class="row" style="justify-content:space-between"><b>${def.icon} ${esc(def.title)}</b><span class="small muted">${n}/${def.total} sessions</span></div>
-        <div class="nbar"><div class="track"><div class="fill ${n>=def.total?'done':''}" style="width:${Math.max(4,Math.min(100,Math.round(n/def.total*100)))}%"></div></div></div>
+      return `<div style="margin-top:12px"><div class="row" style="justify-content:space-between"><b>${def.icon} ${esc(def.title)}</b><span class="small muted">${def.kind==='meditate'?`${medMin(e)} of ${e.goalMin} min · `:''}${n}/${prTotal(e)} sessions</span></div>
+        <div class="nbar"><div class="track"><div class="fill ${n>=prTotal(e)?'done':''}" style="width:${Math.max(4,Math.min(100,Math.round(n/prTotal(e)*100)))}%"></div></div></div>
         <div class="hint">${def.kind==='tracks' ? Object.entries(def.tracks).map(([k,t])=>`${t.label} L${e.tracks[k]+1}`).join(' · ') : 'Started '+relDay(e.started)}</div></div>`; }).join('')}
     ${st.active.map(m=>{ const def=msDef(m.id); if(!def) return ''; const pct=Math.round(m.level/def.levels.length*100);
       const ev = st.events.filter(e=>e.id===m.id && e.type==='level');
@@ -3307,8 +3482,8 @@ function coachContext(){
   lines.push(mst.active.length ? 'ACTIVE MILESTONES:\n' + mst.active.map(m=>{ const def=msDef(m.id); if(!def) return ''; const {best,sessions,lv}=msBestAtLevel(m); return `- id ${m.id}: ${def.title}, level ${m.level+1} of ${def.levels.length} (${lv.name}; ${lv.plan}; moves up at ${goalText(lv.goal)}; ${lv.goal.sessions?`${sessions} sessions done`:`best at this level: ${best??'none yet'}`}). Levels: ${def.levels.map((l,i)=>`${i+1}=${l.name}`).join(', ')}`; }).join('\n') : 'ACTIVE MILESTONES: none.');
   if(mst.done.length) lines.push('COMPLETED MILESTONES: ' + mst.done.map(d=>`${d.title} (${d.date})`).join('; '));
   const ps = prState();
-  lines.push(ps.active.length ? 'ACTIVE PROGRAMS:\n' + ps.active.map(e=>{ const def=prDef(e.id); return `- ${e.id}: ${def.title} (${e.mode==='replace'?'replaces their plan':'added on top of their plan'}, on ${e.days.join('/')}, ${prSessions(e)}/${def.total} sessions)` + (def.kind==='tracks' ? ': ' + Object.entries(def.tracks).map(([k,t])=>`${t.label} level ${e.tracks[k]+1} (${trackLevels(e,k)[e.tracks[k]].name})`).join(', ') : `: flows ${def.flows.map(f=>`${f.name} ${flowMinutes(f)} min`).join(', ')}`); }).join('\n') : 'ACTIVE PROGRAMS: none.');
-  lines.push('PROGRAMS THEY CAN START: ' + Object.entries(PROGRAMS).filter(([id])=>!ps.active.some(e=>e.id===id)).map(([id,def])=>`${id} = ${def.title} (${def.perWeek}x/week, ${def.total} sessions)`).join('; '));
+  lines.push(ps.active.length ? 'ACTIVE PROGRAMS:\n' + ps.active.map(e=>{ const def=prDef(e.id); return `- ${e.id}: ${def.title} (${e.mode==='replace'?'replaces their plan':'added on top of their plan'}, on ${e.days.join('/')}, ${prSessions(e)}/${prTotal(e)} sessions)` + (def.kind==='tracks' ? ': ' + Object.entries(def.tracks).map(([k,t])=>`${t.label} level ${e.tracks[k]+1} (${trackLevels(e,k)[e.tracks[k]].name})`).join(', ') : def.kind==='meditate' ? `: currently ${medMin(e)}-minute sessions, building to ${e.goalMin} min/day (ladder ${medStages(e).join('→')}); ${medSessions(e,{atStage:true}).length}/${def.perStage} sessions done at this length` : `: flows ${def.flows.map(f=>`${f.name} ${flowMinutes(f)} min`).join(', ')}`); }).join('\n') : 'ACTIVE PROGRAMS: none.');
+  lines.push('PROGRAMS THEY CAN START: ' + Object.entries(PROGRAMS).filter(([id])=>!ps.active.some(e=>e.id===id)).map(([id,def])=>`${id} = ${def.title} (${def.kind==='meditate'?'daily, 3 min building to 10/15/20/30':`${def.perWeek}x/week, ${def.total} sessions`})`).join('; '));
   lines.push('BUILT-IN MILESTONES THEY CAN START: ' + Object.entries(MILESTONES).filter(([id,def])=>msEligible(def,p) && !mst.active.some(m=>m.id===id)).map(([id,def])=>`${id} = ${def.title} (levels: ${def.levels.map((l,i)=>`${i+1}=${l.name}`).join(', ')})`).join('; '));
   lines.push(`Workouts logged this week: ${S.workouts.filter(w=>weekStart(parseYmd(w.date)).getTime()===wk).length} of ${pl?pl.days.length:p.days} planned.`);
   // Longer-term pattern data (cheap summary of the last 12 weeks) so the coach can spot habits.
@@ -3349,7 +3524,7 @@ COACHING MODE (profile exists)
   {"type":"set_milestone_level","id":"<active milestone id>","level":<level number, 1 = first>,"label":"Go back to knee push-ups"}
   {"type":"create_milestone","title":"25 push-ups in a row","exercise":"<exercise id from the library, reps or holds — not cardio>","target":<number of reps, or seconds for holds>,"label":"Start: 25 push-ups in a row"}
   {"type":"stop_milestone","id":"<active milestone id>","label":"Stop the pull-up milestone"}
-  {"type":"start_program","id":"calisthenics|yoga","mode":"addon|replace","days":["Mon","Wed","Fri"],"label":"Add yoga on your rest days"}
+  {"type":"start_program","id":"calisthenics|yoga|meditation","mode":"addon|replace","days":["Mon","Wed","Fri"],"label":"Add yoga on your rest days"}   (meditation: add "goal": 10|15|20|30 minutes a day; it's always add-on and best daily)
   {"type":"stop_program","id":"<active program id>","label":"Stop calisthenics"}
 - PROGRAMS: multi-week routines. "calisthenics" = Calisthenics Foundations (bodyweight push/pull/legs/core, each levels up separately; good as a replacement plan for bodyweight or home users). "yoga" = Yoga for Busy Parents (short guided flows: morning, desk reset, post-workout, evening; great on rest days, as an add-on). "addon" keeps their plan and adds sessions on the chosen days; "replace" swaps their plan for the program (their old plan comes back if they stop it).
 - MILESTONES: short programs toward a goal (first push-up, first pull-up, run a mile, or custom "N in a row" / "hold N seconds"). Practice blocks are added to plan days automatically and level up when logged sets hit the goal. Use the ACTIVE MILESTONES data to coach them: technique, staying at a level, repeating a level (set_milestone_level), or skipping ahead. When they finish one (see COMPLETED MILESTONES) or ask what's next, suggest a realistic next challenge with create_milestone (e.g. after a first push-up: 10 then 25 in a row) or a built-in with start_milestone. Keep custom targets achievable in a few weeks.
@@ -3462,7 +3637,7 @@ function validateAction(a){
   if(a.type==='create_milestone'){ const ex=EXBY[a.exercise]; if(!ex || ex.p==='cardio' || !canDo(ex,p) || !(num(a.target)>0) || num(a.target)>500) return null; return {...a, label:a.label||`Start: ${a.title||'new milestone'}`}; }
   if(a.type==='stop_milestone'){ const m=st.active.find(x=>x.id===a.id); if(!m) return null; return {...a, label:a.label||`Stop ${msDef(m.id)?.title}`}; }
   const pst = prState();
-  if(a.type==='start_program'){ const def=PROGRAMS[a.id]; if(!def || pst.active.some(e=>e.id===a.id)) return null; let mode = a.mode==='replace'?'replace':'addon'; if(mode==='replace' && pst.active.some(e=>e.mode==='replace')) mode='addon';
+  if(a.type==='start_program'){ const def=PROGRAMS[a.id]; if(!def || pst.active.some(e=>e.id===a.id)) return null; let mode = a.mode==='replace'?'replace':'addon'; if(mode==='replace' && (pst.active.some(e=>e.mode==='replace') || def.addonOnly)) mode='addon';
     const days = Array.isArray(a.days) ? a.days.filter(d=>WEEK.includes(d)) : []; return {...a, mode, days: days.length?days:suggestedDays(def,mode), label:a.label||`Start ${def.title}`}; }
   if(a.type==='stop_program'){ const e=pst.active.find(x=>x.id===a.id); if(!e) return null; return {...a, label:a.label||`Stop ${prDef(a.id).title}`}; }
   return null;
@@ -3475,7 +3650,7 @@ async function applyAction(a){
   if(a.type==='set_milestone_level'){ await setMilestoneLevel(a.id, a.level-1); return `${msDef(a.id).title}: now level ${a.level}`; }
   if(a.type==='create_milestone'){ const id = makeCustomMilestone({title:a.title, exercise:a.exercise, target:a.target}); if(!id) return 'Couldn’t create that milestone'; await startMilestone(id, 0); return `Started ${msDef(id).title}`; }
   if(a.type==='stop_milestone'){ const t=msDef(a.id)?.title; await stopMilestone(a.id); return `Stopped ${t}`; }
-  if(a.type==='start_program'){ await startProgram(a.id, a.mode, a.days); return `Started ${prDef(a.id).title} — see your Plan`; }
+  if(a.type==='start_program'){ await startProgram(a.id, a.mode, a.days, a.goal); return `Started ${prDef(a.id).title} — see your Plan`; }
   if(a.type==='stop_program'){ await stopProgram(a.id); return `Stopped ${prDef(a.id).title}`; }
   if(a.type==='update_profile'){
     const {p:np, err} = normalizeProfile({...p, ...a.changes});
