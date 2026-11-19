@@ -202,6 +202,18 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.weekbar .seg{margin:0}
+.wkacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.wkrep{display:grid;gap:6px;margin-top:10px}
+.wkrep .btn{text-align:left}
+.planro [data-swap],.planro [data-delex],.planro [data-delday],.planro [data-openadd],.planro .addex,.planro #addDay,.planro #newDow,.planro #newType,.planro #shuffle{display:none!important}
+.planro select.dowsel{pointer-events:none}
+.planro .card:has(#addDay){display:none}
+.planfuture [data-logday],.planfuture [data-logrest],.planfuture #customLog,.planfuture .dayhead .chip.on{display:none!important}
+.wizn{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:10px 0}
+.wizn .btn{padding:12px 0;min-width:0}
+.wizstyles{display:grid;gap:6px}
+.wizstyles .btn{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px}
 .mrow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .mcell{background:var(--panel2);border-radius:10px;padding:8px;display:grid;gap:3px;min-width:0}
 .mcell span{font-size:11px;color:var(--muted);font-weight:600}
@@ -627,6 +639,7 @@ const planSig = p => [p.goal,[...allGoals(p)].sort().join('+'),p.level,p.days,p.
 
 function rx(ex, p){
   const goal = PLAN_GOALS.includes(p.goal) ? p.goal : (p.goal==='event' ? 'endurance' : 'general'), lvl=+p.level, comp=COMPOUND.has(ex.p);
+  if(ex.p==='mobility') return {sets:1, text:'10–20 min · gentle, breathe slowly', kind:'cardio'};
   if(ex.p==='cardio') return {sets:1, text: goal==='endurance' ? '30–40 min · easy to moderate' : '20 min · steady', kind:'cardio'};
   if(ex.t){ const sec = goal==='endurance'?45:[0,20,30,45][lvl]; const sets=lvl===1?2:3; return {sets, text:`${sets} × ${sec} sec · rest 30–45 sec`, kind:'timed'}; }
   let s,r,rest;
@@ -733,7 +746,18 @@ function firestoreBackend(F, db, uid){
 // ---------- state ----------
 const S = { store:null, account:{}, workouts:[], draft:null, ready:false, user:null, chat:[], coachBusy:false };
 const profile = () => withGear(S.account.profile);
-const plan = () => S.account.plan;
+// Week plans: S.account.plan is the regular (repeating) plan. S.account.weekPlans[weekKey] overrides it for one week.
+const wkKey = (offset=0) => { const d = weekStart(parseYmd(todayStr())); d.setDate(d.getDate()+7*offset); return ymd(d); };
+const weekPlans = () => (S.account.weekPlans = S.account.weekPlans || {});
+const planWeekKey = () => S.planWeek || wkKey(0);
+const planFor = key => weekPlans()[key] || S.account.plan;
+const plan = () => S.account.plan ? planFor(planWeekKey()) : S.account.plan;
+const clonePlanDays = days => JSON.parse(JSON.stringify(days||[])).filter(d=>d.key!=='program');
+async function setWeekPlan(key, days, how){
+  const wp = weekPlans(); wp[key] = { custom:true, how, created: Date.now(), edited:true, days: days.sort((a,b)=>WEEK.indexOf(a.weekday)-WEEK.indexOf(b.weekday)) };
+  for(const k of Object.keys(wp)) if(k < wkKey(-10)) delete wp[k];   // keep ~10 weeks of history
+  await saveAccount();
+}
 
 async function saveAccount(){
   try{ await S.store.saveAccount(S.account); }
@@ -743,6 +767,7 @@ async function saveAccount(){
 // ---------- views ----------
 const TABS = ['nutrition','profile','plan','log','coach','progress','workout'];
 function route(){
+  if(!/^#(plan|workout)/.test(location.hash||'')) S.planWeek = null;   // other tabs always see this week's plan
   if(!S.ready) return;
   let tab = location.hash.slice(1);
   if(!TABS.includes(tab)) tab = profile() ? 'plan' : (S.user ? 'coach' : 'profile');
@@ -830,7 +855,12 @@ const emptyDay = () => ({water:0, meals:[], supps:{}});
 const dayTotals = d => d.meals.reduce((t,m)=>({cal:t.cal+num(m.cal), protein:t.protein+num(m.protein), carbs:t.carbs+num(m.carbs), fat:t.fat+num(m.fat),
   sugar:t.sugar+num(m.sugar), fiber:t.fiber+num(m.fiber), noSugar:t.noSugar+(m.sugar==null && num(m.cal)>0 ? 1 : 0)}), {cal:0, protein:0, carbs:0, fat:0, sugar:0, fiber:0, noSugar:0});
 // Daily targets for the macro row. Carbs/fat split the calories left after protein (fat ~30%); fiber 14 g per 1,000 cal.
+// Low-carb: carbs become a daily limit (total or net) and fat fills the remaining calories.
+const LOW_CARB = { keto:{label:'Keto', g:20, net:true, blurb:'about 20 g net carbs'}, strict:{label:'Strict low-carb', g:50, net:false, blurb:'50 g carbs'}, low:{label:'Low-carb', g:100, net:false, blurb:'100 g carbs'}, custom:{label:'Custom limit'} };
+const lowCarb = () => { const lc = nutritionSettings().lowCarb; return lc && lc.on ? lc : null; };
 function macroTargets(calGoal, proGoal){
+  const lc = lowCarb();
+  if(lc){ const carbs = +lc.limit || 50; return { carbs, net: !!lc.net, limit:true, fat: Math.max(40, Math.round((calGoal - proGoal*4 - carbs*4)/9)), fiber: Math.round(calGoal/1000*14) }; }
   const fat = Math.round(calGoal*0.30/9), carbs = Math.max(50, Math.round((calGoal - proGoal*4 - fat*9)/4));
   return { carbs, fat, fiber: Math.round(calGoal/1000*14) };
 }
@@ -976,7 +1006,8 @@ async function viewNutritionInner(){
         ${bar(t.cal, calGoal, 'Calories', 'cal')}
         ${bar(t.protein, proGoal, 'Protein', 'g')}
         ${(()=>{ const mt = macroTargets(calGoal, proGoal), cell = (lbl, v, goal, note) => `<div class="mcell"><span>${lbl}</span><b>${Math.round(v)}<small> g</small></b>${goal?`<div class="track"><div class="fill ${v>goal*1.05?'over':''}" style="width:${Math.min(100,Math.round(v/goal*100))}%"></div></div><em>of ${goal} g</em>`:`<em>${note}</em>`}</div>`;
-          return `<div class="mrow">${cell('Carbs', t.carbs, mt.carbs)}${cell('Sugar', t.sugar, 0, t.noSugar?`${t.noSugar} not listed`:'total')}${cell('Fiber', t.fiber, mt.fiber)}${cell('Fat', t.fat, mt.fat)}</div>`; })()}
+          const cv = mt.net ? Math.max(0, t.carbs - t.fiber) : t.carbs;
+          return `<div class="mrow">${cell(mt.net?'Net carbs':'Carbs', cv, mt.carbs).replace(`of ${mt.carbs} g`, mt.limit?`limit ${mt.carbs} g`:`of ${mt.carbs} g`)}${cell('Sugar', t.sugar, 0, t.noSugar?`${t.noSugar} not listed`:'total')}${cell('Fiber', t.fiber, mt.fiber)}${cell('Fat', t.fat, mt.fat)}</div>`; })()}
         ${bar(d.water, wg, 'Water', 'oz')}
         ${ns.supplements.length?bar(suppsDone, ns.supplements.length, 'Supplements', 'taken'):''}
       </div>
@@ -1717,6 +1748,14 @@ function viewProfile(){
       <div class="perr small" style="color:var(--danger);margin-top:12px"></div>
       <button class="btn primary block" style="margin-top:12px">${has?'Save personal info':'Save and continue'}</button>
     </form>
+    <div class="card" id="lcSetting">
+      <h2>Low-carb diet</h2>
+      <label class="toggle"><input type="checkbox" id="lcOn" ${lowCarb()?'checked':''}><span>I’m following a low-carb diet <span class="muted small">— sets a daily carb limit on Nutrition and the coach plans around it</span></span></label>
+      ${lowCarb()?`<label class="f" for="lcType">Style</label><select id="lcType">${Object.entries(LOW_CARB).map(([k,v])=>`<option value="${k}" ${(lowCarb().type||'strict')===k?'selected':''}>${v.label}${v.blurb?` — ${v.blurb}`:''}</option>`).join('')}</select>
+        ${(lowCarb().type==='custom')?`<label class="f" for="lcLimit">Daily carb limit (g)</label><input type="number" inputmode="numeric" id="lcLimit" min="10" max="300" value="${lowCarb().limit||75}">`:''}
+        <label class="toggle"><input type="checkbox" id="lcNet" ${lowCarb().net?'checked':''}><span class="small">Count net carbs (carbs minus fiber)</span></label>
+        <p class="hint" style="margin:6px 0 0">Very-low-carb diets aren’t right for everyone — if you have diabetes, take blood-pressure or blood-sugar medication, or are pregnant, check with your doctor first.</p>`:''}
+    </div>
     <div class="card" id="fastSetting">
       <h2>Intermittent fasting</h2>
       <label class="toggle"><input type="checkbox" id="fastOn" ${fastingOn()?'checked':''}><span>I do intermittent fasting <span class="muted small">— log meal times on Nutrition, track fasts on Progress, and the coach factors it in</span></span></label>
@@ -1771,6 +1810,11 @@ function viewProfile(){
   if(tab==='personal'){
     document.querySelectorAll('[data-reset]').forEach(b=>b.onclick=()=>resetAccount(b));
     bindAccountCard();
+    { const redraw = () => { const y=window.scrollY; viewProfile(); window.scrollTo(0,y); };
+      $('#lcOn').onchange = async e => { const ns = nutritionSettings(); ns.lowCarb = {...(ns.lowCarb||{type:'strict', limit:50, net:false}), on:e.target.checked}; await saveAccount(); toast(e.target.checked?`Low-carb on: ${ns.lowCarb.limit} g ${ns.lowCarb.net?'net ':''}carbs a day`:'Low-carb off'); redraw(); };
+      $('#lcType')?.addEventListener('change', async e => { const lc = nutritionSettings().lowCarb, d = LOW_CARB[e.target.value]; lc.type = e.target.value; if(d.g){ lc.limit = d.g; lc.net = d.net; } else lc.limit = lc.limit || 75; await saveAccount(); toast(`Carb limit: ${lc.limit} g ${lc.net?'net':''}`); redraw(); });
+      $('#lcLimit')?.addEventListener('change', async e => { const v = Math.round(num(e.target.value)); if(v>=10 && v<=300){ nutritionSettings().lowCarb.limit = v; await saveAccount(); toast(`Carb limit: ${v} g`); } });
+      $('#lcNet')?.addEventListener('change', async e => { nutritionSettings().lowCarb.net = e.target.checked; await saveAccount(); toast(e.target.checked?'Counting net carbs':'Counting total carbs'); }); }
     $('#fastOn').onchange = async e => { const ns = nutritionSettings(); ns.fastOn = e.target.checked; if(ns.fastOn && !ns.fastPlan) ns.fastPlan = '16'; await saveAccount(); toast(ns.fastOn?'Intermittent fasting on':'Intermittent fasting off'); const y=window.scrollY; viewProfile(); window.scrollTo(0,y); };
     $('#fastPlanP')?.addEventListener('change', async e => { nutritionSettings().fastPlan = e.target.value; await saveAccount(); toast(`Fasting goal: ${FAST_PLANS[e.target.value]}`); });
     $('#exportBtn').onclick = exportData;
@@ -1813,7 +1857,7 @@ function viewProfile(){
 
 const ICON_SWAP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg>';
 const WEEK = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-const ADD_DAY_TYPES = { fullA:'Full Body', upperA:'Upper Body', lowerA:'Lower Body', push:'Push', pull:'Pull', legs:'Legs', cardio:'Cardio + Core', custom:'Empty — build your own' };
+const ADD_DAY_TYPES = { recovery:'Recovery (yoga + walk)', fullA:'Full Body', upperA:'Upper Body', lowerA:'Lower Body', push:'Push', pull:'Pull', legs:'Legs', cardio:'Cardio + Core', custom:'Empty — build your own' };
 const ICON_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 const sortDays = pl => pl.days.sort((a,b)=>WEEK.indexOf(a.weekday)-WEEK.indexOf(b.weekday));
 async function savePlanEdit(msg){ plan().edited = true; await saveAccount(); const y=window.scrollY; viewPlan(); window.scrollTo(0,y); if(msg) toast(msg); }
@@ -1833,6 +1877,96 @@ function lastTimeHtml(id){
     <div class="ltsets">${sets.map((s,i)=>`<div><span class="muted">Set ${i+1}</span><b>${s.w?`${s.w} lb × `:''}${s.r||0} ${unit}</b></div>`).join('')}</div>
     ${best?`<div class="hint">Heaviest: ${best} lb</div>`:''}${w.notes?`<div class="hint">“${esc(w.notes)}”</div>`:''}</details>`;
 }
+
+// ----- Plan a custom week -----
+const WEEK_STYLES = {
+  auto:   {label:'Pick for me', blurb:'Based on your goals and days'},
+  full:   {label:'Full body', blurb:'Whole body every session'},
+  split:  {label:'Upper / lower', blurb:'Alternate upper and lower body'},
+  ppl:    {label:'Push / pull / legs', blurb:'Three-way split'},
+  mix:    {label:'Strength + cardio', blurb:'Alternate lifting and cardio days'},
+  cardio: {label:'Cardio & core', blurb:'Conditioning-focused week'},
+  easy:   {label:'Easy / recovery', blurb:'Lighter full body, walks and yoga'},
+};
+function weekKeysFor(style, n, p){
+  const cyc = a => Array.from({length:n}, (_,i)=>a[i%a.length]);
+  switch(style){
+    case 'full':   return cyc(['fullA','fullB','fullC']);
+    case 'split':  return cyc(['upperA','lowerA','upperB','lowerB']);
+    case 'ppl':    return cyc(['push','pull','legs']);
+    case 'mix':    return cyc(['fullA','cardio','fullB','cardio','fullC']);
+    case 'cardio': return cyc(['cardio']);
+    case 'easy':   return cyc(['fullA','recovery','fullB','recovery']);
+    default:       return n===1 ? ['fullA'] : n>6 ? [...splitFor(6,p.goal), 'recovery'] : splitFor(n, p.goal);
+  }
+}
+function buildWeekDays({days, style, minutes, intensity}){
+  const p = {...profile(), minutes}, rng = mulberry32(Math.floor(Math.random()*1e9));
+  const keys = weekKeysFor(style, days.length, p);
+  let cap = exCap(+minutes); if(intensity==='easy') cap = Math.max(3, cap-1);
+  return days.map((wd,i)=>{
+    const k = keys[i];
+    if(k==='recovery') return {key:'recovery', name:'Recovery', weekday:wd, exercises:['yoga-flow', 'brisk-or-incline-walk']};
+    const t = TEMPLATES[k], used = new Set(), slots = k==='cardio' ? t.slots : t.slots.slice(0,cap);
+    return {key:k, name:t.name, weekday:wd, ...(intensity!=='normal'?{intensity}:{}), exercises: slots.map(pat=>{ const e=pick(pat,p,rng,used); if(!e) return null; used.add(e.id); return e.id; }).filter(Boolean)};
+  });
+}
+// Turn the workouts actually logged in a week into plan days.
+function daysFromLogged(key){
+  const end = shiftDate(key, 6), byDay = {};
+  for(const w of S.workouts.filter(w=>w.date>=key && w.date<=end)){
+    const wd = WEEK[(parseYmd(w.date).getDay()+6)%7]; if(byDay[wd]) continue;
+    const ex = w.exercises.filter(e=>!e.ms && !e.prog && EXBY[e.id]).map(e=>e.id);
+    if(ex.length) byDay[wd] = {key:'custom', name: w.dayName && !/practice|meditation|yoga/i.test(w.dayName) ? w.dayName : 'Workout', weekday:wd, exercises:[...new Set(ex)]};
+  }
+  return Object.values(byDay);
+}
+function weekLabel(key){ const a = parseYmd(key), b = parseYmd(shiftDate(key,6)); const f = d => d.toLocaleDateString(undefined,{month:'short',day:'numeric'}); return `${f(a)} – ${f(b)}`; }
+function openWeekWizard(key){
+  const p = profile(), cur = planFor(key);
+  const W = S.wiz = { key, step:0, n: cur.days.length || +p.days || 3, days: cur.days.map(d=>d.weekday), style:'auto', minutes:+p.minutes||30, intensity:'normal' };
+  if(!W.days.length) W.days = WEEKDAYS[W.n] || ['Mon','Wed','Fri'];
+  let el = document.getElementById('wizSheet'); if(!el){ el = document.createElement('div'); el.id='wizSheet'; el.className='sheet'; document.body.appendChild(el); }
+  document.body.classList.add('noscroll'); renderWizard();
+}
+function closeWizard(){ document.getElementById('wizSheet')?.remove(); document.body.classList.remove('noscroll'); S.wiz = null; }
+function renderWizard(){
+  const W = S.wiz, el = document.getElementById('wizSheet'); if(!W || !el) return;
+  const steps = ['How many days?','Which days?','What kind of workouts?','How long, and how hard?'];
+  const body = [
+    `<p class="muted">How many days do you want to work out ${W.key===wkKey(0)?'this week':'next week'}?</p>
+     <div class="wizn">${[1,2,3,4,5,6,7].map(n=>`<button class="btn ${W.n===n?'primary':''}" data-wn="${n}">${n}</button>`).join('')}</div>
+     <p class="hint">Your usual is ${profile().days} a week. A lighter week is better than skipping it.</p>`,
+    `<p class="muted">Pick ${W.n} day${W.n>1?'s':''}.</p>
+     <div class="seg daypick">${WEEK.map(w=>`<input type="checkbox" id="wd-${w}" value="${w}" ${W.days.includes(w)?'checked':''}><label for="wd-${w}">${w}</label>`).join('')}</div>
+     <p class="hint" id="wdHint">${W.days.length} of ${W.n} picked${W.key===wkKey(0)?' · days already past still count if you’ve logged them':''}</p>`,
+    `<div class="wizstyles">${Object.entries(WEEK_STYLES).map(([k,v])=>`<button class="btn ${W.style===k?'primary':''}" data-ws="${k}"><b>${v.label}</b><span class="small">${v.blurb}</span></button>`).join('')}</div>`,
+    `<p class="muted" style="margin-bottom:6px">Minutes per workout</p>
+     <div class="seg">${[15,20,30,45,60].map(m=>`<input type="radio" name="wm" id="wm-${m}" value="${m}" ${W.minutes===m?'checked':''}><label for="wm-${m}">${m}</label>`).join('')}</div>
+     <p class="muted" style="margin:14px 0 6px">How hard this week?</p>
+     <div class="seg">${[['easy','Easy week'],['normal','Normal'],['hard','Push harder']].map(([k,l])=>`<input type="radio" name="wi" id="wi-${k}" value="${k}" ${W.intensity===k?'checked':''}><label for="wi-${k}">${l}</label>`).join('')}</div>
+     <p class="hint">Easy = fewer exercises and lighter effort (good for busy or tired weeks). Push harder = same plan, aim for an extra set or more weight.</p>`
+  ][W.step];
+  el.innerHTML = `<div class="sheet-in">
+    <div class="fstop"><button class="iconbtn" id="wzBack" aria-label="Back">←</button><b>Plan ${W.key===wkKey(0)?'this':'next'} week</b><span class="small muted">${W.step+1}/4</span></div>
+    <div class="card" style="margin-top:12px"><h3 style="margin-bottom:6px">${steps[W.step]}</h3>${body}</div>
+    <button class="btn primary block" id="wzNext">${W.step<3?'Next':'Build my week'}</button>
+    <p class="hint" style="text-align:center;margin-top:8px">${weekLabel(W.key)} · only changes this week — your regular plan stays as it is.</p></div>`;
+  document.getElementById('wzBack').onclick = ()=>{ if(W.step===0) closeWizard(); else { W.step--; renderWizard(); } };
+  el.querySelectorAll('[data-wn]').forEach(b=>b.onclick=()=>{ W.n=+b.dataset.wn; W.days = W.days.length===W.n ? W.days : (W.n===7 ? [...WEEK] : (WEEKDAYS[W.n] || ['Wed'])); renderWizard(); });
+  el.querySelectorAll('.daypick input').forEach(c=>c.onchange=()=>{ W.days=[...el.querySelectorAll('.daypick input:checked')].map(x=>x.value); const h=document.getElementById('wdHint'); if(h) h.textContent=`${W.days.length} of ${W.n} picked`; });
+  el.querySelectorAll('[data-ws]').forEach(b=>b.onclick=()=>{ W.style=b.dataset.ws; renderWizard(); });
+  el.querySelectorAll('input[name=wm]').forEach(r=>r.onchange=()=>{ W.minutes=+r.value; });
+  el.querySelectorAll('input[name=wi]').forEach(r=>r.onchange=()=>{ W.intensity=r.value; });
+  document.getElementById('wzNext').onclick = async ()=>{
+    if(W.step===1 && W.days.length!==W.n){ if(!W.days.length){ toast('Pick at least one day'); return; } W.n = W.days.length; }
+    if(W.step<3){ W.step++; renderWizard(); return; }
+    const days = buildWeekDays({days:[...W.days].sort((a,b)=>WEEK.indexOf(a)-WEEK.indexOf(b)), style:W.style, minutes:W.minutes, intensity:W.intensity});
+    await setWeekPlan(W.key, days, 'wizard'); S.planWeek = W.key===wkKey(0) ? null : W.key; closeWizard();
+    toast(`Your week is set: ${days.length} workout${days.length>1?'s':''}`); viewPlan(); window.scrollTo(0,0);
+  };
+}
+
 function viewPlan(){
   const p = profile();
   if(!p){ $('#app').innerHTML = `<div class="card empty"><h2>No plan yet</h2><p>Add your details to get a plan built for you.</p><button class="btn primary" onclick="go('profile')">Set up profile</button></div>`; return; }
@@ -1841,25 +1975,42 @@ function viewPlan(){
   const nActive = msState().active.length + prState().active.length;
   if(S.planTab==='milestones') S.planTab = 'programs';
   const tabsHtml = `<div class="seg ptabs" role="tablist">
-      <input type="radio" id="pl-week" name="pltab" value="week" ${ptab==='week'?'checked':''}><label for="pl-week">This week</label>
+      <input type="radio" id="pl-week" name="pltab" value="week" ${ptab==='week'?'checked':''}><label for="pl-week">Workouts</label>
       <input type="radio" id="pl-ms" name="pltab" value="programs" ${ptab==='programs'?'checked':''}><label for="pl-ms">Programs${nActive?` (${nActive})`:''}</label>
     </div>`;
   const bindTabs = ()=>document.querySelectorAll('input[name=pltab]').forEach(r=>r.onchange=()=>{ S.planTab=r.value; viewPlan(); window.scrollTo(0,0); });
   if(ptab==='programs'){ $('#app').innerHTML = tabsHtml + programsSectionHtml() + `<h2 class="section-h">Milestones</h2>` + viewMilestones(); bindTabs(); bindPrograms(); bindMilestones(); return; }
   const replacing = prState().active.find(e=>e.mode==='replace');
+  const wk = planWeekKey(), isNext = wk!==wkKey(0), override = !!weekPlans()[wk], ro = isNext && !override;
+  const prevKey = shiftDate(wk,-7), prevLogged = daysFromLogged(prevKey).length;
+  const weekBar = `<div class="card weekbar">
+      <div class="seg"><input type="radio" id="wk-0" name="wk" value="0" ${!isNext?'checked':''}><label for="wk-0">This week</label><input type="radio" id="wk-1" name="wk" value="1" ${isNext?'checked':''}><label for="wk-1">Next week</label></div>
+      <div class="row" style="justify-content:space-between;margin-top:8px"><span class="small"><b>${weekLabel(wk)}</b></span><span class="hint">${override ? (pl.days.length?'📅 Custom plan for this week':'Cleared — rest week') : 'Your regular plan'}</span></div>
+      <div class="wkacts">
+        <button class="btn sm" id="wkWizard">✏️ Plan ${isNext?'next':'this'} week</button>
+        <button class="btn sm" id="wkRepeat">↻ Repeat ${isNext?'this':'last'} week</button>
+        <button class="btn sm ghost" id="wkClear" ${override && !pl.days.length?'disabled':''}>🗑 Clear week</button>
+        ${override?'<button class="btn sm ghost" id="wkRegular">Use regular plan</button>':''}
+      </div>
+      ${S.wkRepeatOpen ? `<div class="wkrep">
+        <button class="btn block" data-rep="plan">Same plan as ${isNext?'this':'last'} week <span class="hint">(${planFor(prevKey).days.length} workouts${weekPlans()[prevKey]?' · custom':''})</span></button>
+        <button class="btn block" data-rep="logged" ${prevLogged?'':'disabled'}>What I actually logged ${isNext?'this':'last'} week <span class="hint">(${prevLogged} workout${prevLogged===1?'':'s'})</span></button></div>` : ''}
+    </div>`;
   const msMap = msDayMap();
   const used = pl.days.map(d=>d.weekday), free = WEEK.filter(w=>!used.includes(w));
   const todayDow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];
   const exOptions = day => Object.keys(PATTERN_LABEL).map(pat=>{ const opts = EX.filter(e=>e.p===pat && canDo(e,p) && e.id!=='cardio-of-your-choice' && !e.ms && !day.exercises.includes(e.id)); return opts.length ? `<optgroup label="${PATTERN_LABEL[pat]}">${opts.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>` : ''; }).join('');
-  $('#app').innerHTML = tabsHtml + `
+  $('#app').innerHTML = tabsHtml + weekBar + `<div class="${ro?'planro':''} ${isNext?'planfuture':''}">
     <div class="card">
       <div class="row" style="justify-content:space-between"><h2 style="margin:0">${p.name?esc(p.name)+'’s':'Your'} week</h2>
-      ${replacing?'':`<button class="btn sm" id="shuffle">${ICON_SWAP.replace('<svg','<svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"')}New exercises</button>`}</div>
+      ${replacing||override?'':`<button class="btn sm" id="shuffle">${ICON_SWAP.replace('<svg','<svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"')}New exercises</button>`}</div>
       <div class="chips" style="margin-top:10px">
         <span class="chip on">${GOALS[p.goal].label}</span>${allGoals(p).filter(g=>g!==p.goal).map(g=>`<span class="chip">${GOALS[g].label}</span>`).join('')}<span class="chip">${LEVELS[p.level]}</span>
-        <span class="chip">${pl.days.length}×/week</span><span class="chip">${p.minutes} min</span><span class="chip">${esc(gearSummary(p))}</span>
+        <span class="chip">${pl.days.length}×/week</span>${override?'':`<span class="chip">${p.minutes} min</span>`}<span class="chip">${esc(gearSummary(p))}</span>
         ${p.lowImpact?'<span class="chip">Low impact</span>':''}
       </div>
+      ${ro?'<p class="small" style="margin:10px 0 0">Next week follows your regular plan. To change just next week, tap <b>Plan next week</b> or <b>Repeat this week</b> above.</p>':''}
+      ${!pl.days.length?'<p class="small" style="margin:10px 0 0"><b>No workouts planned.</b> Add a day below, or use <b>Plan this week</b> above.</p>':''}
       <p class="small muted" style="margin:10px 0 0">${replacing?`<b>${esc(prDef(replacing.id).title)}</b> is your plan right now. `:''}Tap a day (like <b>MON</b>) to move that workout, <b>↻</b> to swap an exercise, or <b>✕</b> to remove it. ${free.length?`Rest days: ${free.filter(w=>!progsOn(w).length).join(', ')||'none'} — light walking counts.`:''}</p>
     </div>
     ${[...pl.days.map((d,di)=>({d,di,w:d.weekday})), ...free.filter(w=>progsOn(w).length).map(w=>({rest:true,w}))].sort((a,b)=>WEEK.indexOf(a.w)-WEEK.indexOf(b.w)).map(({d,di,rest,w})=> rest ? `
@@ -1873,7 +2024,8 @@ function viewPlan(){
           <button class="iconbtn" data-delday="${di}" style="margin-left:auto" aria-label="Remove ${d.weekday}">${ICON_X}</button></div>
         ${progsOn(d.weekday).filter(e=>e.mode==='addon' || d.prog===e.id).map(progBlockHtml).join('')}
         ${(msMap[di]||[]).map(msBlockHtml).join('')}
-        ${d.exercises.length ? dayNotes(d,p).map(n=>`<div class="note">${n}</div>`).join('') : ''}
+        ${d.intensity==='easy'?'<div class="note"><b>Easy week:</b> stop each set with 3–4 reps in the tank and skip finishers.</div>':d.intensity==='hard'?'<div class="note"><b>Push harder:</b> add a set to your first two exercises, or go up in weight.</div>':''}
+        ${d.key==='recovery'?'<div class="note"><b>Recovery:</b> a gentle yoga flow plus an easy walk. Keep it relaxed.</div>':d.exercises.length ? dayNotes(d,p).map(n=>`<div class="note">${n}</div>`).join('') : ''}
         ${d.exercises.map((id,ei)=>{ const ex=EXBY[id]; if(!ex) return ''; const r=rx(ex,p); return `
           <div class="ex"><div class="num">${ei+1}</div><div class="body">
             <div class="name">${esc(ex.name)}</div><div class="rx">${r.text}</div><div class="cue">${esc(ex.cue)}</div>${lastTimeHtml(id)}
@@ -1887,9 +2039,20 @@ function viewPlan(){
       <select id="newType" aria-label="Workout type">${Object.entries(ADD_DAY_TYPES).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></div>
       <button class="btn block" id="addDay" style="margin-top:8px">+ Add day</button>
     </div>` : ''}
-    <button class="btn ghost block" id="customLog">Log a workout that isn’t on your plan</button>`;
+    <button class="btn ghost block" id="customLog">Log a workout that isn’t on your plan</button></div>`;
 
   bindTabs();
+  document.querySelectorAll('input[name=wk]').forEach(r=>r.onchange=()=>{ S.planWeek = r.value==='1' ? wkKey(1) : null; S.wkRepeatOpen=false; S.addExDay=null; viewPlan(); });
+  $('#wkWizard').onclick = ()=>openWeekWizard(wk);
+  $('#wkRepeat').onclick = ()=>{ S.wkRepeatOpen = !S.wkRepeatOpen; viewPlan(); };
+  document.querySelectorAll('[data-rep]').forEach(b=>b.onclick = async ()=>{
+    const days = b.dataset.rep==='logged' ? daysFromLogged(prevKey) : clonePlanDays(planFor(prevKey).days);
+    await setWeekPlan(wk, days, 'repeat-'+b.dataset.rep); S.wkRepeatOpen=false; toast(`Copied ${days.length} workout${days.length===1?'':'s'} into ${isNext?'next':'this'} week`); viewPlan();
+  });
+  $('#wkClear').onclick = async e=>{ const b=e.currentTarget;
+    if(!b.dataset.armed){ b.dataset.armed='1'; b.textContent='Tap again to clear'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.armed; b.textContent='🗑 Clear week'; } },3000); return; }
+    await setWeekPlan(wk, [], 'cleared'); toast(`${isNext?'Next':'This'} week cleared — add your own days below`); viewPlan(); };
+  $('#wkRegular')?.addEventListener('click', async ()=>{ delete weekPlans()[wk]; await saveAccount(); toast('Back to your regular plan'); viewPlan(); });
   $('#shuffle')?.addEventListener('click', async e=>{
     const b=e.currentTarget;
     if(pl.edited && !b.dataset.armed){ b.dataset.armed='1'; b.textContent='Tap again — replaces your edits'; setTimeout(()=>{ if(b.isConnected) viewPlan(); },4000); return; }
@@ -1933,12 +2096,13 @@ function viewPlan(){
   $('#addDay')?.addEventListener('click', async ()=>{
     const dow=$('#newDow').value, type=$('#newType').value;
     let exercises = [];
-    if(type!=='custom'){
+    if(type==='recovery') exercises = ['yoga-flow', 'brisk-or-incline-walk'];
+    else if(type!=='custom'){
       const rng = Math.random, usedEx = new Set();
       const slots = type==='cardio' ? TEMPLATES[type].slots : TEMPLATES[type].slots.slice(0, exCap(+p.minutes));
       exercises = slots.map(pat=>{ const e=pick(pat,p,rng,usedEx); if(!e) return null; usedEx.add(e.id); return e.id; }).filter(Boolean);
     }
-    plan().days.push({key:type, name: type==='custom' ? 'Custom workout' : TEMPLATES[type].name.replace(/ [ABC]$/,''), weekday:dow, exercises});
+    plan().days.push({key:type, name: type==='custom' ? 'Custom workout' : type==='recovery' ? 'Recovery' : TEMPLATES[type].name.replace(/ [ABC]$/,''), weekday:dow, exercises});
     sortDays(plan());
     if(type==='custom') S.addExDay = plan().days.findIndex(d=>d.weekday===dow);
     await savePlanEdit(`Added ${dow}`);
@@ -3472,7 +3636,7 @@ const COACH_STARTERS = ['I only have 20 minutes today','Something hurts','How di
 const libForPrompt = p => EX.filter(e=>!p || canDo(e,p)).map(e=>`${e.id} | ${e.name} | ${e.p} | lvl${e.lvl}${e.h?' | high-impact':''}${e.needs.length?' | needs '+e.needs.join('+'):''}`).join('\n');
 
 function coachContext(){
-  const p = profile(), pl = plan();
+  const p = profile(), pl = plan(); const wkOv = weekPlans()[wkKey(0)];
   const now = new Date();
   const lines = [`Today: ${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][now.getDay()]}, ${todayStr()}.`];
   if(!p){ lines.push('The user has NO profile yet. You are in ONBOARDING mode.'); return lines.join('\n'); }
@@ -3482,6 +3646,8 @@ function coachContext(){
   lines.push(`AVAILABLE CARDIO: ${(p.activities||[]).map(k=>ACTIVITIES[k]).join(', ') || 'none listed'}.`);
   lines.push(`GOALS: ${goalsLabel(p)}. MAIN FOCUS: ${GOALS[p.goal].label}. Tailor every recommendation (workouts, cardio, nutrition, programs, milestones) to the whole set of goals, prioritizing the main focus; point out when two goals pull in different directions and how to balance them.`);
   lines.push(`ESTIMATES: BMI ${st.bmi.toFixed(1)} (${st.bmiCat}), maintenance ~${Math.round(st.tdee)} cal/day, goal ~${Math.round(st.target)} cal/day, protein ${st.proteinLo}-${st.proteinHi} g/day.`);
+  { const lc = lowCarb(); if(lc) lines.push(`DIET: low-carb (${LOW_CARB[lc.type]?.label||'custom'}), limit ${lc.limit} g ${lc.net?'NET carbs (carbs minus fiber)':'total carbs'} per day.`); }
+  if(wkOv) lines.push(`THIS WEEK has a custom one-week plan (${wkOv.how||'custom'}) that replaces their regular plan for this week only; ${wkOv.days.length} workouts. Their regular plan resumes next week.`);
   if(pl) lines.push('CURRENT PLAN (day index: weekday name — exercise ids with prescription):\n' + pl.days.map((d,i)=>`${i}: ${d.weekday} ${d.name} — ` + d.exercises.map(id=>EXBY[id]?`${id} (${rx(EXBY[id],p).text})`:id).join('; ')).join('\n'));
   const recent = S.workouts.slice(0,12);
   lines.push(recent.length ? 'RECENT WORKOUTS (newest first):\n' + recent.map(w=>`${w.date} ${w.dayName}${w.effort?` effort ${w.effort}/10`:''}${w.cardioMin?` +${w.cardioMin}min cardio`:''}: ` + w.exercises.map(e=>`${e.name} ${e.sets.map(s=>s.w?`${s.w}x${s.r}`:s.r).join(',')}`).join('; ') + (w.notes?` | notes: "${w.notes}"`:'')).join('\n') : 'RECENT WORKOUTS: none logged yet.');
@@ -3550,6 +3716,7 @@ COACHING MODE (profile exists)
 - For swaps, use the same movement pattern when possible. Use ONLY ids from the library.
 - When the user shares lasting info (new injury, schedule change, preference), propose an update_profile action with updated "notes" (keep the old notes and add the new info).
 - COACH INSIGHTS: you keep a short running list of what you've learned about how this user trains and what works for them — patterns in their logs and things they've told you (e.g. "Progresses best by adding a set before adding reps", "Usually skips Friday workouts — Fridays are busy", "Prefers short home workouts on weekdays", "Waist-high push-ups: stalled at 8–10 reps for 2 weeks"). Read them before answering. When you notice a new pattern from their data or conversation, or an insight is outdated, return the FULL updated list in "insights" (at most 8 short items, each under 120 characters; merge and drop stale ones). Only include things grounded in their logs or their own words — no guesses about health, diagnoses or personality. Otherwise set "insights" to null. These notes are your private working notes: don't mention them, list them or quote them; just let them shape your advice. If the user asks what you've noticed about them, answer naturally in your own words.
+- LOW-CARB: if the profile context says they follow a low-carb diet, respect their carb limit in all food suggestions (protein, non-starchy vegetables, healthy fats), don't push them back toward carbs, and mention that hard interval or high-rep sessions may feel tougher at first. Electrolytes (salt, potassium, magnesium) and water help in the first weeks.
 - CARBS, SUGAR & FIBER: the app tracks total carbs, total sugar (natural + added — it can't separate them) and fiber. Don't treat fruit or milk sugar as a problem; flag mainly sweets, sugary drinks and snacks. Common guidance: keep added sugar under about 25 g (women) / 36 g (men) a day, and aim for ~14 g fiber per 1,000 calories (about 25–38 g). For fat loss, carbs aren't the enemy — total calories and protein matter most — but swapping refined carbs for higher-fiber ones helps fullness. If they mention diabetes or prediabetes, keep carb advice general and suggest their doctor or a dietitian for specific targets.
 - SLEEP: if they log sleep (see SLEEP), factor it in. After a short or broken night (under ~6 hours, or lots of waking), suggest keeping the workout but easing intensity or volume, and expect more hunger/cravings. Consistently short sleep slows recovery, strength gains and fat loss — point it out kindly with one practical fix (consistent bedtime, wind-down, caffeine cutoff, late-meal timing). Busy parents often have kid wake-ups; be realistic, not preachy. Don't diagnose sleep disorders; if they describe loud snoring, gasping or constant exhaustion, suggest mentioning it to their doctor.
 - WEIGHT: if they log weight (see WEIGHT LOG), judge progress by the 7-day average, not single weigh-ins. A healthy fat-loss pace is about 0.5–1% of body weight per week. If the trend stalls for 2–3 weeks, look at calories/protein/consistency before cutting more; if it drops much faster, suggest eating a bit more to protect muscle.
