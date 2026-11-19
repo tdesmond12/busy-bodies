@@ -867,6 +867,11 @@ const dayTotals = d => d.meals.reduce((t,m)=>({cal:t.cal+num(m.cal), protein:t.p
 // Low-carb: carbs become a daily limit (total or net) and fat fills the remaining calories.
 const LOW_CARB = { keto:{label:'Keto', g:20, net:true, blurb:'about 20 g net carbs'}, strict:{label:'Strict low-carb', g:50, net:false, blurb:'50 g carbs'}, low:{label:'Low-carb', g:100, net:false, blurb:'100 g carbs'}, custom:{label:'Custom limit'} };
 const lowCarb = () => { const lc = nutritionSettings().lowCarb; return lc && lc.on ? lc : null; };
+function macroRowHtml(t, calGoal, proGoal){
+  const mt = macroTargets(calGoal, proGoal), cell = (lbl, v, goal, note) => `<div class="mcell"><span>${lbl}</span><b>${Math.round(v)}<small> g</small></b>${goal?`<div class="track"><div class="fill ${v>goal*1.05?'over':''}" style="width:${Math.min(100,Math.round(v/goal*100))}%"></div></div><em>${mt.limit && /carbs/i.test(lbl)?'limit':'of'} ${goal} g</em>`:`<em>${note}</em>`}</div>`;
+  const cv = mt.net ? Math.max(0, t.carbs - t.fiber) : t.carbs;
+  return `<div class="mrow">${cell(mt.net?'Net carbs':'Carbs', cv, mt.carbs)}${cell('Sugar', t.sugar, 0, t.noSugar?`${t.noSugar} not listed`:'total')}${cell('Fiber', t.fiber, mt.fiber)}${cell('Fat', t.fat, mt.fat)}</div>`;
+}
 function macroTargets(calGoal, proGoal){
   const lc = lowCarb();
   if(lc){ const carbs = +lc.limit || 50; return { carbs, net: !!lc.net, limit:true, fat: Math.max(40, Math.round((calGoal - proGoal*4 - carbs*4)/9)), fiber: Math.round(calGoal/1000*14) }; }
@@ -1014,9 +1019,7 @@ async function viewNutritionInner(){
       <div style="display:grid;gap:12px;margin-top:14px">
         ${bar(t.cal, calGoal, 'Calories', 'cal')}
         ${bar(t.protein, proGoal, 'Protein', 'g')}
-        ${(()=>{ const mt = macroTargets(calGoal, proGoal), cell = (lbl, v, goal, note) => `<div class="mcell"><span>${lbl}</span><b>${Math.round(v)}<small> g</small></b>${goal?`<div class="track"><div class="fill ${v>goal*1.05?'over':''}" style="width:${Math.min(100,Math.round(v/goal*100))}%"></div></div><em>of ${goal} g</em>`:`<em>${note}</em>`}</div>`;
-          const cv = mt.net ? Math.max(0, t.carbs - t.fiber) : t.carbs;
-          return `<div class="mrow">${cell(mt.net?'Net carbs':'Carbs', cv, mt.carbs).replace(`of ${mt.carbs} g`, mt.limit?`limit ${mt.carbs} g`:`of ${mt.carbs} g`)}${cell('Sugar', t.sugar, 0, t.noSugar?`${t.noSugar} not listed`:'total')}${cell('Fiber', t.fiber, mt.fiber)}${cell('Fat', t.fat, mt.fat)}</div>`; })()}
+        ${macroRowHtml(t, calGoal, proGoal)}
         ${bar(d.water, wg, 'Water', 'oz')}
         ${ns.supplements.length?bar(suppsDone, ns.supplements.length, 'Supplements', 'taken'):''}
       </div>
@@ -3196,7 +3199,8 @@ async function viewLog(){
           <div class="stat"><div class="k">Protein</div><div class="v" style="font-size:22px">${t.protein} g</div><div class="s">${st?`of ${st.proteinLo} g`:''}</div></div>
           <div class="stat"><div class="k">Water</div><div class="v" style="font-size:22px">${nd.water} oz</div><div class="s">of ${waterGoal()} oz</div></div>
         </div>
-        ${nd.meals.length?`<div class="small" style="margin-top:10px">${nd.meals.map(mm=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(mm.name)} <span class="muted">· ${esc(mm.type)}</span></span><span class="muted">${mm.cal?mm.cal+' cal':''}${mm.protein?` · ${mm.protein} g`:''}</span></div>`).join('')}</div>`:''}
+        <div style="margin-top:8px">${macroRowHtml(t, st?Math.round(st.target):2000, st?st.proteinLo:120)}</div>
+        ${nd.meals.length?`<div class="small" style="margin-top:10px">${nd.meals.map(mm=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(mm.name)} <span class="muted">· ${esc(mm.type)}</span></span><span class="muted" style="text-align:right">${[mm.cal?mm.cal+' cal':'', mm.protein?`${mm.protein}P`:'', mm.carbs?`${mm.carbs}C`:'', mm.fat?`${mm.fat}F`:'', mm.sugar?`${mm.sugar} sugar`:''].filter(Boolean).join(' · ')}</span></div>`).join('')}</div>`:''}
         ${ns.supplements.length?`<div class="small muted" style="margin-top:8px">Supplements: ${ns.supplements.map(x=>`${nd.supps[x.id]?'✓':'○'} ${esc(x.name)}`).join(' · ')}</div>`:''}
       ` : `<p class="small muted" style="margin:0">Nothing logged.</p>`}
       ${sel<=today?`<button class="btn sm" id="openNutrition" style="margin-top:12px">${hasNutrition(nd)?'Edit':'Add'} nutrition for this day</button>`:''}
