@@ -427,7 +427,7 @@ E('Machine Shoulder Press','push_v','gym',1,'Handles at shoulder height, press u
 E('Barbell Overhead Press','push_v','gym',2,'Squeeze glutes, press the bar overhead, move your head through at the top.');
 // Horizontal pull
 E('Prone Y-T-W Raise','pull_h','none',1,'Face-down, lift arms into Y, T and W shapes, squeezing your shoulder blades.');
-E('Inverted Table Row','pull_h','none',2,'Under a sturdy table that can’t tip, grip the edge and pull your chest up.');
+E('Towel Door Row','pull_h','none',2,'Loop a towel around both handles of a closed, latched door. Stand on the side the door swings away from, lean back with a straight body and pull your chest toward the door.');
 E('One-Arm Dumbbell Row','pull_h','db',1,'Hand and knee on a bench, pull the dumbbell to your hip.');
 E('Chest-Supported Dumbbell Row','pull_h','db',1,'Chest on an incline bench, row both dumbbells, squeeze your back.');
 E('Seated Cable Row','pull_h','gym',1,'Sit tall, pull the handle to your stomach, shoulders down.');
@@ -512,7 +512,7 @@ E('Run/Walk Intervals','cardio','none',1,'Alternate easy running and brisk walki
 E('Mile Run','cardio','none',2,'Run one mile at an easy, steady pace — slow is fine, just keep running.','m');
 // Program-only exercises
 E('Archer Push-Up','push_h','none',3,'Wide hands; lower toward one hand while the other arm stays straight. Alternate sides.','m');
-E('Feet-Elevated Table Row','pull_h','none',3,'Like a table row, but with your feet up on a chair so your body is level.','m');
+E('Single-Arm Towel Door Row','pull_h','none',3,'Like a towel door row, but one hand on the towel. Walk your feet closer to the door to make it harder.','m');
 E('Bodyweight Bulgarian Split Squat','lunge','none',2,'Rear foot on a couch or chair, lower straight down on the front leg.','m');
 E('Assisted Pistol Squat','squat','none',2,'Hold a door frame or post, sit down on one leg with the other leg out front, use your hands as little as possible.','m');
 E('Box Pistol Squat','squat','none',3,'One-leg squat down to a chair or couch, tap, and stand back up without the other foot touching down.','m');
@@ -563,6 +563,15 @@ function withGear(p){
 const gearSummary = p => { const g=(p.gear||[]).map(k=>GEAR[k]).filter(Boolean); return g.length ? (g.length>3 ? `${g.length} pieces of equipment` : g.join(', ')) : 'Bodyweight only'; };
 
 const EXBY = Object.fromEntries(EX.map(e=>[e.id,e]));
+// Retired exercises → their replacements (old plans and logs keep working).
+const EX_RENAMED = {'inverted-table-row':'towel-door-row', 'feet-elevated-table-row':'single-arm-towel-door-row'};
+for(const [o,n] of Object.entries(EX_RENAMED)) Object.defineProperty(EXBY, o, {value:EXBY[n], enumerable:false});
+function migrateExerciseIds(acc){
+  if(!acc) return false; let changed = false;
+  const fixDays = pl => (pl && pl.days || []).forEach(d=>{ d.exercises = (d.exercises||[]).map(id=>{ if(EX_RENAMED[id]){ changed = true; return EX_RENAMED[id]; } return id; }); });
+  fixDays(acc.plan); fixDays(acc.programs && acc.programs.savedPlan); Object.values(acc.weekPlans||{}).forEach(fixDays);
+  return changed;
+}
 const COMPOUND = new Set(['squat','hinge','lunge','push_h','push_v','pull_h','pull_v']);
 const PATTERN_LABEL = {squat:'Squat',hinge:'Hinge',lunge:'Single-leg',push_h:'Chest push',push_v:'Overhead push',pull_h:'Row',pull_v:'Vertical pull',shoulders:'Shoulders',biceps:'Biceps',triceps:'Triceps',calves:'Calves',core:'Core',cardio:'Cardio',mobility:'Mobility'};
 
@@ -1864,7 +1873,7 @@ async function savePlanEdit(msg){ plan().edited = true; await saveAccount(); con
 
 // Most recent logged sets for an exercise (S.workouts is newest first).
 function lastTimeOf(id){
-  for(const w of S.workouts){ const e = w.exercises.find(x=>x.id===id && x.sets && x.sets.some(s=>s.r||s.w)); if(e) return {w, e}; }
+  for(const w of S.workouts){ const e = w.exercises.find(x=>(x.id===id || EX_RENAMED[x.id]===id) && x.sets && x.sets.some(s=>s.r||s.w)); if(e) return {w, e}; }
   return null;
 }
 function lastTimeHtml(id){
@@ -2230,8 +2239,8 @@ const PROGRAMS = {
         ],
         nobar:[
           {ex:'floor-lat-pull-superman-', name:'Floor lat pull', sets:3, plan:'3 × 10–15', goal:{reps:15, sets:3}},
-          {ex:'inverted-table-row', name:'Table row', sets:3, plan:'3 × 6–12', goal:{reps:12, sets:3}},
-          {ex:'feet-elevated-table-row', name:'Feet-elevated table row', sets:3, plan:'3 × 6–10', goal:{reps:10, sets:3}},
+          {ex:'towel-door-row', name:'Towel door row', sets:3, plan:'3 × 6–12', goal:{reps:12, sets:3}},
+          {ex:'single-arm-towel-door-row', name:'Single-arm towel door row', sets:3, plan:'3 × 6–10 each arm', goal:{reps:10, sets:3}},
         ]}},
       legs:{label:'Legs', levels:[
         {ex:'bodyweight-squat', name:'Bodyweight squat', sets:3, plan:'3 × 12–20', goal:{reps:20, sets:3}},
@@ -3537,7 +3546,7 @@ async function importData(e){
         await S.store.clearDays();
         for(const [date, day] of Object.entries(pendingImport.days)) if(/^\d{4}-\d{2}-\d{2}$/.test(date)) await S.store.saveDay(date, day);
       }
-      S.account = await S.store.getAccount(); S.workouts = await S.store.listWorkouts(); S.days = {}; S.monthsLoaded = {}; pendingImport = null; renderBadge();
+      S.account = await S.store.getAccount(); if(migrateExerciseIds(S.account)) S.store.saveAccount(S.account).catch(()=>{}); S.workouts = await S.store.listWorkouts(); S.days = {}; S.monthsLoaded = {}; pendingImport = null; renderBadge();
       toast('Backup restored'); viewProfile();
     };
   }catch(err){ pendingImport = null; msg.textContent = 'That file isn’t a valid backup.'; }
@@ -3588,7 +3597,7 @@ async function doSignOut(){ if(FB){ await FB.A.signOut(FB.auth); toast('Signed o
 
 async function useLocal(){
   S.user = null; S.store = localBackend(); S.draft = null; S.days = {}; S.nDate = null; S.monthsLoaded = {}; S.calSel = null; S.calMonth = null;
-  S.account = await S.store.getAccount(); S.workouts = await S.store.listWorkouts(); S.chat = [];
+  S.account = await S.store.getAccount(); if(migrateExerciseIds(S.account)) S.store.saveAccount(S.account).catch(()=>{}); S.workouts = await S.store.listWorkouts(); S.chat = [];
   S.ready = true; renderBadge(); route();
 }
 async function useCloud(user){
