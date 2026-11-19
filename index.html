@@ -214,6 +214,10 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .wizn .btn{padding:12px 0;min-width:0}
 .wizstyles{display:grid;gap:6px}
 .wizstyles .btn{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px}
+.fastlog{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--panel2);border-left:4px solid var(--line)}
+.fastlog.hit{border-left-color:#c6f432}.fastlog.miss{border-left-color:#ffb547}
+.fastlog > div:first-child{display:flex;align-items:baseline;gap:8px}
+.fastlog b{font:800 20px "Barlow Condensed",sans-serif}.fastlog em{font-style:normal;font-size:12px;color:var(--muted)}
 .mrow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .mcell{background:var(--panel2);border-radius:10px;padding:8px;display:grid;gap:3px;min-width:0}
 .mcell span{font-size:11px;color:var(--muted);font-weight:600}
@@ -3143,7 +3147,7 @@ async function loadMonthDays(ym){
     S.monthsLoaded[ym] = true;
   }catch(e){ console.warn(e); }
 }
-const hasNutrition = d => d && (d.meals.length || d.water>0 || Object.keys(d.supps||{}).length);
+const hasNutrition = d => d && ((d.meals||[]).length || d.water>0 || Object.keys(d.supps||{}).length || d.fast);
 function workoutSummaryHtml(w){
   const sets = w.exercises.reduce((a,e)=>a+e.sets.length,0);
   return `<div class="cal-w">
@@ -3174,6 +3178,13 @@ async function viewLog(){
   const p = profile(), st = p ? bodyStats(p) : null;
   const nd = S.days[sel] || (S.monthsLoaded[ymOf(sel)] ? emptyDay() : await loadDay(sel));
   const t = dayTotals(nd), ns = nutritionSettings();
+  if(fastingOn() && !S.days[shiftDate(sel,-1)]) await loadDay(shiftDate(sel,-1)).catch(()=>{});   // previous evening, for the overnight fast
+  const fastHtml = (()=>{ if(!fastingOn()) return ''; const f = nd.fast || {}, fs = fastStats(sel), prevLast = ((S.days[shiftDate(sel,-1)]||{}).fast||{}).last, tgt = fastTarget();
+    if(fs.fasted==null && fs.window==null) return '';
+    const hit = fs.fasted!=null && fs.fasted >= tgt*60;
+    return `<div class="fastlog ${fs.fasted==null?'':hit?'hit':'miss'}">
+      <div><span class="k">Fast</span><b>${fs.fasted!=null?fmtDur(fs.fasted):'—'}</b>${fs.fasted!=null?`<em>${hit?'✓ hit':'short of'} ${tgt}h goal</em>`:''}</div>
+      <div class="small muted">${fs.fasted!=null?`${fmtClock(prevLast)} (night before) → ${fmtClock(f.first)}`:'Add the night before’s last meal to see the fast'}${fs.window!=null?` · eating window ${fmtDur(fs.window)} (${fmtClock(f.first)}–${fmtClock(f.last)})`:''}</div></div>`; })();
   const ws = wByDate[sel] || [];
   const monthW = Object.keys(wByDate).filter(d=>d.startsWith(ym)).reduce((a,d)=>a+wByDate[d].length,0);
   $('#app').innerHTML = `
@@ -3200,6 +3211,7 @@ async function viewLog(){
           <div class="stat"><div class="k">Water</div><div class="v" style="font-size:22px">${nd.water} oz</div><div class="s">of ${waterGoal()} oz</div></div>
         </div>
         <div style="margin-top:8px">${macroRowHtml(t, st?Math.round(st.target):2000, st?st.proteinLo:120)}</div>
+        ${fastHtml}
         ${nd.meals.length?`<div class="small" style="margin-top:10px">${nd.meals.map(mm=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(mm.name)} <span class="muted">· ${esc(mm.type)}</span></span><span class="muted" style="text-align:right">${[mm.cal?mm.cal+' cal':'', mm.protein?`${mm.protein}P`:'', mm.carbs?`${mm.carbs}C`:'', mm.fat?`${mm.fat}F`:'', mm.sugar?`${mm.sugar} sugar`:''].filter(Boolean).join(' · ')}</span></div>`).join('')}</div>`:''}
         ${ns.supplements.length?`<div class="small muted" style="margin-top:8px">Supplements: ${ns.supplements.map(x=>`${nd.supps[x.id]?'✓':'○'} ${esc(x.name)}`).join(' · ')}</div>`:''}
       ` : `<p class="small muted" style="margin:0">Nothing logged.</p>`}
