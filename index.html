@@ -202,6 +202,13 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.mrow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.mcell{background:var(--panel2);border-radius:10px;padding:8px;display:grid;gap:3px;min-width:0}
+.mcell span{font-size:11px;color:var(--muted);font-weight:600}
+.mcell b{font:800 20px "Barlow Condensed",sans-serif}.mcell b small{font-size:.6em;color:var(--muted)}
+.mcell em{font-style:normal;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mcell .track{height:4px;border-radius:2px;background:var(--line);overflow:hidden}.mcell .fill{height:100%;background:var(--accent)}.mcell .fill.over{background:var(--warn)}
+.fdsub{display:flex;gap:14px;font-size:13px;color:var(--muted);margin-top:8px;flex-wrap:wrap}.fdsub b{color:var(--text)}
 .fastmini{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 .card > .fastmini:first-child{margin-top:0;padding-top:0;border-top:0}
 .fmrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
@@ -820,7 +827,13 @@ const nutritionSettings = () => {
 const defaultWaterGoal = () => { const p=profile(); return p ? Math.min(128, Math.max(64, Math.round(p.weight/2/8)*8)) : 64; };
 const waterGoal = () => nutritionSettings().waterGoal || defaultWaterGoal();
 const emptyDay = () => ({water:0, meals:[], supps:{}});
-const dayTotals = d => d.meals.reduce((t,m)=>({cal:t.cal+num(m.cal), protein:t.protein+num(m.protein)}), {cal:0, protein:0});
+const dayTotals = d => d.meals.reduce((t,m)=>({cal:t.cal+num(m.cal), protein:t.protein+num(m.protein), carbs:t.carbs+num(m.carbs), fat:t.fat+num(m.fat),
+  sugar:t.sugar+num(m.sugar), fiber:t.fiber+num(m.fiber), noSugar:t.noSugar+(m.sugar==null && num(m.cal)>0 ? 1 : 0)}), {cal:0, protein:0, carbs:0, fat:0, sugar:0, fiber:0, noSugar:0});
+// Daily targets for the macro row. Carbs/fat split the calories left after protein (fat ~30%); fiber 14 g per 1,000 cal.
+function macroTargets(calGoal, proGoal){
+  const fat = Math.round(calGoal*0.30/9), carbs = Math.max(50, Math.round((calGoal - proGoal*4 - fat*9)/4));
+  return { carbs, fat, fiber: Math.round(calGoal/1000*14) };
+}
 const shiftDate = (s, n) => { const d=parseYmd(s); d.setDate(d.getDate()+n); return ymd(d); };
 const prettyDate = s => { if(s===todayStr()) return 'Today'; if(s===shiftDate(todayStr(),-1)) return 'Yesterday'; const d=parseYmd(s); return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}); };
 
@@ -962,6 +975,8 @@ async function viewNutritionInner(){
       <div style="display:grid;gap:12px;margin-top:14px">
         ${bar(t.cal, calGoal, 'Calories', 'cal')}
         ${bar(t.protein, proGoal, 'Protein', 'g')}
+        ${(()=>{ const mt = macroTargets(calGoal, proGoal), cell = (lbl, v, goal, note) => `<div class="mcell"><span>${lbl}</span><b>${Math.round(v)}<small> g</small></b>${goal?`<div class="track"><div class="fill ${v>goal*1.05?'over':''}" style="width:${Math.min(100,Math.round(v/goal*100))}%"></div></div><em>of ${goal} g</em>`:`<em>${note}</em>`}</div>`;
+          return `<div class="mrow">${cell('Carbs', t.carbs, mt.carbs)}${cell('Sugar', t.sugar, 0, t.noSugar?`${t.noSugar} not listed`:'total')}${cell('Fiber', t.fiber, mt.fiber)}${cell('Fat', t.fat, mt.fat)}</div>`; })()}
         ${bar(d.water, wg, 'Water', 'oz')}
         ${ns.supplements.length?bar(suppsDone, ns.supplements.length, 'Supplements', 'taken'):''}
       </div>
@@ -972,7 +987,7 @@ async function viewNutritionInner(){
       <h3 style="margin-bottom:4px">Food diary</h3>
       ${MEAL_TYPES.map(mt=>{ const rows = d.meals.map((m,i)=>[m,i]).filter(([m])=>(m.type||'Snack')===mt); const sub = rows.reduce((a,[m])=>a+(m.cal||0),0);
         return `<div class="msec"><div class="msec-h"><b>${mt}</b><span class="muted small">${sub?sub.toLocaleString()+' cal':''}</span></div>
-          ${rows.map(([m,i])=>`<div class="meal"><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(m.name)}</div><div class="hint">${[m.label, m.brand, m.cal?`${m.cal} cal`:'', m.protein?`${m.protein} g protein`:'', m.src==='photo'?'📷':'', m.servings&&m.servings!==1?`${m.servings}× servings`:''].filter(Boolean).map(esc).join(', ')}</div>${m.items&&m.items.length?`<div class="hint">${m.items.map(x=>{ const n = x.name || x.food || '', l = x.label || x.portion || ''; return `${esc(shortName(n))}${l?` (${esc(l)})`:''}`; }).join(' · ')}</div>`:''}</div>
+          ${rows.map(([m,i])=>`<div class="meal"><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(m.name)}</div><div class="hint">${[m.label, m.brand, m.cal?`${m.cal} cal`:'', m.protein?`${m.protein} g protein`:'', m.carbs?`${m.carbs} g carbs`:'', m.sugar?`${m.sugar} g sugar`:'', m.src==='photo'?'📷':'', m.servings&&m.servings!==1?`${m.servings}× servings`:''].filter(Boolean).map(esc).join(', ')}</div>${m.items&&m.items.length?`<div class="hint">${m.items.map(x=>{ const n = x.name || x.food || '', l = x.label || x.portion || ''; return `${esc(shortName(n))}${l?` (${esc(l)})`:''}`; }).join(' · ')}</div>`:''}</div>
             <button class="star ${isFav(m)?'on':''}" data-favmeal="${i}" aria-label="${isFav(m)?'Saved as favorite':'Save as favorite'}">${isFav(m)?'★':'☆'}</button><button class="x" data-delmeal="${i}" aria-label="Remove">×</button></div>`).join('')}
           <button class="addfood" data-addfood="${mt}">+ Add food</button></div>`; }).join('')}
 
@@ -1087,7 +1102,8 @@ let FOODS = null, FOODS_LOADING = null;
 function loadFoods(){
   if(FOODS) return Promise.resolve(FOODS);
   if(!FOODS_LOADING) FOODS_LOADING = fetch('data/foods.json').then(r=>{ if(!r.ok) throw new Error('foods '+r.status); return r.json(); })
-    .then(j=>{ FOODS = j.foods.map(f=>({name:f[0], cat:+f[1], kcal:f[2], p:f[3], c:f[4], f:f[5], portions:f[6], lc:f[0].toLowerCase()})); return FOODS; })
+    .then(j=>{ const v2 = (j.v||1) >= 2;
+      FOODS = j.foods.map(f=>({name:f[0], cat:+f[1], kcal:f[2], p:f[3], c:f[4], f:f[5], s: v2 ? f[6] : null, fb: v2 ? f[7] : null, portions: v2 ? f[8] : f[6], lc:f[0].toLowerCase()})); return FOODS; })
     .catch(e=>{ FOODS_LOADING = null; throw e; });
   return FOODS_LOADING;
 }
@@ -1158,6 +1174,7 @@ async function searchUSDA(q){
   if(!r.ok) throw new Error('USDA: HTTP '+r.status);
   const j = await r.json();
   const pick = (f, ids, nums) => { const n = (f.foodNutrients||[]).find(x=>ids.includes(x.nutrientId) || nums.includes(String(x.nutrientNumber))); return n ? +n.value || 0 : 0; };
+  const pickN = (f, ids, nums) => { const n = (f.foodNutrients||[]).find(x=>ids.includes(x.nutrientId) || nums.includes(String(x.nutrientNumber))); return n && n.value!=null ? Math.round(+n.value*10)/10 : null; };   // null = not reported
   return (j.foods||[]).map(f=>{
     const portions = [];
     const su = String(f.servingSizeUnit||'').toLowerCase();
@@ -1166,7 +1183,7 @@ async function searchUSDA(q){
     const brand = f.brandName || f.brandOwner;
     const desc = titleCase(f.description).split(', ').filter((part,i,arr)=>!arr.slice(0,i).some(prev=>prev.toLowerCase().includes(part.toLowerCase()))).join(', ');
     return { name: desc + (brand ? ` — ${titleCase(brand)}` : ''), online:true, gtin: f.gtinUpc || '',
-      kcal: pick(f,[1008,2047,2048],['208','957','958']), p: pick(f,[1003],['203']), c: pick(f,[1005],['205']), f: pick(f,[1004],['204']), portions };
+      kcal: pick(f,[1008,2047,2048],['208','957','958']), p: pick(f,[1003],['203']), c: pick(f,[1005],['205']), f: pick(f,[1004],['204']), s: pickN(f,[2000,1063],['269','269.3']), fb: pickN(f,[1079],['291']), portions };
   }).filter(f=>f.kcal>0 || f.p>0);
 }
 // Portion options for a food: its serving sizes, plus grams and ounces.
@@ -1196,7 +1213,7 @@ async function searchOFF(q){
     if(sq>0) portions.push([p.serving_size && !/^\s*\d+(\.\d+)?\s*g\s*$/i.test(p.serving_size) ? String(p.serving_size).trim() : '1 serving', sq]);
     const brand = String(p.brands||'').split(',')[0].trim();
     return { name: (p.product_name||'').trim() + (brand ? ` — ${brand}` : ''), online:true, src:'off',
-      kcal: Math.round(kcal), p: Math.round((+n.proteins_100g||0)*10)/10, c: Math.round((+n.carbohydrates_100g||0)*10)/10, f: Math.round((+n.fat_100g||0)*10)/10, portions };
+      kcal: Math.round(kcal), p: Math.round((+n.proteins_100g||0)*10)/10, c: Math.round((+n.carbohydrates_100g||0)*10)/10, f: Math.round((+n.fat_100g||0)*10)/10, s: n.sugars_100g!=null ? Math.round(+n.sugars_100g*10)/10 : null, fb: n.fiber_100g!=null ? Math.round(+n.fiber_100g*10)/10 : null, portions };
   }).filter(f=>f.name && !f.name.startsWith(' —') && (f.kcal>0 || f.p>0));
 }
 // Search both online sources; use whatever answers.
@@ -1215,7 +1232,11 @@ function unitLabel(amt, o){
   return `${amt} ${o.label}`;
 }
 const portionOpts = f => [...(f.portions||[]).map(([l,g])=>({label:l.replace(/^1 /,''), g})), {label:'g', g:1}, {label:'oz', g:28.35}];
-function macrosFor(f, grams){ const k = grams/100; return { cal:Math.round(f.kcal*k), protein:Math.round(f.p*k*10)/10, carbs:Math.round(f.c*k*10)/10, fat:Math.round(f.f*k*10)/10 }; }
+function macrosFor(f, grams){ const k = grams/100, r = v => Math.round(v*k*10)/10;
+  return { cal:Math.round(f.kcal*k), protein:r(f.p), carbs:r(f.c), fat:r(f.f), sugar: f.s!=null ? r(f.s) : null, fiber: f.fb!=null ? r(f.fb) : null }; }
+// sugar/fiber are optional (older entries and some foods don't have them): keep null when unknown.
+const optNum = v => (v===null || v===undefined || v==='') ? null : Math.round(num(v)*10)/10;
+const sfOf = m => ({ ...(optNum(m.sugar)!=null?{sugar:Math.round(num(m.sugar))}:{}), ...(optNum(m.fiber)!=null?{fiber:Math.round(num(m.fiber))}:{}) });
 
 function recentFoods(){ const n=nutritionSettings(); if(!Array.isArray(n.recentFoods)) n.recentFoods=[]; return n.recentFoods; }
 
@@ -1238,7 +1259,7 @@ function closeFoodSheet(){ stopScanner(); document.getElementById('foodSheet')?.
 function toItem(f, src){
   if(src==='fav' || src==='recent'){
     return { key:src+':'+f.name+'|'+(f.label||''), name:f.name, brand:f.brand||'', src, verified:false, fixed:true, label: f.label || '1 serving',
-      per:{cal:f.cal, protein:f.protein, carbs:f.carbs||0, fat:f.fat||0} };
+      per:{cal:f.cal, protein:f.protein, carbs:f.carbs||0, fat:f.fat||0, sugar:optNum(f.sugar), fiber:optNum(f.fiber)} };
   }
   const opts = portionOpts(f), du = defaultUnit(opts), o = opts[du];
   const amt = o.label==='g' ? 100 : 1;
@@ -1365,7 +1386,7 @@ async function lookupBarcode(code){
           if(sq>0) portions.push([p.serving_size && !/^\s*\d+(\.\d+)?\s*g\s*$/i.test(p.serving_size) ? String(p.serving_size).trim() : '1 serving', sq]);
           const brand = String(p.brands||'').split(',')[0].trim();
           return { food: { name: p.product_name.trim() + (brand ? ` — ${brand}` : ''), online:true, src:'off', kcal: Math.round(kcal),
-            p: Math.round((+n.proteins_100g||0)*10)/10, c: Math.round((+n.carbohydrates_100g||0)*10)/10, f: Math.round((+n.fat_100g||0)*10)/10, portions }, src:'off' };
+            p: Math.round((+n.proteins_100g||0)*10)/10, c: Math.round((+n.carbohydrates_100g||0)*10)/10, f: Math.round((+n.fat_100g||0)*10)/10, s: n.sugars_100g!=null ? Math.round(+n.sugars_100g*10)/10 : null, fb: n.fiber_100g!=null ? Math.round(+n.fiber_100g*10)/10 : null, portions }, src:'off' };
         }
       }
     }
@@ -1464,7 +1485,7 @@ function renderFoodSheet(first){
   if(first) setTimeout(()=>q.focus(), 80);
 }
 function detailCalc(it, amt, unitIdx){
-  if(it.fixed){ const a=amt; return {cal:Math.round(it.per.cal*a), protein:Math.round(it.per.protein*a*10)/10, carbs:Math.round(it.per.carbs*a*10)/10, fat:Math.round(it.per.fat*a*10)/10, label: a===1 ? it.label : `${a} × ${it.label}`}; }
+  if(it.fixed){ const a=amt, r = v => v==null ? null : Math.round(v*a*10)/10; return {cal:Math.round(it.per.cal*a), protein:r(it.per.protein), carbs:r(it.per.carbs), fat:r(it.per.fat), sugar:r(it.per.sugar), fiber:r(it.per.fiber), label: a===1 ? it.label : `${a} × ${it.label}`}; }
   const o = it.opts[unitIdx];
   return {...macrosFor(it.food, amt*o.g), label: unitLabel(amt, o)};
 }
@@ -1492,7 +1513,8 @@ function renderDetail(el, typeSel){
       <div class="big"><b>${Math.round(m.cal)}</b><span>cal</span></div>
       <div><b>${m.carbs} g</b><span>Carbs ${pc(m.carbs*4)}%</span></div>
       <div><b>${m.fat} g</b><span>Fat ${pc(m.fat*9)}%</span></div>
-      <div><b>${m.protein} g</b><span>Protein ${pc(m.protein*4)}%</span></div></div>`;
+      <div><b>${m.protein} g</b><span>Protein ${pc(m.protein*4)}%</span></div></div>
+      <div class="fdsub"><span>Sugar <b>${m.sugar!=null?m.sugar+' g':'—'}</b></span><span>Fiber <b>${m.fiber!=null?m.fiber+' g':'—'}</b></span>${m.sugar==null&&m.fiber==null?'<span class="muted">not listed for this food</span>':''}</div>`;
   };
   amtEl.oninput = show; if(unitEl) unitEl.onchange = show; show();
   document.getElementById('fsType').onchange = e=>{ F.type = e.target.value; S.mealType = F.type; document.getElementById('fdAdd').textContent = `Add to ${F.type}`; };
@@ -1501,7 +1523,7 @@ function renderDetail(el, typeSel){
     const a = num(amtEl.value); if(!(a>0)) return;
     const m = detailCalc(it, a, unitEl ? +unitEl.value : 0);
     await addFoodEntry(it, m);
-    if(document.getElementById('fdFav')?.checked && !isFav({name:it.name})) await addFav({name:it.name, brand:it.brand, label:m.label, cal:m.cal, protein:m.protein, carbs:m.carbs, fat:m.fat});
+    if(document.getElementById('fdFav')?.checked && !isFav({name:it.name})) await addFav({name:it.name, brand:it.brand, label:m.label, cal:m.cal, protein:m.protein, carbs:m.carbs, fat:m.fat, sugar:m.sugar, fiber:m.fiber});
     F.detail = null; renderFoodSheet();
   };
 }
@@ -1518,6 +1540,8 @@ function renderManual(el, typeSel){
         <input type="number" inputmode="numeric" name="protein" placeholder="Protein (g)" min="0">
         <input type="number" inputmode="numeric" name="carbs" placeholder="Carbs (g)" min="0">
         <input type="number" inputmode="numeric" name="fat" placeholder="Fat (g)" min="0">
+        <input type="number" inputmode="numeric" name="sugar" placeholder="Sugar (g)" min="0">
+        <input type="number" inputmode="numeric" name="fiber" placeholder="Fiber (g)" min="0">
       </div>
       <label class="toggle"><input type="checkbox" name="fav"><span class="small">Save as a favorite</span></label>
       <button class="btn primary block" style="margin-top:12px">Add to ${esc(F.type)}</button>
@@ -1526,7 +1550,7 @@ function renderManual(el, typeSel){
   document.getElementById('fmBack').onclick = ()=>{ F.manual = false; renderFoodSheet(); };
   document.getElementById('fmForm').onsubmit = async e=>{
     e.preventDefault(); const f = new FormData(e.target); const name = String(f.get('name')||'').trim(); if(!name) return;
-    const m = {cal:Math.round(num(f.get('cal'))), protein:Math.round(num(f.get('protein'))), carbs:Math.round(num(f.get('carbs'))), fat:Math.round(num(f.get('fat'))), label:String(f.get('label')||'').trim() || '1 serving'};
+    const m = {cal:Math.round(num(f.get('cal'))), protein:Math.round(num(f.get('protein'))), carbs:Math.round(num(f.get('carbs'))), fat:Math.round(num(f.get('fat'))), sugar:optNum(f.get('sugar')), fiber:optNum(f.get('fiber')), label:String(f.get('label')||'').trim() || '1 serving'};
     const it = {name, brand:'', src:'manual'};
     await addFoodEntry(it, m);
     if(f.get('fav')) await addFav({name, label:m.label, ...m});
@@ -1538,10 +1562,10 @@ async function addFoodEntry(it, m){
   const F = fs(); const date = F ? F.date : todayStr(), type = F ? F.type : (S.mealType||guessMealType());
   const d = await loadDay(date);
   d.meals.push({ name: displayName(it.name).slice(0,80), ...(it.brand?{brand:it.brand.slice(0,40)}:{}), type, label:m.label, cal:Math.round(m.cal)||0, protein:Math.round(num(m.protein))||0,
-    carbs:Math.round(num(m.carbs))||0, fat:Math.round(num(m.fat))||0, ...(it.src==='usda'||it.src==='off'||it.src==='local'?{src:it.src}:{}), ts:Date.now() });
+    carbs:Math.round(num(m.carbs))||0, fat:Math.round(num(m.fat))||0, ...sfOf(m), ...(it.src==='usda'||it.src==='off'||it.src==='local'?{src:it.src}:{}), ts:Date.now() });
   saveDaySoon(date);
   // remember for Recent
-  const rec = recentFoods(), entry = {name:displayName(it.name), brand:it.brand||'', label:m.label, cal:Math.round(m.cal), protein:m.protein, carbs:m.carbs, fat:m.fat};
+  const rec = recentFoods(), entry = {name:displayName(it.name), brand:it.brand||'', label:m.label, cal:Math.round(m.cal), protein:m.protein, carbs:m.carbs, fat:m.fat, ...sfOf(m)};
   const i = rec.findIndex(r=>r.name===entry.name && r.label===entry.label); if(i>=0) rec.splice(i,1); rec.unshift(entry);
   nutritionSettings().recentFoods = rec.slice(0,40); saveAccount();
   toast(`Added to ${type}: ${displayName(it.name).split(',')[0]} · ${Math.round(m.cal)} cal`);
@@ -1553,14 +1577,14 @@ const favKey = m => String(m.name||'').trim().toLowerCase();
 const isFav = m => favorites().some(f=>favKey(f)===favKey(m));
 async function addFav(m){
   if(isFav(m)) return;
-  favorites().unshift({id:'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:String(m.name).slice(0,80), ...(m.label?{label:String(m.label).slice(0,60)}:{}), ...(m.brand?{brand:String(m.brand).slice(0,40)}:{}), cal:Math.round(num(m.cal))||0, protein:Math.round(num(m.protein))||0, ...(m.carbs?{carbs:Math.round(num(m.carbs))}:{}), ...(m.fat?{fat:Math.round(num(m.fat))}:{})});
+  favorites().unshift({id:'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:String(m.name).slice(0,80), ...(m.label?{label:String(m.label).slice(0,60)}:{}), ...(m.brand?{brand:String(m.brand).slice(0,40)}:{}), cal:Math.round(num(m.cal))||0, protein:Math.round(num(m.protein))||0, ...(m.carbs?{carbs:Math.round(num(m.carbs))}:{}), ...(m.fat?{fat:Math.round(num(m.fat))}:{}), ...sfOf(m)});
   nutritionSettings().favorites = favorites().slice(0,40);
   await saveAccount(); toast('Saved to favorites ★');
 }
 async function removeFav(m){ nutritionSettings().favorites = favorites().filter(f=>favKey(f)!==favKey(m)); await saveAccount(); toast('Removed from favorites'); }
 function logMeal(d, date, m){
   d.meals.push({name:String(m.name).slice(0,80), type:S.mealType||guessMealType(), cal:Math.round(num(m.cal))||0, protein:Math.round(num(m.protein))||0,
-    ...(m.carbs?{carbs:Math.round(num(m.carbs))}:{}), ...(m.fat?{fat:Math.round(num(m.fat))}:{}), ...(m.src?{src:m.src}:{}),
+    ...(m.carbs?{carbs:Math.round(num(m.carbs))}:{}), ...(m.fat?{fat:Math.round(num(m.fat))}:{}), ...sfOf(m), ...(m.src?{src:m.src}:{}),
     ...(Array.isArray(m.items)&&m.items.length?{items:m.items}:{}), ...(m.label?{label:String(m.label).slice(0,60)}:{}), ...(m.brand?{brand:String(m.brand).slice(0,40)}:{}), ...(m.servings&&m.servings!==1?{servings:m.servings}:{}), ts:Date.now()});
   saveDaySoon(date);
 }
@@ -1593,7 +1617,7 @@ Identify each food item and estimate its portion size from visual cues (plate si
 Be realistic, not optimistic: include cooking oils, sauces, dressings and drinks you can see.
 If the photo is not food, set "isFood" to false.
 Respond with ONLY JSON:
-{"isFood": true, "name": "<short meal name, e.g. Grilled chicken salad>", "items": [{"food": "...", "portion": "e.g. 1 cup / 6 oz", "cal": 0, "protein": 0}], "cal": <total>, "protein": <total g>, "carbs": <total g>, "fat": <total g>, "confidence": "low|medium|high", "note": "<one short sentence: what was hard to judge, or a tip>"}`;
+{"isFood": true, "name": "<short meal name, e.g. Grilled chicken salad>", "items": [{"food": "...", "portion": "e.g. 1 cup / 6 oz", "cal": 0, "protein": 0}], "cal": <total>, "protein": <total g>, "carbs": <total g>, "fat": <total g>, "sugar": <total g, natural + added>, "fiber": <total g>, "confidence": "low|medium|high", "note": "<one short sentence: what was hard to judge, or a tip>"}`;
 async function scanMeal(file){
   S.scan = { status:'loading' }; S.rerenderNutrition?.();
   try{
@@ -1602,7 +1626,7 @@ async function scanMeal(file){
     const text = await askAI([{role:'user', parts:[{text:'Estimate the nutrition of this meal.'}, {inlineData:{mimeType:'image/jpeg', data:img.b64}}]}], SCAN_PROMPT, 45000);
     const r = parseJSON(text);
     if(r.isFood===false){ S.scan = {status:'error', preview:img.dataUrl, msg:'That doesn’t look like food — try another photo.'}; }
-    else S.scan = { status:'done', preview:img.dataUrl, name:String(r.name||'Meal').slice(0,80), cal:Math.round(num(r.cal)), protein:Math.round(num(r.protein)), carbs:Math.round(num(r.carbs)), fat:Math.round(num(r.fat)),
+    else S.scan = { status:'done', preview:img.dataUrl, name:String(r.name||'Meal').slice(0,80), cal:Math.round(num(r.cal)), protein:Math.round(num(r.protein)), carbs:Math.round(num(r.carbs)), fat:Math.round(num(r.fat)), sugar:optNum(r.sugar), fiber:optNum(r.fiber),
       items: Array.isArray(r.items)?r.items.slice(0,10):[], confidence:r.confidence||'medium', note:String(r.note||'').slice(0,200) };
   }catch(e){ console.error(e); S.scan = { status:'error', preview:S.scan&&S.scan.preview, msg: e instanceof SyntaxError ? 'Couldn’t read the AI’s answer — try again.' : aiErrorMessage(e) }; }
   if(location.hash==='#nutrition') S.rerenderNutrition?.();
@@ -1619,7 +1643,7 @@ function scanHtml(){
       <label class="small muted">Calories<input type="number" inputmode="numeric" id="scCal" value="${s.cal}"></label>
       <label class="small muted">Protein (g)<input type="number" inputmode="numeric" id="scPro" value="${s.protein}"></label>
     </div>
-    <div class="hint" style="margin-top:6px">${s.carbs?`${s.carbs} g carbs · `:''}${s.fat?`${s.fat} g fat`:''}</div>
+    <div class="hint" style="margin-top:6px">${[s.carbs?`${s.carbs} g carbs`:'', s.sugar!=null?`${Math.round(s.sugar)} g sugar`:'', s.fiber!=null?`${Math.round(s.fiber)} g fiber`:'', s.fat?`${s.fat} g fat`:''].filter(Boolean).join(' · ')}</div>
     ${s.items.length?`<details style="margin-top:6px"><summary class="small muted">What I saw (${s.items.length})</summary><div class="small" style="margin-top:6px">${s.items.map(i=>`<div>${esc(i.food)} <span class="muted">· ${esc(i.portion||'')} · ${Math.round(num(i.cal))} cal · ${Math.round(num(i.protein))} g</span></div>`).join('')}</div></details>`:''}
     ${s.note?`<p class="hint" style="margin:6px 0 0">${esc(s.note)}</p>`:''}
     <div class="grid2" style="margin-top:10px">
@@ -3471,7 +3495,7 @@ function coachContext(){
   { const rows = []; for(let i=0;i<7;i++){ const dt = shiftDate(todayStr(),-i), dd = S.days[dt], st = sleepStats(dd); if(!st) continue;
       rows.push(`night before ${dt}: bed ${fmtClock(dd.sleep.bed)}, up ${fmtClock(dd.sleep.wake)}, asleep ~${fmtDur(st.asleep)}${st.wakes?`, woke ${st.wakes}x (${st.awake} min awake${(dd.sleep.wakes||[]).filter(w=>w.at).length?' at '+dd.sleep.wakes.filter(w=>w.at).map(w=>fmtClock(w.at)).join(', '):''})`:''}`); }
     if(rows.length) lines.push('SLEEP (last 7 nights, newest first):\n' + rows.join('\n')); }
-  if(nd){ const t=dayTotals(nd); lines.push(`NUTRITION TODAY: ${t.cal} cal, ${t.protein} g protein, ${nd.water} oz water (goal ${waterGoal()} oz). Meals: ${nd.meals.map(m=>m.name).join('; ')||'none logged'}.${(S.account.nutrition?.supplements||[]).length?' Supplements taken: '+S.account.nutrition.supplements.filter(x=>nd.supps[x.id]).map(x=>x.name).join(', ')+' (of '+S.account.nutrition.supplements.map(x=>x.name).join(', ')+').':''}`); }
+  if(nd){ const t=dayTotals(nd); lines.push(`NUTRITION TODAY: ${t.cal} cal, ${t.protein} g protein, ${Math.round(t.carbs)} g carbs (${Math.round(t.sugar)} g sugar${t.noSugar?`, sugar unknown for ${t.noSugar} items`:''}, ${Math.round(t.fiber)} g fiber), ${Math.round(t.fat)} g fat, ${nd.water} oz water (goal ${waterGoal()} oz). Meals: ${nd.meals.map(m=>m.name).join('; ')||'none logged'}.${(S.account.nutrition?.supplements||[]).length?' Supplements taken: '+S.account.nutrition.supplements.filter(x=>nd.supps[x.id]).map(x=>x.name).join(', ')+' (of '+S.account.nutrition.supplements.map(x=>x.name).join(', ')+').':''}`); }
   const mst = msState();
   lines.push(mst.active.length ? 'ACTIVE MILESTONES:\n' + mst.active.map(m=>{ const def=msDef(m.id); if(!def) return ''; const {best,sessions,lv}=msBestAtLevel(m); return `- id ${m.id}: ${def.title}, level ${m.level+1} of ${def.levels.length} (${lv.name}; ${lv.plan}; moves up at ${goalText(lv.goal)}; ${lv.goal.sessions?`${sessions} sessions done`:`best at this level: ${best??'none yet'}`}). Levels: ${def.levels.map((l,i)=>`${i+1}=${l.name}`).join(', ')}`; }).join('\n') : 'ACTIVE MILESTONES: none.');
   if(mst.done.length) lines.push('COMPLETED MILESTONES: ' + mst.done.map(d=>`${d.title} (${d.date})`).join('; '));
@@ -3526,6 +3550,7 @@ COACHING MODE (profile exists)
 - For swaps, use the same movement pattern when possible. Use ONLY ids from the library.
 - When the user shares lasting info (new injury, schedule change, preference), propose an update_profile action with updated "notes" (keep the old notes and add the new info).
 - COACH INSIGHTS: you keep a short running list of what you've learned about how this user trains and what works for them — patterns in their logs and things they've told you (e.g. "Progresses best by adding a set before adding reps", "Usually skips Friday workouts — Fridays are busy", "Prefers short home workouts on weekdays", "Waist-high push-ups: stalled at 8–10 reps for 2 weeks"). Read them before answering. When you notice a new pattern from their data or conversation, or an insight is outdated, return the FULL updated list in "insights" (at most 8 short items, each under 120 characters; merge and drop stale ones). Only include things grounded in their logs or their own words — no guesses about health, diagnoses or personality. Otherwise set "insights" to null. These notes are your private working notes: don't mention them, list them or quote them; just let them shape your advice. If the user asks what you've noticed about them, answer naturally in your own words.
+- CARBS, SUGAR & FIBER: the app tracks total carbs, total sugar (natural + added — it can't separate them) and fiber. Don't treat fruit or milk sugar as a problem; flag mainly sweets, sugary drinks and snacks. Common guidance: keep added sugar under about 25 g (women) / 36 g (men) a day, and aim for ~14 g fiber per 1,000 calories (about 25–38 g). For fat loss, carbs aren't the enemy — total calories and protein matter most — but swapping refined carbs for higher-fiber ones helps fullness. If they mention diabetes or prediabetes, keep carb advice general and suggest their doctor or a dietitian for specific targets.
 - SLEEP: if they log sleep (see SLEEP), factor it in. After a short or broken night (under ~6 hours, or lots of waking), suggest keeping the workout but easing intensity or volume, and expect more hunger/cravings. Consistently short sleep slows recovery, strength gains and fat loss — point it out kindly with one practical fix (consistent bedtime, wind-down, caffeine cutoff, late-meal timing). Busy parents often have kid wake-ups; be realistic, not preachy. Don't diagnose sleep disorders; if they describe loud snoring, gasping or constant exhaustion, suggest mentioning it to their doctor.
 - WEIGHT: if they log weight (see WEIGHT LOG), judge progress by the 7-day average, not single weigh-ins. A healthy fat-loss pace is about 0.5–1% of body weight per week. If the trend stalls for 2–3 weeks, look at calories/protein/consistency before cutting more; if it drops much faster, suggest eating a bit more to protect muscle.
 - INTERMITTENT FASTING: if they log fasting (see INTERMITTENT FASTING), factor it into advice: when to train relative to their eating window (hard strength or interval sessions usually go better fed or near the first meal; easy cardio, walks and yoga are fine fasted), getting enough protein (spread over 2–3 meals) and calories inside a shorter window to keep muscle, hydration and electrolytes while fasting, signs to ease off (dizziness, shakiness, poor sleep, workouts falling apart), and how fasting fits their weight-loss goal (it mainly helps by making a calorie deficit easier — total calories and protein still matter most). Be realistic, not hype; note the evidence is mixed beyond that. If they mention diabetes, blood-sugar medication, pregnancy or breastfeeding, a history of disordered eating, or being under 18, suggest they check with their doctor before fasting and don't push longer fasts.
@@ -3721,7 +3746,7 @@ async function weekSummary(w){
   if(prac.length) lines.push(`Program/milestone practice: ${prac.join('; ')}.`);
   const nd = Object.entries(S.days).filter(([k,d])=>k>=w.start && k<=w.end && d.meals && d.meals.length);
   if(nd.length){ const tot = nd.map(([,d])=>dayTotals(d)); const avg = k => Math.round(tot.reduce((a,t)=>a+t[k],0)/tot.length);
-    lines.push(`Nutrition: logged ${nd.length} of 7 days; average ${avg('cal')} cal (target ~${Math.round(st.target)}) and ${avg('protein')} g protein (target ${st.proteinLo}–${st.proteinHi} g).`); }
+    lines.push(`Nutrition: logged ${nd.length} of 7 days; average ${avg('cal')} cal (target ~${Math.round(st.target)}) and ${avg('protein')} g protein (target ${st.proteinLo}–${st.proteinHi} g); ${avg('carbs')} g carbs, ${avg('sugar')} g sugar, ${avg('fiber')} g fiber (target ~${Math.round(st.target/1000*14)} g), ${avg('fat')} g fat.`); }
   else lines.push('Nutrition: nothing logged this week.');
   if(fastingOn()){ const rs = [...Array(7)].map((_,i)=>fastResult(shiftDate(w.start,i))).filter(Boolean); lines.push(`Fasting (${FAST_PLANS[nutritionSettings().fastPlan||'16']} goal): goal hit ${rs.filter(r=>r.hit).length} of ${rs.length} logged days${rs.length?`, average ${(rs.reduce((a,r)=>a+r.hours,0)/rs.length).toFixed(1)} h`:''}.`); }
   { const ss = [...Array(7)].map((_,i)=>sleepStats(S.days[shiftDate(w.start,i)])).filter(Boolean);
