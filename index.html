@@ -202,6 +202,17 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.fastmini{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.card > .fastmini:first-child{margin-top:0;padding-top:0;border-top:0}
+.fmrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+.fmrow div{background:var(--panel2);border-radius:10px;padding:8px 10px}
+.fmrow b{display:block;font:800 22px "Barlow Condensed",sans-serif}
+.fmrow b small{font-size:.6em;color:var(--muted)}
+.fmrow span{font-size:11px;color:var(--muted)}
+.fstrip{display:grid;grid-template-columns:repeat(14,1fr);gap:3px}
+.fstrip i{height:14px;border-radius:4px;background:var(--panel2)}
+.fstrip i.hit{background:#c6f432}.fstrip i.miss{background:#ffb547}
+.fstrip i.today{outline:2px solid var(--text);outline-offset:1px}
 .medladder{display:flex;gap:4px;margin:8px 0 6px}
 .medladder span{flex:1;text-align:center;font-size:11px;font-weight:700;padding:4px 0;border-radius:6px;background:var(--panel2);color:var(--muted)}
 .medladder span.done{background:color-mix(in srgb,var(--accent) 35%,transparent);color:var(--text)}
@@ -225,12 +236,6 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .tabs a.dot{position:relative}
 .tabs a.dot::after{content:'';position:absolute;top:6px;left:calc(50% + 8px);width:8px;height:8px;border-radius:50%;background:var(--warn)}
 .linkbtn{background:none;border:0;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;padding:0}
-#fastProg .stats{grid-template-columns:repeat(3,1fr)}
-.fgrid-h,.fgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.fgrid-h{margin:14px 0 4px;font-size:11px;color:var(--muted);text-align:center}
-.fcell{aspect-ratio:1;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:700;max-height:40px}
-.fcell.hit{background:#c6f432;color:#151a05}.fcell.miss{background:#ffb547;color:#2a1a00}.fcell.none{background:var(--panel2)}.fcell.fut{background:transparent;border:1px dashed var(--line)}
-.fcell.today{outline:2px solid var(--text);outline-offset:1px}
 .fastnow{margin-top:10px;padding:8px 10px;border-radius:10px;background:var(--panel2);font-size:14px}
 .field{display:grid;gap:4px}
 .chartscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:4px}
@@ -3204,41 +3209,30 @@ function bindWeightCard(){
 // ----- Progress: intermittent fasting -----
 const fastTarget = () => +nutritionSettings().fastPlan || 16;
 function fastResult(date){ const fs = fastStats(date); return fs.fasted==null ? null : {hours: fs.fasted/60, hit: fs.fasted >= fastTarget()*60}; }
-function fastProgressShell(){ return fastingOn() ? `<div class="card" id="fastProg"><h3>Intermittent fasting</h3><div class="hint">Loading…</div></div>` : ''; }
+function fastProgressShell(){ return fastingOn() ? `<div id="fastProg" class="fastmini"><div class="hint">Loading fasting…</div></div>` : ''; }
+// Compact fasting summary that sits inside the main Progress card.
 async function fillFastProgress(){
   const box = $('#fastProg'); if(!box) return;
-  const today = todayStr(), weeks = 10;
-  const start = new Date(parseYmd(today)); start.setDate(start.getDate() - ((start.getDay()+6)%7) - 7*(weeks-1));
-  const from = shiftDate(ymd(start), -1);
+  const today = todayStr(), from = shiftDate(today, -31);
   try{ const got = await S.store.listDaysRange(from, today); for(const [k,v] of Object.entries(got)) if(!S.days[k]) S.days[k] = {...emptyDay(), ...v}; }
   catch(e){ console.warn(e); }
   if(!box.isConnected) return;
   for(let dt=from; dt<=today; dt=shiftDate(dt,1)) if(!S.days[dt]) S.days[dt] = emptyDay();
   const tgt = fastTarget();
-  // streaks (today counts once its first meal is logged)
-  let streak = 0; for(let dt = fastResult(today) ? today : shiftDate(today,-1); dt>=ymd(start); dt=shiftDate(dt,-1)){ const r=fastResult(dt); if(r && r.hit) streak++; else break; }
-  let best = 0, run = 0; for(let dt=ymd(start); dt<=today; dt=shiftDate(dt,1)){ const r=fastResult(dt); if(r && r.hit){ run++; best=Math.max(best,run); } else if(dt!==today) run=0; }
+  let streak = 0; for(let dt = fastResult(today) ? today : shiftDate(today,-1); dt>from; dt=shiftDate(dt,-1)){ const r=fastResult(dt); if(r && r.hit) streak++; else break; }
   const last30 = [...Array(30)].map((_,i)=>fastResult(shiftDate(today,-i))).filter(Boolean);
   const hits30 = last30.filter(r=>r.hit).length, avg = last30.length ? last30.reduce((a,r)=>a+r.hours,0)/last30.length : 0;
-  const cells = [];
-  for(let i=0;i<weeks*7;i++){ const dt = shiftDate(ymd(start), i), r = dt<=today ? fastResult(dt) : null, future = dt>today;
-    cells.push(`<div class="fcell ${future?'fut':r?(r.hit?'hit':'miss'):'none'}${dt===today?' today':''}" title="${prettyDate(dt)}${r?`: ${fmtDur(Math.round(r.hours*60))}`:''}">${r?Math.floor(r.hours):''}</div>`); }
-  box.innerHTML = `<div class="row" style="justify-content:space-between"><h3>Intermittent fasting</h3><span class="hint">Goal ${FAST_PLANS[nutritionSettings().fastPlan||'16']}</span></div>
-    <div class="stats" style="margin-top:10px">
-      <div class="stat"><div class="v">${streak}</div><div class="k">day streak</div></div>
-      <div class="stat"><div class="v">${hits30}<span class="muted" style="font-size:.6em">/${last30.length||0}</span></div><div class="k">goals hit, 30 days</div></div>
-      <div class="stat"><div class="v">${last30.length?avg.toFixed(1):'–'}<span class="muted" style="font-size:.6em">h</span></div><div class="k">average fast</div></div>
-    </div>
-    <div class="fgrid-h">${WEEK.map(w=>`<span>${w[0]}</span>`).join('')}</div>
-    <div class="fgrid">${cells.join('')}</div>
-    <div class="clegend" style="margin-top:8px"><span><i style="background:#c6f432"></i>hit ${tgt}h goal</span><span><i style="background:#ffb547"></i>fasted, short of goal</span><span><i style="background:var(--panel2)"></i>not logged</span><span class="muted">number = hours fasted</span></div>
-    ${best>streak?`<div class="hint" style="margin-top:6px">Best streak in this view: ${best} days</div>`:''}
-    ${!last30.length?`<p class="hint" style="margin:8px 0 0">Log your first and last meal times on the Nutrition tab. A day counts when the fast from the night before reaches your goal.</p>`:''}`;
+  const strip = [...Array(14)].map((_,i)=>{ const dt = shiftDate(today, i-13), r = fastResult(dt);
+    return `<i class="${r?(r.hit?'hit':'miss'):''}${dt===today?' today':''}" title="${prettyDate(dt)}${r?`: ${fmtDur(Math.round(r.hours*60))}`:''}"></i>`; }).join('');
+  box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline"><span class="k" style="font-weight:700">Intermittent fasting</span><span class="hint">${FAST_PLANS[nutritionSettings().fastPlan||'16']} goal</span></div>
+    <div class="fmrow"><div><b>${streak}</b><span>day streak</span></div><div><b>${hits30}<small>/${last30.length}</small></b><span>goals hit (30 d)</span></div><div><b>${last30.length?avg.toFixed(1):'–'}<small>h</small></b><span>avg fast</span></div></div>
+    <div class="fstrip" aria-label="Last 14 days">${strip}</div>
+    <div class="hint" style="margin-top:4px">${last30.length?`Last 14 days · <span style="color:#c6f432">●</span> hit ${tgt}h · <span style="color:#ffb547">●</span> short`:'Log first and last meal times on Nutrition to start tracking.'}</div>`;
 }
 
 function viewProgress(){
   const p = profile(), W = S.workouts, target = p ? +p.days : 3;
-  if(!W.length){ $('#app').innerHTML = `<div class="card empty"><h2>No workouts yet</h2><p>Log your first session and your progress shows up here.</p><button class="btn primary" onclick="go('plan')">Go to your plan</button></div>` + weightCardHtml() + fastProgressShell() + milestonesProgressHtml(); bindWeightCard(); fillFastProgress(); return; }
+  if(!W.length){ $('#app').innerHTML = `<div class="card empty"><h2>No workouts yet</h2><p>Log your first session and your progress shows up here.</p><button class="btn primary" onclick="go('plan')">Go to your plan</button></div>` + (fastingOn() ? `<div class="card">${fastProgressShell()}</div>` : '') + weightCardHtml() + milestonesProgressHtml(); bindWeightCard(); fillFastProgress(); return; }
   const now = new Date(), thisWk = weekStart(now).getTime();
   const weeks = []; for(let i=7;i>=0;i--){ const s=weekStart(now); s.setDate(s.getDate()-7*i); weeks.push({start:s, n:0}); }
   const byWeek = new Map(weeks.map(w=>[w.start.getTime(),w]));
@@ -3277,9 +3271,9 @@ function viewProgress(){
         <div class="stat"><div class="k">Total workouts</div><div class="v">${W.length}</div><div class="s">since ${W[W.length-1].date.slice(5).replace('-','/')}</div></div>
         <div class="stat"><div class="k">Volume (30 days)</div><div class="v">${vol>=10000?(vol/1000).toFixed(1)+'k':Math.round(vol).toLocaleString()}</div><div class="s">lb lifted</div></div>
       </div>
+      ${fastProgressShell()}
     </div>
     ${weightCardHtml()}
-    ${fastProgressShell()}
     ${milestonesProgressHtml()}
     <div class="card"><h3 style="margin-bottom:8px">Workouts per week</h3>${chart}</div>
     ${prs.length?`<div class="card"><h3 style="margin-bottom:6px">Personal bests</h3>
