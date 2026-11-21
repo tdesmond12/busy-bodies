@@ -202,6 +202,43 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+/* ----- gym mode (▶ Play) — sized in vmin so it reads from across a room on a TV ----- */
+.gym{position:fixed;inset:0;z-index:80;background:#07090a;color:#f4f7f9;outline:none;overflow:auto}
+.gwrap{min-height:100%;display:flex;flex-direction:column;padding:max(2.5vmin,env(safe-area-inset-top)) 4vmin max(3vmin,env(safe-area-inset-bottom));gap:2vmin}
+.gtop{display:flex;flex-direction:column;gap:1.2vmin}
+.gprog{height:1.2vmin;min-height:5px;background:#1d2227;border-radius:99px;overflow:hidden}.gprog div{height:100%;background:var(--accent);transition:width .4s}
+.gtopr{display:flex;align-items:center;gap:2vmin;font-size:max(14px,2.6vmin);color:#9aa3ad}.gtopr span:first-child{flex:1;font-weight:600;color:#cfd6dc}
+.gym .gico{background:#1b2025;border:1px solid #2b3037;color:#f4f7f9;border-radius:99px;min-width:max(40px,6.5vmin);height:max(40px,6.5vmin);font-size:max(16px,3vmin);cursor:pointer}
+.gmain{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:1.6vmin}
+.gtag{font:800 max(14px,3vmin) "Barlow Condensed",sans-serif;letter-spacing:.15em;color:var(--accent)}
+.gmain.rest .gtag{color:#7cc7ff}
+.gym h1{font:800 max(34px,10vmin)/0.95 "Barlow Condensed",sans-serif;text-transform:uppercase;margin:0;max-width:95%}
+.gtarget{font:800 max(30px,9vmin) "Barlow Condensed",sans-serif;color:var(--accent)}.gtarget span{color:#f4f7f9;font-size:.6em}
+.gclock.small{font:600 max(18px,4vmin) Inter,sans-serif;color:#9aa3ad}
+.gring{--p:1;width:max(170px,36vmin);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#7cc7ff calc(var(--p)*360deg),#1b2025 0);transition:background .9s linear;position:relative}
+.gmain.work .gring{background:conic-gradient(var(--accent) calc(var(--p)*360deg),#1b2025 0)}
+.gring::before{content:'';position:absolute;inset:4%;border-radius:50%;background:#07090a}
+.gring span{position:relative;font:800 max(48px,13vmin) "Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums}
+.gring.hurry{background:conic-gradient(#ffb547 calc(var(--p)*360deg),#1b2025 0)}
+.glast{font-size:max(15px,3vmin);color:#9aa3ad}.gcue{font-size:max(14px,2.6vmin);color:#9aa3ad;max-width:70ch}
+.gsub{font-size:max(15px,3vmin);color:#cfd6dc}
+.glog{display:flex;flex-direction:column;align-items:center;gap:1vmin;background:#12161a;border:1px solid #2b3037;border-radius:2vmin;padding:1.5vmin 3vmin;font-size:max(14px,2.6vmin);color:#9aa3ad}
+.gadj{display:flex;align-items:center;gap:1.5vmin}.gadj b{color:#f4f7f9;font-size:max(18px,3.6vmin);min-width:4ch}
+.gnext{display:flex;flex-direction:column;align-items:center;gap:.4vmin;margin-top:1vmin}
+.gnext span{font:700 max(12px,2.2vmin) Inter;letter-spacing:.12em;color:#9aa3ad}.gnext b{font:800 max(24px,6vmin) "Barlow Condensed",sans-serif;text-transform:uppercase}.gnext em{font-style:normal;color:var(--accent);font-size:max(15px,3vmin)}
+.gctrl{display:flex;gap:2vmin;justify-content:center}
+.gym .gbtn{background:#1b2025;border:2px solid #2b3037;color:#f4f7f9;border-radius:2.2vmin;min-height:max(54px,10vmin);padding:0 3.5vmin;font:700 max(17px,3.4vmin) Inter,sans-serif;cursor:pointer}
+.gym .gbtn.primary{background:var(--accent);color:#151a05;border-color:var(--accent)}.gbtn.wide{flex:1;max-width:60vmin}
+.gbtn:focus-visible,.gico:focus-visible,.gchip:focus-visible{outline:4px solid #fff;outline-offset:3px}
+.gquick{display:flex;gap:1.4vmin;justify-content:center;align-items:center;font-size:max(13px,2.4vmin);color:#9aa3ad;flex-wrap:wrap}
+.gym .gchip{background:#12161a;border:1px solid #2b3037;color:#f4f7f9;border-radius:99px;min-width:max(40px,7vmin);height:max(36px,6vmin);font:700 max(15px,2.8vmin) Inter;cursor:pointer}
+.gkeys{text-align:center;font-size:max(11px,1.8vmin);color:#5d666f}
+.gsum{align-items:center;justify-content:center;text-align:center}.gstats{display:flex;gap:6vmin;margin:3vmin 0}
+.gstats b{display:block;font:800 max(40px,11vmin) "Barlow Condensed",sans-serif;color:var(--accent)}.gstats span{color:#9aa3ad;font-size:max(14px,2.6vmin)}
+.gbtns{display:flex;gap:2vmin;flex-wrap:wrap;justify-content:center}
+@media (orientation:landscape){ .gmain.rest{display:grid;grid-template-columns:auto auto;grid-template-areas:"tag tag" "ring next" "ring log";column-gap:8vmin;align-content:center;justify-content:center}
+  .gmain.rest .gtag{grid-area:tag}.gmain.rest .gring{grid-area:ring}.gmain.rest .gnext{grid-area:next;align-self:end}.gmain.rest .glog{grid-area:log;align-self:start}
+  .gmain.rest h1,.gmain.rest .gsub{grid-column:1/-1} }
 .wkhead{display:flex;align-items:center;gap:4px;margin:4px 0 10px}
 .wkhead .t{min-width:0}.wkhead .t h2{margin:0;font-size:24px;line-height:1.1}
 .wkhead .iconbtn{width:30px;height:30px;flex:none;background:none;border:0;font-size:22px}.wkhead .iconbtn[disabled]{opacity:.2}
@@ -2057,6 +2094,128 @@ function extraRow(x, canAct){
     return `<div class="mini"><span class="mi">${def.icon}</span><div class="t"><b>${esc(def.title)}</b><div class="hint">${esc(f.name)} · ${flowMinutes(f)} min</div></div>${canAct?`<button class="btn sm" data-flow="${e.id}:${f.id}">▶ Start</button>`:''}</div>`; }
   return `<div class="mini"><span class="mi">${def.icon}</span><div class="t"><b>${esc(def.title)}</b><div class="hint">Session ${Math.min(prSessions(e)+1, prTotal(e))} of ${prTotal(e)}</div></div><span class="hint" style="max-width:90px;text-align:right">Included when you log</span></div>`;
 }
+
+// ===================== Gym mode: ▶ Play a workout full screen (TV / mirroring friendly) =====================
+const restSecs = text => { const m = /rest ([\d–-]+)\s*(min|sec)/.exec(text||''); if(!m) return 60; const nums = m[1].split(/[–-]/).map(Number); const v = nums.length>1 ? (nums[0]+nums[1])/2 : nums[0]; return Math.round(m[2]==='min' ? v*60 : v); };
+const repRange = text => { const m = /×\s*([\d–-]+)/.exec(text||''); if(!m) return null; const n = m[1].split(/[–-]/).map(Number); return {lo:n[0], hi:n[1]||n[0], text:m[1]}; };
+function buildPlaySteps(draft, day){
+  const p = profile(), steps = [];
+  if(day && day.key!=='recovery') steps.push({type:'warm', secs: p.age>=50 ? 480 : 300, name:'Warm-up', sub: day.key==='cardio' ? 'Easy pace, then leg swings and arm circles' : 'Easy cardio, then leg swings, arm circles and hip openers'});
+  const exs = draft.exercises.map((e,i)=>({e,i})).filter(({e})=>EXBY[e.id] && !(e.prog && (e.prog.flow || prDef(e.prog.id)?.kind==='meditate')));
+  exs.forEach(({e,i}, k)=>{
+    const ex = EXBY[e.id];
+    let target, restS, timed = 0, cardio = false;
+    if(e.ms){ const lv = msDef(e.ms.id).levels[e.ms.level]; target = lv.plan; restS = 60; const g = lv.goal||{}; if(g.secs || ex.t) timed = g.secs || 30; }
+    else if(e.prog && e.prog.track){ const lv = trackLevels(prState().active.find(x=>x.id===e.prog.id)||{tracks:{}}, e.prog.track)[e.prog.level] || {}; target = lv.plan || ''; restS = 75; if(ex.t) timed = (lv.goal||{}).secs || 30; }
+    else { const r = rx(ex, p); target = r.text.split(' · rest')[0].replace(/^\d+ ×\s*/,''); restS = restSecs(r.text); if(ex.t){ timed = (/(\d+) sec/.exec(r.text)||[])[1]*1 || 30; } if(ex.p==='cardio'||ex.p==='mobility') cardio = true; }
+    target = String(target||'').replace(/^[\d–-]+\s*sets?\s*×\s*/i,'').replace(/^\d+\s*×\s*/,'');
+    if(/^[\d–-]+$/.test(target.trim())) target = `${target.trim()} reps`;
+    const lt = lastTimeOf(e.id), n = e.sets.length || 1, rr = repRange('× '+target);
+    for(let j=0;j<n;j++){
+      const prev = lt && lt.e.sets[j];
+      steps.push({type:'work', di:i, set:j, sets:n, ex, entry:e, name:ex.name, target, timed, cardio, cue:ex.cue, weight: usesWeight(ex) ? (prev && prev.w) || '' : '', defReps: cardio ? (parseInt(target)||20) : timed || (prev && prev.r) || (rr ? rr.lo : 10), last: prev ? `${prev.w?prev.w+' lb × ':''}${prev.r}${ex.t?' sec':cardio?' min':''}` : '' });
+      const lastSet = j===n-1, lastEx = k===exs.length-1;
+      if(!(lastSet && lastEx) && !cardio) steps.push({type:'rest', secs: lastSet ? Math.max(restS, 60) : restS, between: lastSet});
+    }
+  });
+  return steps;
+}
+function playWorkout(dayIdx){
+  startDraft(dayIdx); const draft = S.draft, day = dayIdx!=null ? plan().days[dayIdx] : null;
+  const steps = buildPlaySteps(draft, day);
+  if(!steps.some(s=>s.type==='work')){ toast('No exercises to play for this day'); return; }
+  let idx = 0, left = 0, paused = false, timer = null, lock = null, ctx = null, voice = (S.account.prefs||{}).playVoice !== false, started = Date.now(), logged = {};
+  const el = document.createElement('div'); el.className = 'gym'; el.tabIndex = -1; document.body.appendChild(el); document.body.classList.add('noscroll');
+  try{ ctx = new (window.AudioContext||window.webkitAudioContext)(); ctx.resume(); }catch(e){}
+  navigator.wakeLock?.request('screen').then(l=>lock=l).catch(()=>{});
+  el.requestFullscreen?.().catch(()=>{});
+  const beep = (f=880, d=.15) => { if(!ctx) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.frequency.value=f; g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.4,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+d); o.connect(g).connect(ctx.destination); o.start(t); o.stop(t+d+.02); };
+  const say = txt => { if(!voice || !window.speechSynthesis) return; try{ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(txt); u.rate = 1.02; speechSynthesis.speak(u); }catch(e){} };
+  const spokenTarget = t => String(t).replace(/–/g,' to ').replace(/×/g,' sets of ').replace(/\bsec\b/g,'seconds').replace(/\bmin\b/g,'minutes').replace(/\blb\b/g,'pounds');
+  const nextWork = from => steps.slice(from+1).find(s=>s.type==='work');
+  const clock = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  const workCount = steps.filter(s=>s.type==='work').length;
+  const doneCount = () => Object.keys(logged).length;
+  // record a finished set into the draft (editable during the following rest)
+  const record = (st, reps, w) => { const key = `${st.di}:${st.set}`; logged[key] = {r: reps, w}; const en = draft.exercises[st.di]; if(en && en.sets[st.set]){ en.sets[st.set].r = String(reps); if(w!=='' && w!=null) en.sets[st.set].w = String(w); if(w && !usesWeight(st.ex) && canAddWeight(st.ex)) en.addWeight = true; } };
+  const enter = i => {
+    idx = Math.max(0, Math.min(steps.length-1, i)); const st = steps[idx]; paused = false;
+    left = st.type==='rest' || st.type==='warm' ? st.secs : st.timed ? st.timed : 0;
+    if(st.type==='work'){ say(`${st.sets>1?`Set ${st.set+1} of ${st.sets}. `:''}${st.name}. ${spokenTarget(st.timed?`${st.timed} sec`:st.target)}.`); if(st.timed) beep(1046,.25); }
+    else if(st.type==='rest'){ const nx = nextWork(idx); say(`Rest ${st.secs>=90?clock(st.secs).replace(':00',' minutes').replace(/^(\d):(\d\d)$/,'$1 minutes $2 seconds'):st.secs+' seconds'}.${nx&&st.between?` Up next, ${nx.name}.`:''}`); }
+    else if(st.type==='warm') say(`Warm up. ${Math.round(st.secs/60)} minutes. ${st.sub}.`);
+    render();
+  };
+  const finishSet = () => { const st = steps[idx]; if(st.type!=='work') return; if(!logged[`${st.di}:${st.set}`]) record(st, st.timed ? st.timed : st.defReps, st.weight); if(idx>=steps.length-1) return summary(); enter(idx+1); };
+  const tick = () => { if(paused) return; const st = steps[idx];
+    if(st.type==='work' && !st.timed){ left++; const t = el.querySelector('#gClock'); if(t) t.textContent = clock(left); return; }
+    left--; const t = el.querySelector('#gClock'); if(t) t.textContent = clock(Math.max(0,left));
+    const ring = el.querySelector('.gring'); if(ring){ const tot = st.type==='work'?st.timed:st.secs; ring.style.setProperty('--p', Math.max(0,left)/tot); ring.classList.toggle('hurry', left<=10); }
+    if(left<=3 && left>0) beep(left===1?990:660,.12);
+    if(left<=0){ beep(1320,.35); if(st.type==='work') finishSet(); else if(idx>=steps.length-1) summary(); else enter(idx+1); } };
+  const close = () => { clearInterval(timer); try{ speechSynthesis.cancel(); }catch(e){} try{ lock && lock.release(); }catch(e){} if(document.fullscreenElement) document.exitFullscreen?.().catch(()=>{}); document.removeEventListener('keydown', onKey, true); el.remove(); document.body.classList.remove('noscroll'); setTimeout(()=>{ try{ ctx && ctx.close(); }catch(e){} }, 800); };
+  const summary = () => {
+    clearInterval(timer); timer = null; say('Workout complete. Nice work.'); beep(1046,.2); setTimeout(()=>beep(1318,.3),220);
+    const mins = Math.max(1, Math.round((Date.now()-started)/60000)), sets = doneCount();
+    const vol = Object.values(logged).reduce((a,x)=>a+num(x.w)*num(x.r),0);
+    el.innerHTML = `<div class="gwrap gsum"><div class="gtag">WORKOUT COMPLETE</div><h1>${esc(draft.dayName)}</h1>
+      <div class="gstats"><div><b>${mins}</b><span>minutes</span></div><div><b>${sets}</b><span>sets</span></div>${vol?`<div><b>${Math.round(vol).toLocaleString()}</b><span>lb lifted</span></div>`:''}</div>
+      <p class="gsub">${sets ? 'Your sets are filled in. Check them, add how it felt, and save.' : 'No sets were logged.'}</p>
+      <div class="gbtns">${sets?'<button class="gbtn primary" id="gSave">Review & save</button>':''}<button class="gbtn" id="gQuit">${sets?'Discard':'Close'}</button></div></div>`;
+    el.querySelector('#gSave')?.addEventListener('click', ()=>{ close(); go('workout'); });
+    el.querySelector('#gQuit').onclick = e=>{ const b=e.currentTarget; if(sets && !b.dataset.armed){ b.dataset.armed='1'; b.textContent='Tap again to discard'; return; } close(); S.draft=null; };
+    el.querySelector('#gSave, #gQuit')?.focus();
+  };
+  const render = () => {
+    const st = steps[idx], nx = nextWork(idx), pct = Math.round(doneCount()/workCount*100);
+    const prevSet = st.type==='rest' ? [...steps.slice(0,idx)].reverse().find(s=>s.type==='work') : null, pl = prevSet && logged[`${prevSet.di}:${prevSet.set}`];
+    const top = `<div class="gtop"><div class="gprog"><div style="width:${pct}%"></div></div>
+      <div class="gtopr"><span>${esc(draft.dayName)}</span><span>${doneCount()}/${workCount} sets</span><button class="gico" id="gVoice" aria-label="Voice">${voice?'🔊':'🔇'}</button><button class="gico" id="gEnd" aria-label="End workout">✕</button></div></div>`;
+    let main;
+    if(st.type==='work'){
+      main = `<div class="gmain work"><div class="gtag">${st.sets>1?`SET ${st.set+1} OF ${st.sets}`:'GO'}${st.entry.ms?' · MILESTONE':st.entry.prog?' · PROGRAM':''}</div>
+        <h1>${esc(st.name)}</h1>
+        <div class="gtarget">${st.timed ? `${st.timed} sec` : esc(st.target)}${st.weight?` <span>@ ${st.weight} lb</span>`:''}</div>
+        ${st.timed ? `<div class="gring" style="--p:1"><span id="gClock">${clock(left)}</span></div>` : `<div class="gclock small"><span id="gClock">${clock(left)}</span></div>`}
+        ${st.last?`<div class="glast">Last time: ${esc(st.last)}</div>`:''}
+        <div class="gcue">${esc(st.cue||'')}</div></div>`;
+    } else {
+      main = `<div class="gmain rest"><div class="gtag">${st.type==='warm'?'WARM-UP':'REST'}</div>
+        ${st.type==='warm'?`<h1>Warm-up</h1><div class="gsub">${esc(st.sub)}</div>`:''}
+        <div class="gring ${left<=10?'hurry':''}" style="--p:${left/st.secs}"><span id="gClock">${clock(left)}</span></div>
+        ${pl ? `<div class="glog"><span>Set ${prevSet.set+1} · ${esc(prevSet.name)}</span>
+          <div class="gadj">${(usesWeight(prevSet.ex)||pl.w)?`<button class="gico" data-adj="w:-5">−</button><b>${pl.w||0} lb</b><button class="gico" data-adj="w:5">+</button>`:''}
+          <button class="gico" data-adj="r:-1">−</button><b>${pl.r} ${prevSet.timed?'sec':prevSet.cardio?'min':'reps'}</b><button class="gico" data-adj="r:1">+</button></div></div>` : ''}
+        ${nx?`<div class="gnext"><span>UP NEXT</span><b>${esc(nx.name)}</b><em>${nx.sets>1?`Set ${nx.set+1} of ${nx.sets} · `:''}${nx.timed?nx.timed+' sec':esc(nx.target)}${nx.weight?` @ ${nx.weight} lb`:''}</em></div>`:''}</div>`;
+    }
+    const ctrls = st.type==='work' && !st.timed
+      ? `<button class="gbtn" id="gBack">◀◀</button><button class="gbtn primary wide" id="gDone">✓ Done${st.cardio?'':' — '+st.defReps+' reps'}</button><button class="gbtn" id="gSkip">▶▶</button>`
+      : `<button class="gbtn" id="gBack">◀◀</button><button class="gbtn primary" id="gPause">${paused?'▶ Resume':'❚❚ Pause'}</button>${st.type!=='work'?'<button class="gbtn" id="gPlus">+30s</button>':''}<button class="gbtn" id="gSkip">▶▶</button>`;
+    el.innerHTML = `<div class="gwrap">${top}${main}<div class="gctrl">${ctrls}</div>
+      ${st.type==='work' && !st.timed && !st.cardio ? `<div class="gquick">Did a different number? ${[-2,-1,1,2].map(d=>st.defReps+d).filter(v=>v>0).map(v=>`<button class="gchip" data-reps="${v}">${v}</button>`).join('')}</div>` : ''}
+      <div class="gkeys">Remote: OK = ${st.type==='work'&&!st.timed?'done':'pause'} · ◀ back · ▶ skip${st.type!=='work'?' · ▲ +30s':''}</div></div>`;
+    const on = (id, fn) => { const b = el.querySelector('#'+id); if(b) b.onclick = fn; };
+    on('gEnd', ()=>{ if(doneCount()) summary(); else close(); });
+    on('gVoice', ()=>{ voice=!voice; S.account.prefs = {...(S.account.prefs||{}), playVoice:voice}; saveAccount().catch(()=>{}); if(!voice) try{ speechSynthesis.cancel(); }catch(e){} render(); });
+    on('gDone', finishSet);
+    on('gPause', ()=>{ paused=!paused; render(); });
+    on('gPlus', ()=>{ left+=30; st.secs = Math.max(st.secs, left); render(); });
+    on('gSkip', ()=>{ if(idx>=steps.length-1) summary(); else enter(idx+1); });
+    on('gBack', ()=>{ let i = idx-1; while(i>0 && steps[i].type==='rest') i--; enter(Math.max(0,i)); });
+    el.querySelectorAll('[data-reps]').forEach(b=>b.onclick=()=>{ st.defReps = +b.dataset.reps; finishSet(); });
+    el.querySelectorAll('[data-adj]').forEach(b=>b.onclick=()=>{ const [k,d]=b.dataset.adj.split(':'); const cur = logged[`${prevSet.di}:${prevSet.set}`];
+      if(k==='r') cur.r = Math.max(0, num(cur.r)+(+d)); else cur.w = Math.max(0, num(cur.w)+(+d)); record(prevSet, cur.r, cur.w); render(); });
+    (el.querySelector('#gDone') || el.querySelector('#gPause'))?.focus({preventScroll:true});
+  };
+  const onKey = e => { if(!el.isConnected) return; const k = e.key; const st = steps[idx];
+    const map = { 'ArrowRight':'gSkip', 'MediaTrackNext':'gSkip', 'ArrowLeft':'gBack', 'MediaTrackPrevious':'gBack', 'ArrowUp':'gPlus', ' ':'gPause', 'MediaPlayPause':'gPause', 'Escape':'gEnd', 'Backspace':'gEnd', 'GoBack':'gEnd' };
+    let id = map[k]; if(k==='Enter') id = st && st.type==='work' && !st.timed ? 'gDone' : (document.activeElement && el.contains(document.activeElement) && document.activeElement.tagName==='BUTTON' ? null : 'gPause');
+    if(k===' ' && st && st.type==='work' && !st.timed) id = 'gDone';
+    if(!id) return; const b = el.querySelector('#'+id); if(b){ e.preventDefault(); e.stopPropagation(); b.click(); } };
+  document.addEventListener('keydown', onKey, true);
+  enter(0); timer = setInterval(tick, 1000);
+}
+
 function viewPlan(){
   const p = profile();
   if(!p || (S.planTab||'week')==='programs' || S.planTab==='milestones' || classicPlan()) return viewPlanClassic();
@@ -2077,7 +2236,8 @@ function viewPlan(){
         <div class="small muted">${d.exercises.map(id=>EXBY[id]?.name).filter(Boolean).map(n=>esc(n.replace(/^(Dumbbell|Machine|Barbell|Cable|Kettlebell|Band) /,''))).join(' · ') || 'No exercises yet'}</div>
         ${ex.length?`<div class="xchips">${ex.map(x=>`<span>${extraChip(x)}</span>`).join('')}</div>`:''}
         ${done?'<div class="small" style="margin-top:10px;color:var(--accent)">✓ Logged today — nice work.</div>':''}
-        <div class="row" style="margin-top:12px;gap:8px"><button class="btn primary" style="flex:1" data-startday="${di}">${done?'Log another':'▶ Start workout'}</button><button class="btn" data-openday="${todayWd}">View</button></div>
+        <div class="row" style="margin-top:12px;gap:8px"><button class="btn primary" style="flex:1" data-playday="${di}">▶ Play workout</button><button class="btn" data-startday="${di}">${done?'Log another':'Log'}</button><button class="btn" data-openday="${todayWd}">View</button></div>
+        <div class="hint" style="margin-top:6px">Play goes full screen with timers and voice cues — mirror it to a gym TV.</div>
       </div>`
       : `<div class="card hero rest">
         <div class="row" style="justify-content:space-between"><span class="chip">TODAY · ${todayWd.toUpperCase()}</span><span class="hint">Rest day</span></div>
@@ -2120,6 +2280,7 @@ function viewPlan(){
   $('#wkMenu').onclick = openWeekMenu;
   document.querySelectorAll('[data-openday]').forEach(b=>b.onclick=()=>{ S.planDay = b.dataset.openday; S.planEdit = false; viewPlan(); window.scrollTo(0,0); });
   document.querySelectorAll('[data-startday]').forEach(b=>b.onclick=()=>{ startDraft(+b.dataset.startday); go('workout'); });
+  document.querySelectorAll('[data-playday]').forEach(b=>b.onclick=()=>playWorkout(+b.dataset.playday));
   document.querySelectorAll('[data-logrest]').forEach(b=>b.onclick=()=>{ startDraft(null, null, b.dataset.logrest); go('workout'); });
   $('#customLog2')?.addEventListener('click', ()=>{ startDraft(null); go('workout'); });
   $('#toPrograms')?.addEventListener('click', ()=>{ S.planTab='programs'; viewPlan(); window.scrollTo(0,0); });
@@ -2162,11 +2323,12 @@ function viewPlanDay(){
       ${edit?`<select id="addEx" style="margin-top:10px"><option value="">+ Add an exercise…</option>${exOptions}</select>`:''}
     </div>
     ${ex.length?`<div class="hint" style="margin:4px 2px 6px">ALSO ${date===today?'TODAY':'THIS DAY'}</div>${ex.map(x=>extraRow(x, !isNext && date===today)).join('')}`:''}
-    ${!isNext?`<div class="stickylog"><button class="btn primary block" id="logThis" ${d.exercises.length||ex.length?'':'disabled'}>${done?'Log it again':'Log this workout'}</button></div>`:''}`;
+    ${!isNext?`<div class="stickylog row" style="gap:8px"><button class="btn primary" style="flex:1" id="playThis" ${d.exercises.length?'':'disabled'}>▶ Play</button><button class="btn" style="flex:1;background:var(--panel)" id="logThis" ${d.exercises.length||ex.length?'':'disabled'}>${done?'Log it again':'Log'}</button></div>`:''}`;
   $('#dayBack').onclick = ()=>{ S.planDay=null; S.planEdit=false; viewPlan(); window.scrollTo(0,0); };
   $('#editToggle')?.addEventListener('click', ()=>{ S.planEdit=!S.planEdit; const y=window.scrollY; viewPlan(); window.scrollTo(0,y); });
   document.querySelectorAll('[data-cue]').forEach(b=>b.onclick=()=>{ S.cueOpen = S.cueOpen===b.dataset.cue ? null : b.dataset.cue; const y=window.scrollY; viewPlan(); window.scrollTo(0,y); });
   $('#logThis')?.addEventListener('click', ()=>{ startDraft(di); go('workout'); });
+  $('#playThis')?.addEventListener('click', ()=>playWorkout(di));
   const save = async msg => { await savePlanEditQuiet(); if(msg) toast(msg); const y=window.scrollY; viewPlan(); window.scrollTo(0,y); };
   document.querySelectorAll('[data-swap]').forEach(b=>b.onclick=async ()=>{ const [a,ei]=b.dataset.swap.split(':').map(Number), cur=EXBY[d.exercises[ei]];
     const nx = pick(cur.p, p, Math.random, new Set(d.exercises)); if(!nx || nx.id===cur.id){ toast('No other options with your equipment — add more in Profile'); return; }
