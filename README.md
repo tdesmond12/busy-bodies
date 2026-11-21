@@ -27,3 +27,8 @@ Open the live site in Safari (iPhone) or Chrome (Android) → **Share → Add to
 
 ## Coming next
 - Meal tracking and recommendations
+
+## User guide
+- **PDF:** [`docs/Busy-Bodies-User-Guide.pdf`](docs/Busy-Bodies-User-Guide.pdf)
+- **Source:** `docs/user-guide.html` (screenshots in `docs/img/`)
+- **Rebuild after changes:** serve the repo on port 8765 (`python3 -m http.server 8765`), run `python3 docs/capture.py` to refresh screenshots, then `python3 docs/build-guide.py` to regenerate the PDF.
