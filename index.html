@@ -232,6 +232,15 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .gbtn:focus-visible,.gico:focus-visible,.gchip:focus-visible{outline:4px solid #fff;outline-offset:3px}
 .gquick{display:flex;gap:1.4vmin;justify-content:center;align-items:center;font-size:max(13px,2.4vmin);color:#9aa3ad;flex-wrap:wrap}
 .gym .gchip{background:#12161a;border:1px solid #2b3037;color:#f4f7f9;border-radius:99px;min-width:max(40px,7vmin);height:max(36px,6vmin);font:700 max(15px,2.8vmin) Inter;cursor:pointer}
+.tvbar{text-align:center;font-size:max(13px,2.4vmin);color:#7cc7ff}
+.gym .gico.tvon{background:#13324a;border-color:#7cc7ff;width:auto;padding:0 12px}
+.gcode{width:7em;text-align:center;font:800 max(28px,6vmin) "Barlow Condensed",sans-serif;letter-spacing:.2em;text-transform:uppercase;background:#12161a;border:2px solid #2b3037;color:#fff;border-radius:2vmin;padding:6px}
+body.tvmode > *:not(.tvroot):not(.toast){display:none!important}
+.tvlogo{display:flex;align-items:center;gap:1.5vmin;font:800 max(22px,4vmin) "Barlow Condensed",sans-serif;color:#cfd6dc;margin-bottom:3vmin}
+.tvlogo .mark{background:var(--accent);color:#151a05;border-radius:1vmin;padding:.3vmin 1vmin}
+.tvcode{font:800 max(80px,26vmin)/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;color:var(--accent);margin:2vmin 0}
+.tvc{color:#7cc7ff}
+.gym .gbtn.tvsnd{position:fixed;right:3vmin;bottom:3vmin;min-height:0;padding:1.2vmin 2.4vmin;font-size:max(13px,2vmin);margin:0!important}.tvpause{color:#ffb547;font:800 max(18px,4vmin) "Barlow Condensed",sans-serif;letter-spacing:.1em}
 .gkeys{text-align:center;font-size:max(11px,1.8vmin);color:#5d666f}
 .gsum{align-items:center;justify-content:center;text-align:center}.gstats{display:flex;gap:6vmin;margin:3vmin 0}
 .gstats b{display:block;font:800 max(40px,11vmin) "Barlow Condensed",sans-serif;color:var(--accent)}.gstats span{color:#9aa3ad;font-size:max(14px,2.6vmin)}
@@ -2125,12 +2134,13 @@ function playWorkout(dayIdx){
   const steps = buildPlaySteps(draft, day);
   if(!steps.some(s=>s.type==='work')){ toast('No exercises to play for this day'); return; }
   let idx = 0, left = 0, paused = false, timer = null, lock = null, ctx = null, voice = (S.account.prefs||{}).playVoice !== false, started = Date.now(), logged = {};
+  let tv = null, tvSay = null, tvSayId = 0, tvTimer = null, tvPanel = false, tvErr = '';   // TV link (phone = remote, TV = display)
   const el = document.createElement('div'); el.className = 'gym'; el.tabIndex = -1; document.body.appendChild(el); document.body.classList.add('noscroll');
   try{ ctx = new (window.AudioContext||window.webkitAudioContext)(); ctx.resume(); }catch(e){}
   navigator.wakeLock?.request('screen').then(l=>lock=l).catch(()=>{});
   el.requestFullscreen?.().catch(()=>{});
-  const beep = (f=880, d=.15) => { if(!ctx) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.frequency.value=f; g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.4,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+d); o.connect(g).connect(ctx.destination); o.start(t); o.stop(t+d+.02); };
-  const say = txt => { if(!voice || !window.speechSynthesis) return; try{ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(txt); u.rate = 1.02; speechSynthesis.speak(u); }catch(e){} };
+  const beep = (f=880, d=.15) => { if(!ctx || tv) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.frequency.value=f; g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.4,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+d); o.connect(g).connect(ctx.destination); o.start(t); o.stop(t+d+.02); };
+  const say = txt => { if(tv){ if(voice){ tvSay = txt; tvSayId++; } return; } if(!voice || !window.speechSynthesis) return; try{ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(txt); u.rate = 1.02; speechSynthesis.speak(u); }catch(e){} };
   const spokenTarget = t => String(t).replace(/–/g,' to ').replace(/×/g,' sets of ').replace(/\bsec\b/g,'seconds').replace(/\bmin\b/g,'minutes').replace(/\blb\b/g,'pounds');
   const nextWork = from => steps.slice(from+1).find(s=>s.type==='work');
   const clock = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
@@ -2153,11 +2163,31 @@ function playWorkout(dayIdx){
     const ring = el.querySelector('.gring'); if(ring){ const tot = st.type==='work'?st.timed:st.secs; ring.style.setProperty('--p', Math.max(0,left)/tot); ring.classList.toggle('hurry', left<=10); }
     if(left<=3 && left>0) beep(left===1?990:660,.12);
     if(left<=0){ beep(1320,.35); if(st.type==='work') finishSet(); else if(idx>=steps.length-1) summary(); else enter(idx+1); } };
-  const close = () => { clearInterval(timer); try{ speechSynthesis.cancel(); }catch(e){} try{ lock && lock.release(); }catch(e){} if(document.fullscreenElement) document.exitFullscreen?.().catch(()=>{}); document.removeEventListener('keydown', onKey, true); el.remove(); document.body.classList.remove('noscroll'); setTimeout(()=>{ try{ ctx && ctx.close(); }catch(e){} }, 800); };
+  const close = () => { if(tv) tvPush({view:'end'}, true); clearInterval(timer); try{ speechSynthesis.cancel(); }catch(e){} try{ lock && lock.release(); }catch(e){} if(document.fullscreenElement) document.exitFullscreen?.().catch(()=>{}); document.removeEventListener('keydown', onKey, true); el.remove(); document.body.classList.remove('noscroll'); setTimeout(()=>{ try{ ctx && ctx.close(); }catch(e){} }, 800); };
+  // ----- TV link -----
+  const tvPush = (state, now) => { if(!tv) return; clearTimeout(tvTimer);
+    const send = () => FB.F.updateDoc(tv.ref, { phoneUid: S.user.uid, state: {...state, title: draft.dayName, seq: Date.now(), ...(tvSay?{say:tvSay, sayId:tvSayId}:{}), voice} }).catch(e=>{ console.warn('tv push', e); });
+    if(now) send(); else tvTimer = setTimeout(send, 120); };
+  const tvState = () => { const st = steps[idx]; if(!st) return {view:'end'}; const nx = nextWork(idx);
+    const prevSet = st.type==='rest' ? [...steps.slice(0,idx)].reverse().find(s=>s.type==='work') : null, pl = prevSet && logged[`${prevSet.di}:${prevSet.set}`];
+    const base = { view: st.type, done: doneCount(), total: workCount, paused, left, down: st.type!=='work' || !!st.timed, of: st.type==='work' ? (st.timed||0) : st.secs };
+    if(st.type==='work') return {...base, tag: `${st.sets>1?`SET ${st.set+1} OF ${st.sets}`:'GO'}${st.entry.ms?' · MILESTONE':st.entry.prog?' · PROGRAM':''}`, name: st.name, target: st.timed?`${st.timed} sec`:st.target, weight: st.weight||'', last: st.last||'', cue: st.cue||''};
+    return {...base, name: st.type==='warm'?'Warm-up':'', sub: st.sub||'', next: nx ? {name:nx.name, line:`${nx.sets>1?`Set ${nx.set+1} of ${nx.sets} · `:''}${nx.timed?nx.timed+' sec':nx.target}${nx.weight?` @ ${nx.weight} lb`:''}`} : null,
+      log: pl ? {label:`Set ${prevSet.set+1} · ${prevSet.name}`, value:`${pl.w?pl.w+' lb × ':''}${pl.r} ${prevSet.timed?'sec':prevSet.cardio?'min':'reps'}`} : null}; };
+  const tvConnect = async (code, quiet) => {
+    code = String(code||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,4); if(code.length!==4){ tvErr = 'Codes are 4 letters'; render(); return; }
+    if(!S.user || !FB){ tvErr = 'Sign in (Profile) to use TV mode'; render(); return; }
+    try{ const ref = FB.F.doc(FB.db, 'tv', code); await FB.F.updateDoc(ref, { phoneUid: S.user.uid, pairedAt: Date.now() });
+      tv = {code, ref}; tvErr = ''; tvPanel = false; try{ localStorage.setItem('bb.tvCode', code); }catch(e){} try{ speechSynthesis.cancel(); }catch(e){}
+      if(!quiet) toast(`📺 Showing on TV ${code}`); render(); }
+    catch(e){ console.warn('tv connect', e); if(!quiet){ tvErr = /permission|not.found|NOT_FOUND/i.test(String(e.code||e.message)) ? 'No TV with that code — check the TV screen' : 'Couldn’t reach the TV — check your connection'; render(); } }
+  };
+  const tvDisconnect = () => { if(!tv) return; tvPush({view:'end'}, true); tv = null; try{ localStorage.removeItem('bb.tvCode'); }catch(e){} render(); };
   const summary = () => {
     clearInterval(timer); timer = null; say('Workout complete. Nice work.'); beep(1046,.2); setTimeout(()=>beep(1318,.3),220);
     const mins = Math.max(1, Math.round((Date.now()-started)/60000)), sets = doneCount();
     const vol = Object.values(logged).reduce((a,x)=>a+num(x.w)*num(x.r),0);
+    tvPush({view:'sum', mins, sets, vol: Math.round(vol)}, true);
     el.innerHTML = `<div class="gwrap gsum"><div class="gtag">WORKOUT COMPLETE</div><h1>${esc(draft.dayName)}</h1>
       <div class="gstats"><div><b>${mins}</b><span>minutes</span></div><div><b>${sets}</b><span>sets</span></div>${vol?`<div><b>${Math.round(vol).toLocaleString()}</b><span>lb lifted</span></div>`:''}</div>
       <p class="gsub">${sets ? 'Your sets are filled in. Check them, add how it felt, and save.' : 'No sets were logged.'}</p>
@@ -2169,8 +2199,8 @@ function playWorkout(dayIdx){
   const render = () => {
     const st = steps[idx], nx = nextWork(idx), pct = Math.round(doneCount()/workCount*100);
     const prevSet = st.type==='rest' ? [...steps.slice(0,idx)].reverse().find(s=>s.type==='work') : null, pl = prevSet && logged[`${prevSet.di}:${prevSet.set}`];
-    const top = `<div class="gtop"><div class="gprog"><div style="width:${pct}%"></div></div>
-      <div class="gtopr"><span>${esc(draft.dayName)}</span><span>${doneCount()}/${workCount} sets</span><button class="gico" id="gVoice" aria-label="Voice">${voice?'🔊':'🔇'}</button><button class="gico" id="gEnd" aria-label="End workout">✕</button></div></div>`;
+    const top = st.view==='sum' ? '' : `<div class="gtop"><div class="gprog"><div style="width:${pct}%"></div></div>
+      <div class="gtopr"><span>${esc(draft.dayName)}</span><span>${doneCount()}/${workCount} sets</span><button class="gico ${tv?'tvon':''}" id="gTv" aria-label="Show on a TV">📺${tv?` ${tv.code}`:''}</button><button class="gico" id="gVoice" aria-label="Voice">${voice?'🔊':'🔇'}</button><button class="gico" id="gEnd" aria-label="End workout">✕</button></div></div>`;
     let main;
     if(st.type==='work'){
       main = `<div class="gmain work"><div class="gtag">${st.sets>1?`SET ${st.set+1} OF ${st.sets}`:'GO'}${st.entry.ms?' · MILESTONE':st.entry.prog?' · PROGRAM':''}</div>
@@ -2191,11 +2221,25 @@ function playWorkout(dayIdx){
     const ctrls = st.type==='work' && !st.timed
       ? `<button class="gbtn" id="gBack">◀◀</button><button class="gbtn primary wide" id="gDone">✓ Done${st.cardio?'':' — '+st.defReps+' reps'}</button><button class="gbtn" id="gSkip">▶▶</button>`
       : `<button class="gbtn" id="gBack">◀◀</button><button class="gbtn primary" id="gPause">${paused?'▶ Resume':'❚❚ Pause'}</button>${st.type!=='work'?'<button class="gbtn" id="gPlus">+30s</button>':''}<button class="gbtn" id="gSkip">▶▶</button>`;
-    el.innerHTML = `<div class="gwrap">${top}${main}<div class="gctrl">${ctrls}</div>
+    if(tvPanel){ main = `<div class="gmain"><div class="gtag">SHOW ON A TV</div>
+        <div class="gsub" style="max-width:40ch">On the TV’s web browser, go to<br><b style="color:#fff">${esc(location.host + location.pathname.replace(/index\.html$/,''))}tv</b><br>then type the 4-letter code it shows.</div>
+        <div class="row" style="gap:8px;justify-content:center"><input id="gCode" class="gcode" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="CODE" value=""><button class="gbtn primary" id="gTvGo">Connect</button></div>
+        ${tvErr?`<div class="gsub" style="color:#ffb547">${esc(tvErr)}</div>`:''}
+        ${tv?`<button class="gbtn" id="gTvOff">Disconnect TV ${tv.code}</button>`:''}
+        <button class="gbtn" id="gTvClose">Back to workout</button>
+        <div class="gkeys">Your phone stays the remote. The TV shows the timer, plays the beeps and reads out each set.</div></div>`; }
+    else if(tv) main = `<div class="tvbar">📺 Showing on TV <b>${tv.code}</b> — your phone is the remote</div>` + main;
+    el.innerHTML = `<div class="gwrap">${top}${main}${tvPanel?'':`<div class="gctrl">${ctrls}</div>`}
       ${st.type==='work' && !st.timed && !st.cardio ? `<div class="gquick">Did a different number? ${[-2,-1,1,2].map(d=>st.defReps+d).filter(v=>v>0).map(v=>`<button class="gchip" data-reps="${v}">${v}</button>`).join('')}</div>` : ''}
       <div class="gkeys">Remote: OK = ${st.type==='work'&&!st.timed?'done':'pause'} · ◀ back · ▶ skip${st.type!=='work'?' · ▲ +30s':''}</div></div>`;
     const on = (id, fn) => { const b = el.querySelector('#'+id); if(b) b.onclick = fn; };
     on('gEnd', ()=>{ if(doneCount()) summary(); else close(); });
+    on('gTv', ()=>{ tvPanel = !tvPanel; tvErr=''; render(); setTimeout(()=>el.querySelector('#gCode')?.focus(), 50); });
+    on('gTvClose', ()=>{ tvPanel = false; render(); });
+    on('gTvOff', ()=>{ tvPanel = false; tvDisconnect(); });
+    on('gTvGo', ()=>tvConnect(el.querySelector('#gCode').value));
+    const ci = el.querySelector('#gCode'); if(ci) ci.onkeydown = e=>{ e.stopPropagation(); if(e.key==='Enter') tvConnect(ci.value); };
+    if(!tvPanel) tvPush(tvState());
     on('gVoice', ()=>{ voice=!voice; S.account.prefs = {...(S.account.prefs||{}), playVoice:voice}; saveAccount().catch(()=>{}); if(!voice) try{ speechSynthesis.cancel(); }catch(e){} render(); });
     on('gDone', finishSet);
     on('gPause', ()=>{ paused=!paused; render(); });
@@ -2207,13 +2251,14 @@ function playWorkout(dayIdx){
       if(k==='r') cur.r = Math.max(0, num(cur.r)+(+d)); else cur.w = Math.max(0, num(cur.w)+(+d)); record(prevSet, cur.r, cur.w); render(); });
     (el.querySelector('#gDone') || el.querySelector('#gPause'))?.focus({preventScroll:true});
   };
-  const onKey = e => { if(!el.isConnected) return; const k = e.key; const st = steps[idx];
+  const onKey = e => { if(!el.isConnected || (e.target && e.target.id==='gCode')) return; const k = e.key; const st = steps[idx];
     const map = { 'ArrowRight':'gSkip', 'MediaTrackNext':'gSkip', 'ArrowLeft':'gBack', 'MediaTrackPrevious':'gBack', 'ArrowUp':'gPlus', ' ':'gPause', 'MediaPlayPause':'gPause', 'Escape':'gEnd', 'Backspace':'gEnd', 'GoBack':'gEnd' };
     let id = map[k]; if(k==='Enter') id = st && st.type==='work' && !st.timed ? 'gDone' : (document.activeElement && el.contains(document.activeElement) && document.activeElement.tagName==='BUTTON' ? null : 'gPause');
     if(k===' ' && st && st.type==='work' && !st.timed) id = 'gDone';
     if(!id) return; const b = el.querySelector('#'+id); if(b){ e.preventDefault(); e.stopPropagation(); b.click(); } };
   document.addEventListener('keydown', onKey, true);
   enter(0); timer = setInterval(tick, 1000);
+  try{ const last = localStorage.getItem('bb.tvCode'); if(last && S.user && FB) tvConnect(last, true); }catch(e){}   // reconnect to the last TV automatically
 }
 
 function viewPlan(){
@@ -4421,13 +4466,78 @@ async function sendCoach(text, display){
   if(location.hash==='#coach') viewCoach();
 }
 
+
+// ===================== TV display mode (open …/busy-bodies/tv on the TV) =====================
+// The TV signs in anonymously, shows a 4-letter code, and mirrors the state the phone writes to tv/{code}.
+const IS_TV = /(^|[?&])tv\b/.test(location.search);
+async function initTV(){
+  document.body.classList.add('tvmode');
+  const root = document.createElement('div'); root.className = 'gym tvroot'; document.body.appendChild(root);
+  const msg = (h, sub='') => { root.innerHTML = `<div class="gwrap gsum"><div class="tvlogo"><span class="mark">BB</span> BUSY BODIES</div><h1 style="font-size:max(28px,7vmin)">${h}</h1>${sub?`<div class="gsub">${sub}</div>`:''}</div>`; };
+  msg('Connecting…');
+  try{ FB = await withTimeout(loadFirebase(), 15000); }catch(e){ msg('Can’t connect', 'Check this TV’s internet connection and reload the page.'); return; }
+  try{ if(!FB.auth.currentUser) await new Promise(r=>{ const u = FB.A.onAuthStateChanged(FB.auth, ()=>{ u(); r(); }); }); if(!FB.auth.currentUser) await FB.A.signInAnonymously(FB.auth); }
+  catch(e){ console.error(e); msg('TV mode isn’t switched on yet', 'In the Firebase console: Authentication → Sign-in method → enable <b>Anonymous</b>. Then reload this page.'); return; }
+  const uid = FB.auth.currentUser.uid, F = FB.F, ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+  let code = null; try{ code = localStorage.getItem('bb.tvOwnCode'); }catch(e){}
+  const make = async () => { for(let i=0;i<6;i++){ const c = Array.from({length:4},()=>ABC[Math.floor(Math.random()*ABC.length)]).join('');
+      try{ await F.setDoc(F.doc(FB.db,'tv',c), {tvUid:uid, created:Date.now(), state:null}); try{ localStorage.setItem('bb.tvOwnCode', c); }catch(e){} return c; }catch(e){ console.warn('code taken', c, e); } } throw new Error('no code'); };
+  try{ if(code){ const snap = await F.getDoc(F.doc(FB.db,'tv',code)); if(!snap.exists() || snap.data().tvUid!==uid || Date.now()-snap.data().created > 7*864e5) code = null; } }catch(e){ code = null; }
+  try{ if(!code) code = await make(); }catch(e){ console.error(e); msg('TV mode needs a database update', 'Paste the new Firestore rules from the app’s instructions, then reload this page.'); return; }
+  let sound = false, ctx = null, lastSay = 0, st = null, localEnd = 0, localStart = 0, lastBeep = -1, frame = null;
+  const beep = (f=880, d=.15) => { if(!sound || !ctx) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.frequency.value=f; g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.45,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+d); o.connect(g).connect(ctx.destination); o.start(t); o.stop(t+d+.02); };
+  const enableSound = () => { sound = true; try{ ctx = ctx || new (window.AudioContext||window.webkitAudioContext)(); ctx.resume(); }catch(e){} try{ speechSynthesis.speak(new SpeechSynthesisUtterance('Sound on')); }catch(e){} draw(); };
+  const clock = s => `${Math.floor(Math.max(0,s)/60)}:${String(Math.max(0,Math.round(s))%60).padStart(2,'0')}`;
+  const soundBtn = small => sound ? '' : `<button class="gbtn ${small?'tvsnd':''}" id="tvSound" style="margin-top:2vmin">🔈 Press OK to turn on sound</button>`;
+  const waiting = () => `<div class="gwrap gsum"><div class="tvlogo"><span class="mark">BB</span> BUSY BODIES · TV</div>
+      <div class="gsub">On your phone: <b>Plan → ▶ Play → 📺</b> and enter</div><div class="tvcode">${code}</div>
+      <div class="gsub">This TV keeps the same code, so next time your phone connects on its own.</div>${soundBtn()}</div>`;
+  const draw = () => {
+    if(!st || st.view==='end' || !st.view){ root.innerHTML = waiting(); bind(); return; }
+    const top = `<div class="gtop"><div class="gprog"><div style="width:${Math.round((st.done||0)/(st.total||1)*100)}%"></div></div><div class="gtopr"><span>${esc(st.title||'')}</span><span>${st.done||0}/${st.total||0} sets</span><span class="tvc">📺 ${code}</span></div></div>`;
+    let main;
+    if(st.view==='sum') main = `<div class="gmain"><div class="gtag">WORKOUT COMPLETE</div><h1>${esc(st.title||'')}</h1><div class="gstats"><div><b>${st.mins}</b><span>minutes</span></div><div><b>${st.sets}</b><span>sets</span></div>${st.vol?`<div><b>${st.vol.toLocaleString()}</b><span>lb lifted</span></div>`:''}</div><div class="gsub">Nice work! Save it on your phone.</div></div>`;
+    else if(st.view==='work') main = `<div class="gmain work"><div class="gtag">${esc(st.tag||'')}</div><h1>${esc(st.name)}</h1>
+        <div class="gtarget">${esc(st.target)}${st.weight?` <span>@ ${esc(st.weight)} lb</span>`:''}</div>
+        ${st.down ? `<div class="gring" style="--p:1"><span id="tvClock">0:00</span></div>` : `<div class="gclock small"><span id="tvClock">0:00</span></div>`}
+        ${st.last?`<div class="glast">Last time: ${esc(st.last)}</div>`:''}<div class="gcue">${esc(st.cue)}</div></div>`;
+    else main = `<div class="gmain rest"><div class="gtag">${st.view==='warm'?'WARM-UP':'REST'}</div>${st.view==='warm'?`<h1>Warm-up</h1><div class="gsub">${esc(st.sub)}</div>`:''}
+        <div class="gring" style="--p:1"><span id="tvClock">0:00</span></div>
+        ${st.log?`<div class="glog"><span>${esc(st.log.label)}</span><div class="gadj"><b>${esc(st.log.value)}</b></div></div>`:''}
+        ${st.next?`<div class="gnext"><span>UP NEXT</span><b>${esc(st.next.name)}</b><em>${esc(st.next.line)}</em></div>`:''}</div>`;
+    root.innerHTML = `<div class="gwrap">${top}${main}<div class="gkeys">${st.paused?'<span class="tvpause">❚❚ PAUSED</span>':'Controlled from your phone'}</div>${soundBtn(true)}</div>`;
+    bind(); tickTV();
+  };
+  const bind = () => { const b = root.querySelector('#tvSound'); if(b){ b.onclick = enableSound; b.focus({preventScroll:true}); } };
+  const tickTV = () => { if(!st || !st.view || st.view==='sum' || st.view==='end') return; const c = root.querySelector('#tvClock'); if(!c) return;
+    const now = Date.now(); let v;
+    if(st.down){ v = st.paused ? st.left : (localEnd-now)/1000; v = Math.max(0, Math.ceil(v)); const ring = root.querySelector('.gring'); if(ring){ ring.style.setProperty('--p', st.of ? v/st.of : 0); ring.classList.toggle('hurry', v<=10); }
+      if(!st.paused && v<=3 && v>0 && v!==lastBeep){ lastBeep = v; beep(v===1?990:660,.12); } if(!st.paused && v===0 && lastBeep!==0){ lastBeep = 0; beep(1320,.35); } }
+    else v = st.paused ? st.left : Math.floor((now-localStart)/1000);
+    c.textContent = clock(v); };
+  setInterval(tickTV, 250);
+  document.addEventListener('keydown', e=>{ if(!sound && (e.key==='Enter' || e.key===' ')){ e.preventDefault(); enableSound(); } });
+  F.onSnapshot(F.doc(FB.db,'tv',code), snap => {
+    const d = snap.data(); if(!d){ return; } const ns = d.state;
+    if(ns && ns.seq && st && ns.seq===st.seq) return;
+    const changedStep = !st || !ns || ns.view!==st.view || ns.name!==st.name || ns.tag!==st.tag;
+    st = ns; if(st){ localEnd = Date.now() + (st.left||0)*1000; localStart = Date.now() - (st.left||0)*1000; if(changedStep) lastBeep = -1; }
+    if(st && st.say && st.sayId!==lastSay){ lastSay = st.sayId; if(sound && st.voice!==false){ try{ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(st.say); u.rate = 1.02; speechSynthesis.speak(u); }catch(e){} } if(changedStep && st.view==='work' && st.down) beep(1046,.25); }
+    if(st && st.view==='sum' && changedStep){ beep(1046,.2); setTimeout(()=>beep(1318,.3),220); }
+    draw();
+  }, err => { console.error(err); msg('Lost connection to your phone', 'Reload this page to reconnect.'); });
+  navigator.wakeLock?.request('screen').catch(()=>{}); document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') navigator.wakeLock?.request('screen').catch(()=>{}); });
+  draw();
+}
+
 // ---------- init ----------
 async function init(){
+  if(IS_TV) return initTV();
   try{ FB = await withTimeout(loadFirebase(), 12000); }catch(e){ console.warn('Firebase unavailable — saving in this browser', e); FB = null; }
   if(!FB){ await useLocal(); return; }
   let first = true;
   FB.A.onAuthStateChanged(FB.auth, async user=>{
-    if(user) await useCloud(user);
+    if(user && !user.isAnonymous) await useCloud(user);   // anonymous = a TV display session, not an account
     else await useLocal();
     first = false;
   });

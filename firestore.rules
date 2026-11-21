@@ -2,9 +2,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Each signed-in user can read and write only their own data:
-    // users/{uid}, users/{uid}/workouts/*, users/{uid}/coach/*
+    // users/{uid}, users/{uid}/workouts/*, users/{uid}/coach/*, users/{uid}/days/*
     match /users/{uid}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    // TV mode: a TV (anonymous sign-in) creates tv/{CODE}; a signed-in phone that knows the code
+    // claims it and writes the workout state; only that TV and that phone can read it.
+    match /tv/{code} {
+      allow create: if request.auth != null && request.resource.data.tvUid == request.auth.uid && code.size() == 4;
+      allow read: if request.auth != null && (resource.data.tvUid == request.auth.uid || resource.data.get('phoneUid', '') == request.auth.uid);
+      allow update: if request.auth != null && request.resource.data.tvUid == resource.data.tvUid
+                    && (resource.data.tvUid == request.auth.uid || request.resource.data.phoneUid == request.auth.uid);
+      allow delete: if request.auth != null && resource.data.tvUid == request.auth.uid;
     }
   }
 }
