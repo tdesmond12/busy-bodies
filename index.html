@@ -202,6 +202,10 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.guidelink{display:flex;gap:8px;margin:0 0 12px}
+.guidelink a{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--text);text-decoration:none}
+.guidelink a:first-child{flex:1}.guidelink .gi{font-size:20px}.guidelink .t{flex:1;display:flex;flex-direction:column}
+.guidelink a.pdf{font-weight:700;font-size:13px;color:var(--muted)}
 /* ----- gym mode (▶ Play) — sized in vmin so it reads from across a room on a TV ----- */
 .gym{position:fixed;inset:0;z-index:80;background:#07090a;color:#f4f7f9;outline:none;overflow:auto}
 .gwrap{min-height:100%;display:flex;flex-direction:column;padding:max(2.5vmin,env(safe-area-inset-top)) 4vmin max(3vmin,env(safe-area-inset-bottom));gap:2vmin}
@@ -1817,7 +1821,7 @@ function viewProfile(){
   const tabsHtml = `<div class="seg ptabs" role="tablist">
       <input type="radio" id="pt-personal" name="ptab" value="personal" ${tab==='personal'?'checked':''}><label for="pt-personal">Personal info</label>
       <input type="radio" id="pt-workout" name="ptab" value="workout" ${tab==='workout'?'checked':''}><label for="pt-workout">Workout settings</label>
-    </div>`;
+    </div>` + `<div class="guidelink"><a href="docs/user-guide.html" target="_blank" rel="noopener"><span class="gi">📘</span><span class="t"><b>User guide</b><span class="hint">How every part of the app works</span></span><span class="chev">›</span></a><a class="pdf" href="docs/Busy-Bodies-User-Guide.pdf" target="_blank" rel="noopener">PDF</a></div>`;
 
   const personal = `
     ${accountCard()}

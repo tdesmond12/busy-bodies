@@ -35,11 +35,27 @@
   th{background:#f0f2f4; font-weight:700; -webkit-print-color-adjust:exact; print-color-adjust:exact}
   .toc ol{columns:2; column-gap:28pt; font-size:11pt}
   .toc li{margin:4pt 0}
+  .toc a{color:inherit; text-decoration:none} @media screen{ .toc a{color:#3d6b00; text-decoration:underline} }
   kbd{font:600 9pt Inter,Arial; border:1px solid #c7ced4; border-bottom-width:2px; border-radius:4pt; padding:0 4pt; background:#fafbfc}
   .two{display:flex; gap:16pt} .two > div{flex:1} .two .shots figure{width:1.55in}
   .small{font-size:9pt; color:var(--muted)}
+  /* ---- on screen (opened from the app's Profile page) ---- */
+  @media screen {
+    body{background:#eef1f3; padding:16px 12px 60px}
+    body > div{max-width:760px; margin:0 auto 14px; background:#fff; border-radius:14px; padding:22px 22px 18px; box-shadow:0 1px 3px rgba(0,0,0,.08)}
+    .cover{height:auto; margin:0 auto 14px; padding:34px 26px 30px; border-radius:14px}
+    .cover h1{font-size:40pt} .cover .meta{margin-top:20px}
+    .section{page-break-before:auto}
+    .shots{flex-wrap:wrap} .two{flex-wrap:wrap}
+    .topbar{display:flex!important}
+  }
+  @media screen and (max-width:560px){ .two{flex-direction:column} .toc ol{columns:1} .wide img{width:100%} body > div{padding:16px 14px} }
+  .topbar{display:none; max-width:760px; margin:0 auto 12px; gap:8px; justify-content:space-between; align-items:center; background:none!important; box-shadow:none!important; padding:0!important}
+  .topbar a{font:600 13px Inter,Arial; color:#14171a; background:#fff; border:1px solid #d5dbe0; border-radius:99px; padding:7px 14px; text-decoration:none}
+  @media print{ .topbar{display:none!important} }
 </style></head>
 <body>
+<div class="topbar"><a href="../#profile">‹ Back to the app</a><a href="Busy-Bodies-User-Guide.pdf">Download PDF</a></div>
 
 <div class="cover">
   <div><span class="mark">BB</span></div>
@@ -51,25 +67,25 @@
 <div class="toc">
   <h2>Contents</h2>
   <ol>
-    <li>Getting started</li>
-    <li>Your plan</li>
-    <li>Logging a workout</li>
-    <li>Gym mode: ▶ Play &amp; TV</li>
-    <li>Programs &amp; milestones</li>
-    <li>Nutrition</li>
-    <li>Sleep &amp; intermittent fasting</li>
-    <li>Log (calendar)</li>
-    <li>Progress</li>
-    <li>AI coach</li>
-    <li>Profile &amp; settings</li>
-    <li>Tips &amp; troubleshooting</li>
+    <li><a href="#s1">Getting started</a></li>
+    <li><a href="#s2">Your plan</a></li>
+    <li><a href="#s3">Logging a workout</a></li>
+    <li><a href="#s4">Gym mode: ▶ Play &amp; TV</a></li>
+    <li><a href="#s5">Programs &amp; milestones</a></li>
+    <li><a href="#s6">Nutrition</a></li>
+    <li><a href="#s7">Sleep &amp; intermittent fasting</a></li>
+    <li><a href="#s8">Log (calendar)</a></li>
+    <li><a href="#s9">Progress</a></li>
+    <li><a href="#s10">AI coach</a></li>
+    <li><a href="#s11">Profile &amp; settings</a></li>
+    <li><a href="#s12">Tips &amp; troubleshooting</a></li>
   </ol>
   <div class="tip">Busy Bodies builds a weekly workout plan around your goals, schedule and equipment, tracks what you eat, drink and sleep, and gives you an AI coach that knows your history. Everything is designed for short, realistic workouts that fit around family life.</div>
 </div>
 
 <!-- 1 -->
 <div class="section">
-  <h2>1. Getting started</h2>
+  <h2 id="s1">1. Getting started</h2>
   <p class="lead">Open the app, tell it about yourself, and it builds your first plan.</p>
   <h3>Open the app</h3>
   <ul>
@@ -91,7 +107,7 @@
 
 <!-- 2 -->
 <div class="section">
-  <h2>2. Your plan</h2>
+  <h2 id="s2">2. Your plan</h2>
   <p class="lead">The Plan tab shows today first, then the rest of your week.</p>
   <div class="shots"><figure><img src="img/plan.png"><figcaption>Plan: week strip and Today card</figcaption></figure><figure><img src="img/day.png"><figcaption>Tap a day to see its workout</figcaption></figure></div>
   <h3>The week view</h3>
@@ -128,7 +144,7 @@
 
 <!-- 3 -->
 <div class="section">
-  <h2>3. Logging a workout</h2>
+  <h2 id="s3">3. Logging a workout</h2>
   <p class="lead">Log from the Plan tab: tap <b>Log</b> on the Today card or at the bottom of a day.</p>
   <div class="shots"><figure><img src="img/log-workout.png"><figcaption>The logging screen</figcaption></figure></div>
   <ul>
@@ -142,7 +158,7 @@
 
 <!-- 4 -->
 <div class="section">
-  <h2>4. Gym mode: ▶ Play &amp; TV</h2>
+  <h2 id="s4">4. Gym mode: ▶ Play &amp; TV</h2>
   <p class="lead">Play runs your workout full screen with timers, voice cues and quick logging, on your phone or on a TV.</p>
   <div class="wide"><img src="img/play-tv.png"></div>
   <div class="two"><div>
@@ -168,7 +184,7 @@
 
 <!-- 5 -->
 <div class="section">
-  <h2>5. Programs &amp; milestones</h2>
+  <h2 id="s5">5. Programs &amp; milestones</h2>
   <p class="lead">Find these under <b>Plan → Programs</b>. Run several at once, alongside your plan.</p>
   <div class="two"><div>
   <h3>Milestones</h3>
@@ -192,7 +208,7 @@
 
 <!-- 6 -->
 <div class="section">
-  <h2>6. Nutrition</h2>
+  <h2 id="s6">6. Nutrition</h2>
   <p class="lead">Log food, water and supplements, and see calories, protein, carbs, sugar, fiber and fat for the day.</p>
   <div class="shots"><figure><img src="img/nutrition.png"><figcaption>Daily totals and food diary</figcaption></figure><figure><img src="img/food-search.png"><figcaption>Food search</figcaption></figure></div>
   <h3>Adding food</h3>
@@ -215,7 +231,7 @@
 
 <!-- 7 -->
 <div class="section">
-  <h2>7. Sleep &amp; intermittent fasting</h2>
+  <h2 id="s7">7. Sleep &amp; intermittent fasting</h2>
   <div class="shots"><figure><img src="img/sleep-fasting.png"><figcaption>Sleep and fasting on the Nutrition tab</figcaption></figure></div>
   <h3>Sleep</h3>
   <ul>
@@ -234,7 +250,7 @@
 
 <!-- 8 -->
 <div class="section">
-  <h2>8. Log (calendar)</h2>
+  <h2 id="s8">8. Log (calendar)</h2>
   <div class="two"><div>
   <p class="lead">One calendar for everything you've logged.</p>
   <ul>
@@ -246,7 +262,7 @@
 
 </div>
 <div class="section">
-  <h2>9. Progress</h2>
+  <h2 id="s9">9. Progress</h2>
   <div class="shots"><figure><img src="img/progress.png"><figcaption>Stats and fasting</figcaption></figure><figure><img src="img/weight.png"><figcaption>Weight trend</figcaption></figure><figure><img src="img/charts.png"><figcaption>Practice charts</figcaption></figure></div>
   <ul>
     <li><b>Top stats:</b> workouts this week, week streak, total workouts and volume. With fasting on, you also see your streak, goal days and a 14-day strip.</li>
@@ -258,7 +274,7 @@
 
 <!-- 10 -->
 <div class="section">
-  <h2>10. AI coach</h2>
+  <h2 id="s10">10. AI coach</h2>
   <div class="two"><div>
   <p class="lead">A chat coach (Google Gemini) that sees your data and can change your plan when you approve it.</p>
   <h3>What it knows</h3>
@@ -273,7 +289,7 @@
 
 <!-- 11 -->
 <div class="section">
-  <h2>11. Profile &amp; settings</h2>
+  <h2 id="s11">11. Profile &amp; settings</h2>
   <table>
     <tr><th style="width:30%">Setting</th><th>Where / what it does</th></tr>
     <tr><td>Personal info</td><td>Age, height, weight, sex and notes. Drives calorie and protein targets. Your latest weigh-in updates your weight.</td></tr>
@@ -285,7 +301,7 @@
     <tr><td>Plan layout</td><td>⋯ Week → <b>Classic layout</b> switches back to the original Plan page. A button at its top switches back.</td></tr>
   </table>
 
-  <h2 style="margin-top:22pt">12. Tips &amp; troubleshooting</h2>
+  <h2 style="margin-top:22pt" id="s12">12. Tips &amp; troubleshooting</h2>
   <table>
     <tr><th style="width:32%">If…</th><th>Try this</th></tr>
     <tr><td>A new feature isn't showing</td><td>Fully close the app (swipe it away) and reopen it.</td></tr>
