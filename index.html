@@ -202,6 +202,7 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.progcat{margin:16px 4px 6px;font-weight:700;letter-spacing:.08em}
 .guidelink{display:flex;gap:8px;margin:0 0 12px}
 .guidelink a{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--text);text-decoration:none}
 .guidelink a:first-child{flex:1}.guidelink .gi{font-size:20px}.guidelink .t{flex:1;display:flex;flex-direction:column}
@@ -2694,10 +2695,32 @@ const FIG_POSES = {
   'butterfly':     {t:180, hd:180, ua1:10, la1:-30, ua2:15, la2:-25, th1:-35, sh1:40, ft1:0, th2:-30, sh2:45, ft2:0},
   'legsupwall':    {t:180, hd:180, ua1:20, la1:0, ua2:25, la2:2, th1:-90, sh1:-90, ft1:0, th2:-88, sh2:-90, ft2:0, props:['wallUp']},
   'rest':          {t:180, hd:180, ua1:5, la1:0, ua2:8, la2:2, th1:0, sh1:0, ft1:-90, th2:2, sh2:0, ft2:-90},
+  // --- stretching programs ---
+  'calf':      {t:-62, hd:-60, ua1:-20, la1:-15, ua2:-25, la2:-18, th1:72, sh1:100, th2:118, sh2:118, ft2:180, props:['wall']},
+  'sidebend':  {t:-108, hd:-118, ua1:-150, la1:-170, ua2:95, la2:92, th1:88, sh1:90, th2:94, sh2:92},
+  'kneechest': {t:180, hd:180, ua1:-35, la1:-20, ua2:-30, la2:-15, th1:-120, sh1:35, ft1:-50, th2:0, sh2:0, ft2:-90},
+  'supineham': {t:180, hd:180, ua1:-55, la1:-75, ua2:-50, la2:-70, th1:-88, sh1:-88, ft1:180, th2:0, sh2:0, ft2:-90},
+  'bridge':    {t:150, hd:180, ua1:8, la1:2, ua2:6, la2:0, th1:-25, sh1:100, ft1:0, th2:-20, sh2:102, ft2:0},
+  'fig4':      {t:180, hd:180, ua1:-35, la1:-15, ua2:-30, la2:-10, th1:-80, sh1:10, ft1:-90, th2:-50, sh2:70, ft2:0},
+  'seatedham': {t:-62, hd:-55, ua1:15, la1:10, ua2:20, la2:12, th1:0, sh1:8, ft1:-80, th2:-4, sh2:88, props:['chair']},
+  'seatedfig4':{t:-68, hd:-62, ua1:60, la1:20, ua2:55, la2:15, th1:0, sh1:90, th2:-22, sh2:20, ft2:-70, props:['chair']},
+  'legswing':  {t:-92, ua1:-5, la1:-10, ua2:170, la2:175, th1:45, sh1:45, ft1:-30, th2:92, sh2:90},
+  'march':     {t:-90, ua1:70, la1:-60, ua2:120, la2:100, th1:-5, sh1:95, th2:92, sh2:90},
+  'tpose':     {t:-90, ua1:0, la1:0, ua2:180, la2:180},
+  'squat':     {t:-55, hd:-60, ua1:-5, la1:-5, ua2:0, la2:0, th1:-8, sh1:110, th2:-4, sh2:108},
+  'hipcircle': {t:-90, ua1:135, la1:-120, ua2:45, la2:-60, th1:86, sh1:92, th2:96, sh2:88},
+  'doorway':   {t:-90, hd:-92, ua1:-5, la1:-95, ua2:180, la2:180, props:['wall']},
+  'chintuck':  {t:-90, hd:-100, ua1:80, la1:30, ua2:75, la2:25, th1:0, sh1:90, th2:-4, sh2:88, props:['chair']},
+  'ankle':     {t:-90, ua1:80, la1:20, ua2:75, la2:15, th1:-10, sh1:20, ft1:-40, th2:-4, sh2:88, props:['chair']},
 };
 
 // Which drawing goes with each yoga pose name
-const POSE_FIG = {'Child’s pose':'child','Cat-cow':'catcow','Downward dog':'downdog','Low lunge':'lowlunge','Standing forward fold':'fold','Mountain with overhead reach':'reach','Chair pose':'chair','Warrior II':'warrior2','Tree pose':'tree','Standing breath':'mountain','Seated neck release':'seatedneck','Seated cat-cow':'seatedcat','Seated twist':'seatedtwist','Eagle arms':'eagle','Chest opener':'chestopen','Standing quad stretch':'quad','Wrist circles and stretch':'wrist','Box breathing':'crosslegged','Half split':'halfsplit','Pigeon or figure-4':'pigeon','Seated forward fold':'seatedfold','Supine twist':'supinetwist','Thread the needle':'thread','Sphinx':'sphinx','Happy baby':'happybaby','Reclined butterfly':'butterfly','Legs up the wall':'legsupwall','Rest':'rest'};
+const POSE_FIG = {'Child’s pose':'child','Cat-cow':'catcow','Downward dog':'downdog','Low lunge':'lowlunge','Standing forward fold':'fold','Mountain with overhead reach':'reach','Chair pose':'chair','Warrior II':'warrior2','Tree pose':'tree','Standing breath':'mountain','Seated neck release':'seatedneck','Seated cat-cow':'seatedcat','Seated twist':'seatedtwist','Eagle arms':'eagle','Chest opener':'chestopen','Standing quad stretch':'quad','Wrist circles and stretch':'wrist','Box breathing':'crosslegged','Half split':'halfsplit','Pigeon or figure-4':'pigeon','Seated forward fold':'seatedfold','Supine twist':'supinetwist','Thread the needle':'thread','Sphinx':'sphinx','Happy baby':'happybaby','Reclined butterfly':'butterfly','Legs up the wall':'legsupwall','Rest':'rest',
+  'Chin tucks':'chintuck','Shoulder rolls':'chintuck','Seated figure-4':'seatedfig4','Seated hamstring stretch':'seatedham','Ankle circles':'ankle',
+  'Doorway chest stretch':'doorway','Standing side bend':'sidebend','Half-kneeling hip flexor stretch':'lowlunge','Wall calf stretch':'calf','Knee to chest':'kneechest',
+  'Marching in place':'march','Arm circles':'tpose','Leg swings':'legswing','Hip circles':'hipcircle','Bodyweight squats':'squat','Deep squat hold':'squat','Lunge with reach':'lowlunge',
+  'Inchworm':'downdog','Torso twists':'tpose','Walking lunges':'lowlunge','Calf raises':'mountain','Ankle rocks':'calf','Wall slides':'reach','Arm swings across chest':'tpose',
+  'Cross-body shoulder stretch':'eagle','Overhead triceps stretch':'reach','Lying hamstring stretch':'supineham','Figure-4 stretch (lying)':'fig4','Glute bridge':'bridge'};
 const poseFig = (p, cls='') => { const q = FIG_POSES[POSE_FIG[p.name]]; return q ? `<div class="${cls} ${p.side==='left'?'fig-mirror':''}">${figSVG(q)}</div>` : ''; };
 
 // ---------- Programs (multi-week routines) ----------
@@ -2826,6 +2849,211 @@ PROGRAMS.meditation = {
     silent:{name:'Silent timer', icon:'🔔', blurb:'Just a bell to start and end.'},
   },
 };
+
+// ---------- Stretching & mobility programs (guided, like yoga) ----------
+// Holds follow ACSM flexibility guidance: ~10–30 s for most adults, 30–60 s for older adults; stretch to mild tightness, never pain.
+// Dynamic (moving) stretches before workouts, static holds after (Cleveland Clinic, Cedars-Sinai, Behm & Chaouachi 2011 review).
+const STRETCH_SOURCE = 'Built from ACSM flexibility guidelines (stretch to mild tightness, hold 10–30 s; 30–60 s for older adults; daily is most effective), NIA/HealthLink BC advice for older adults, Mayo Clinic and others on desk stretches, and the research on dynamic warm-ups before exercise and static stretching after.';
+Object.assign(PROGRAMS, {
+  'stretch-desk': {
+    title:'Desk Worker Reset', icon:'💺', kind:'flows', cat:'stretch', perWeek:5, total:20, defaultMode:'addon', addonOnly:true,
+    forWho:'Sit all day? Targets the hip flexors, chest, upper back, neck and wrists that sitting tightens.',
+    blurb:'5–8 minute routines you can do at your desk, standing, or on the floor at night.',
+    source:STRETCH_SOURCE, howTo:'Try a chair reset every 30–60 minutes of sitting, or once a day at lunch. Stretch to mild tightness, breathe slowly, and never push into pain.',
+    flows:[
+      {id:'chair', name:'Chair reset', poses:[
+        P('Chin tucks',30,'Sit tall and slide your chin straight back, like making a double chin. Hold 3 seconds, repeat.'),
+        P('Seated neck release',30,'Ear toward shoulder, the other hand reaching down.','right'), P('Seated neck release',30,'Ear toward shoulder, the other hand reaching down.','left'),
+        P('Shoulder rolls',30,'Big slow circles backward, then forward.'),
+        P('Seated cat-cow',40,'Hands on knees, arch and round your spine with your breath.'),
+        P('Seated twist',30,'Sit tall, rotate from your ribs, hand on the chair back.','right'), P('Seated twist',30,'Sit tall, rotate from your ribs, hand on the chair back.','left'),
+        P('Seated figure-4',30,'Ankle on the opposite knee, sit tall and hinge forward a little.','right'), P('Seated figure-4',30,'Ankle on the opposite knee, sit tall and hinge forward a little.','left'),
+        P('Wrist circles and stretch',30,'Circle both ways, then gently stretch each palm back.'),
+      ]},
+      {id:'stand', name:'Standing reset', poses:[
+        P('Mountain with overhead reach',30,'Stand tall, reach up and lean gently side to side.'),
+        P('Doorway chest stretch',30,'Forearm on a door frame at shoulder height, step through until you feel your chest open.','right'), P('Doorway chest stretch',30,'Forearm on a door frame at shoulder height, step through until you feel your chest open.','left'),
+        P('Half-kneeling hip flexor stretch',30,'Back knee down, squeeze that glute and shift your hips forward. Feel the front of the back hip.','right'), P('Half-kneeling hip flexor stretch',30,'Back knee down, squeeze that glute and shift your hips forward. Feel the front of the back hip.','left'),
+        P('Standing quad stretch',30,'Hold your ankle behind you, knees together, hand on a wall or desk.','right'), P('Standing quad stretch',30,'Hold your ankle behind you, knees together, hand on a wall or desk.','left'),
+        P('Wall calf stretch',30,'Hands on the wall, back leg straight, heel down.','right'), P('Wall calf stretch',30,'Hands on the wall, back leg straight, heel down.','left'),
+        P('Standing forward fold',30,'Soft knees, let your upper body hang heavy.'),
+      ]},
+      {id:'floor', name:'Evening unwind', poses:[
+        P('Cat-cow',45,'On hands and knees, arch as you breathe in, round as you breathe out.'),
+        P('Thread the needle',30,'Slide one arm under the other, shoulder and cheek to the floor.','right'), P('Thread the needle',30,'Slide one arm under the other, shoulder and cheek to the floor.','left'),
+        P('Half-kneeling hip flexor stretch',45,'Back knee on a pillow, hips forward, tall chest.','right'), P('Half-kneeling hip flexor stretch',45,'Back knee on a pillow, hips forward, tall chest.','left'),
+        P('Sphinx',40,'On your forearms, chest lifted, legs relaxed. Gentle — no pinching in the low back.'),
+        P('Child’s pose',45,'Knees wide, arms long, breathe into your back.'),
+        P('Knee to chest',30,'On your back, hug one knee in, other leg long.','right'), P('Knee to chest',30,'On your back, hug one knee in, other leg long.','left'),
+        P('Supine twist',30,'Knees to one side, arms wide, look the other way.','right'), P('Supine twist',30,'Knees to one side, arms wide, look the other way.','left'),
+      ]},
+    ]},
+  'stretch-warmup': {
+    title:'Dynamic Warm-Up', icon:'🔥', kind:'flows', cat:'stretch', perWeek:3, total:12, defaultMode:'addon', addonOnly:true,
+    forWho:'Before workouts, runs or sports. Moving stretches warm you up — long holds before hard exercise can sap power.',
+    blurb:'5-minute moving warm-ups: full body, legs & running, or upper body.',
+    source:STRETCH_SOURCE, howTo:'Do this right before a workout. Move smoothly through a comfortable range and get a little bigger each rep — no bouncing, no long holds.',
+    flows:[
+      {id:'full', name:'Full-body warm-up', poses:[
+        P('Marching in place',40,'Knees up toward hip height, swing your arms.'),
+        P('Arm circles',30,'Small circles growing bigger, then reverse.'),
+        P('Hip circles',30,'Hands on hips, big slow circles each way.'),
+        P('Leg swings',30,'Hold a wall, swing one leg forward and back, relaxed.','right'), P('Leg swings',30,'Hold a wall, swing one leg forward and back, relaxed.','left'),
+        P('Bodyweight squats',40,'Slow squats, chest up, as deep as is comfortable.'),
+        P('Lunge with reach',30,'Step into a lunge and reach both arms overhead. Alternate legs.'),
+        P('Inchworm',40,'Fold, walk your hands out to a plank, walk them back, stand.'),
+        P('Torso twists',30,'Arms loose, turn side to side and let them swing.'),
+      ]},
+      {id:'legs', name:'Legs & running warm-up', poses:[
+        P('Marching in place',40,'Pick up the pace as you go.'),
+        P('Leg swings',30,'Forward and back, then side to side.','right'), P('Leg swings',30,'Forward and back, then side to side.','left'),
+        P('Hip circles',30,'Big circles each way.'),
+        P('Walking lunges',40,'Long steps, back knee toward the floor, tall chest.'),
+        P('Bodyweight squats',30,'Smooth reps, sit back into your heels.'),
+        P('Calf raises',30,'Up on your toes and slowly down.'),
+        P('Ankle rocks',30,'Hands on a wall, drive one knee forward over your toes and back.','right'), P('Ankle rocks',30,'Hands on a wall, drive one knee forward over your toes and back.','left'),
+      ]},
+      {id:'upper', name:'Upper-body warm-up', poses:[
+        P('Arm circles',30,'Forward then backward, small to big.'),
+        P('Shoulder rolls',30,'Big slow rolls backward.'),
+        P('Arm swings across chest',30,'Open wide, then hug yourself. Keep it smooth.'),
+        P('Wall slides',30,'Back to a wall, slide your arms up and down like a snow angel.'),
+        P('Torso twists',30,'Turn side to side, hips facing forward.'),
+        P('Cat-cow',40,'Arch and round with your breath.'),
+        P('Inchworm',40,'Walk out to a plank and back.'),
+      ]},
+    ]},
+  'stretch-cooldown': {
+    title:'Post-Workout Cool-Down', icon:'🧊', kind:'flows', cat:'stretch', perWeek:3, total:12, defaultMode:'addon', addonOnly:true,
+    forWho:'After strength or cardio, when muscles are warm — the best time for static holds.',
+    blurb:'Hold-and-breathe stretches for your lower body, upper body, or everything.',
+    source:STRETCH_SOURCE, howTo:'Do this right after a workout. Ease into each stretch until you feel mild tightness and hold still — no bouncing.',
+    flows:[
+      {id:'lower', name:'Lower-body cool-down', poses:[
+        P('Standing quad stretch',30,'Knees together, tuck your hips slightly.','right'), P('Standing quad stretch',30,'Knees together, tuck your hips slightly.','left'),
+        P('Wall calf stretch',30,'Back heel down, back leg straight.','right'), P('Wall calf stretch',30,'Back heel down, back leg straight.','left'),
+        P('Half-kneeling hip flexor stretch',30,'Hips forward, glute tight.','right'), P('Half-kneeling hip flexor stretch',30,'Hips forward, glute tight.','left'),
+        P('Half split',30,'Front leg straight, hinge over it with a long back.','right'), P('Half split',30,'Front leg straight, hinge over it with a long back.','left'),
+        P('Figure-4 stretch (lying)',30,'Ankle over the opposite knee, pull that thigh toward you.','right'), P('Figure-4 stretch (lying)',30,'Ankle over the opposite knee, pull that thigh toward you.','left'),
+        P('Child’s pose',40,'Breathe slowly and let your heart rate settle.'),
+      ]},
+      {id:'upper', name:'Upper-body cool-down', poses:[
+        P('Doorway chest stretch',30,'Elbow at shoulder height, step through gently.','right'), P('Doorway chest stretch',30,'Elbow at shoulder height, step through gently.','left'),
+        P('Cross-body shoulder stretch',30,'Pull one arm across your chest with the other.','right'), P('Cross-body shoulder stretch',30,'Pull one arm across your chest with the other.','left'),
+        P('Overhead triceps stretch',30,'Hand down your back, gently press the elbow.','right'), P('Overhead triceps stretch',30,'Hand down your back, gently press the elbow.','left'),
+        P('Thread the needle',30,'Shoulder and cheek to the floor.','right'), P('Thread the needle',30,'Shoulder and cheek to the floor.','left'),
+        P('Seated neck release',30,'Ear toward shoulder.','right'), P('Seated neck release',30,'Ear toward shoulder.','left'),
+        P('Child’s pose',40,'Arms long, breathe into your back.'),
+      ]},
+      {id:'full', name:'Full-body cool-down', poses:[
+        P('Standing forward fold',30,'Soft knees, hang heavy.'),
+        P('Standing quad stretch',30,'Knees together.','right'), P('Standing quad stretch',30,'Knees together.','left'),
+        P('Doorway chest stretch',30,'Open your chest.','right'), P('Doorway chest stretch',30,'Open your chest.','left'),
+        P('Lying hamstring stretch',30,'Towel or strap around your foot, leg straight up.','right'), P('Lying hamstring stretch',30,'Towel or strap around your foot, leg straight up.','left'),
+        P('Supine twist',30,'Knees to one side, look the other way.','right'), P('Supine twist',30,'Knees to one side, look the other way.','left'),
+        P('Rest',45,'Lie still and let your breath slow down.'),
+      ]},
+    ]},
+  'stretch-hips': {
+    title:'Tight Hips & Hamstrings', icon:'🦵', kind:'flows', cat:'stretch', perWeek:3, total:15, defaultMode:'addon', addonOnly:true,
+    forWho:'For stiff hips, hamstrings and low back — common in men, lifters, runners and anyone who sits a lot.',
+    blurb:'Longer holds (45–60 s) to slowly open up hips, hamstrings and glutes.',
+    source:STRETCH_SOURCE, howTo:'Best after a workout or a short walk, when you’re warm. Longer holds help stubborn areas; ease in and breathe — tightness should fade a little as you hold.',
+    flows:[
+      {id:'hips', name:'Hip opener', poses:[
+        P('Half-kneeling hip flexor stretch',45,'Squeeze the back glute and shift forward.','right'), P('Half-kneeling hip flexor stretch',45,'Squeeze the back glute and shift forward.','left'),
+        P('Pigeon or figure-4',45,'Front shin across, hips square. Figure-4 on your back is a gentler option.','right'), P('Pigeon or figure-4',45,'Front shin across, hips square. Figure-4 on your back is a gentler option.','left'),
+        P('Reclined butterfly',60,'Soles together, knees falling open. Pillows under knees are fine.'),
+        P('Happy baby',45,'Hold your feet or shins, rock gently side to side.'),
+        P('Supine twist',30,'Knees to one side, look the other way.','right'), P('Supine twist',30,'Knees to one side, look the other way.','left'),
+        P('Child’s pose',45,'Knees wide, breathe into your hips.'),
+      ]},
+      {id:'hams', name:'Hamstrings & low back', poses:[
+        P('Cat-cow',45,'Warm up the spine with your breath.'),
+        P('Lying hamstring stretch',45,'Towel around your foot, leg straight up, other leg long.','right'), P('Lying hamstring stretch',45,'Towel around your foot, leg straight up, other leg long.','left'),
+        P('Knee to chest',30,'Hug one knee in.','right'), P('Knee to chest',30,'Hug one knee in.','left'),
+        P('Glute bridge',30,'Lift hips, squeeze glutes, lower slowly. Repeat.'),
+        P('Half split',45,'Front leg straight, hinge forward with a flat back.','right'), P('Half split',45,'Front leg straight, hinge forward with a flat back.','left'),
+        P('Seated forward fold',45,'Bend your knees as much as needed; lead with your chest.'),
+        P('Child’s pose',45,'Rest and breathe.'),
+      ]},
+      {id:'deep', name:'Deep hips', poses:[
+        P('Deep squat hold',40,'Heels down (on a book if needed), elbows pressing knees out. Hold a counter for balance.'),
+        P('Low lunge',45,'Back knee down, sink your hips.','right'), P('Low lunge',45,'Back knee down, sink your hips.','left'),
+        P('Pigeon or figure-4',60,'Breathe slowly; let the hip soften.','right'), P('Pigeon or figure-4',60,'Breathe slowly; let the hip soften.','left'),
+        P('Figure-4 stretch (lying)',45,'Pull the thigh toward you.','right'), P('Figure-4 stretch (lying)',45,'Pull the thigh toward you.','left'),
+        P('Reclined butterfly',60,'Let gravity open your hips.'),
+        P('Legs up the wall',60,'Hips close to the wall, legs resting up it.'),
+      ]},
+    ]},
+  'stretch-50': {
+    title:'Gentle Mobility 50+', icon:'🌿', kind:'flows', cat:'stretch', perWeek:3, total:18, defaultMode:'addon', addonOnly:true, ageHint:50,
+    forWho:'For older adults or anyone who wants a gentler routine. Chair and wall support, longer easy holds.',
+    blurb:'Chair, standing-with-support, and lying routines that keep everyday moves easy — turning, bending, reaching.',
+    source:STRETCH_SOURCE, howTo:'Warm up first with a few minutes of walking. Hold a chair or counter for balance. Hold each stretch 30–60 seconds without bouncing; breathe normally and stop if anything hurts.',
+    flows:[
+      {id:'chair', name:'Chair routine', poses:[
+        P('Chin tucks',30,'Slide your chin straight back, hold 3 seconds, repeat.'),
+        P('Seated neck release',30,'Ear toward shoulder, slowly.','right'), P('Seated neck release',30,'Ear toward shoulder, slowly.','left'),
+        P('Shoulder rolls',30,'Slow circles backward.'),
+        P('Seated twist',30,'Sit tall, turn gently, look over your shoulder.','right'), P('Seated twist',30,'Sit tall, turn gently, look over your shoulder.','left'),
+        P('Seated hamstring stretch',45,'One leg out straight, heel down, lean forward with a tall back.','right'), P('Seated hamstring stretch',45,'One leg out straight, heel down, lean forward with a tall back.','left'),
+        P('Seated figure-4',45,'Ankle on the opposite knee if comfortable, sit tall.','right'), P('Seated figure-4',45,'Ankle on the opposite knee if comfortable, sit tall.','left'),
+        P('Ankle circles',30,'Lift one foot and circle each way, then switch.'),
+        P('Wrist circles and stretch',30,'Circle both ways, then press palms together.'),
+      ]},
+      {id:'stand', name:'Standing with support', poses:[
+        P('Marching in place',40,'Hold a counter, lift knees gently.'),
+        P('Wall calf stretch',45,'Hands on the wall, back heel down.','right'), P('Wall calf stretch',45,'Hands on the wall, back heel down.','left'),
+        P('Standing quad stretch',30,'Hold the counter; use a towel around your ankle if needed.','right'), P('Standing quad stretch',30,'Hold the counter; use a towel around your ankle if needed.','left'),
+        P('Standing side bend',30,'Hand on the counter, reach the other arm up and over.','right'), P('Standing side bend',30,'Hand on the counter, reach the other arm up and over.','left'),
+        P('Doorway chest stretch',30,'Forearm on the door frame, step through gently.','right'), P('Doorway chest stretch',30,'Forearm on the door frame, step through gently.','left'),
+        P('Mountain with overhead reach',30,'Stand tall and reach up.'),
+      ]},
+      {id:'lying', name:'Lying down (bed or floor)', poses:[
+        P('Knee to chest',45,'Hug one knee in, other leg long.','right'), P('Knee to chest',45,'Hug one knee in, other leg long.','left'),
+        P('Lying hamstring stretch',45,'Towel around your foot, raise the leg until you feel a gentle stretch.','right'), P('Lying hamstring stretch',45,'Towel around your foot, raise the leg until you feel a gentle stretch.','left'),
+        P('Supine twist',30,'Knees to one side slowly.','right'), P('Supine twist',30,'Knees to one side slowly.','left'),
+        P('Glute bridge',30,'Lift hips a few inches, lower slowly. Repeat.'),
+        P('Rest',60,'Lie still and breathe.'),
+      ]},
+    ]},
+  'stretch-injury': {
+    title:'Easing Back After Injury', icon:'🩹', kind:'flows', cat:'stretch', perWeek:3, total:12, defaultMode:'addon', addonOnly:true,
+    forWho:'Gentle, pain-free range of motion once your doctor or physical therapist says it’s OK to move again.',
+    blurb:'Short, very gentle routines to get moving again. Skip anything that involves the injured area until you’re cleared.',
+    source:STRETCH_SOURCE + ' Post-injury guidance from HSS, Children’s Hospital Colorado and others: start only when pain has changed from sharp to mild soreness, stay pain-free, and follow your PT’s plan.',
+    howTo:'This is not a replacement for physical therapy. Only start once you’ve been cleared and the pain is soreness rather than sharp. Move slowly in a pain-free range, hold lightly (about 20–30 s), and stop right away if you feel sharp pain. Skip any stretch that loads the injured area.',
+    flows:[
+      {id:'upper', name:'Gentle upper body', poses:[
+        P('Shoulder rolls',30,'Small, slow circles. Stay pain-free.'),
+        P('Chin tucks',30,'Slide your chin back gently.'),
+        P('Arm circles',30,'Tiny circles only, as far as is comfortable.'),
+        P('Doorway chest stretch',20,'Very light — just a mild stretch.','right'), P('Doorway chest stretch',20,'Very light — just a mild stretch.','left'),
+        P('Cat-cow',40,'Small, easy movements with your breath.'),
+        P('Child’s pose',40,'Use pillows as needed; breathe slowly.'),
+      ]},
+      {id:'lower', name:'Gentle lower body', poses:[
+        P('Ankle circles',30,'Slow circles both ways, each foot.'),
+        P('Knee to chest',20,'Hug the knee only as far as is pain-free.','right'), P('Knee to chest',20,'Hug the knee only as far as is pain-free.','left'),
+        P('Glute bridge',30,'Small lift, slow lower.'),
+        P('Lying hamstring stretch',20,'Towel around the foot, a mild stretch only.','right'), P('Lying hamstring stretch',20,'Towel around the foot, a mild stretch only.','left'),
+        P('Supine twist',20,'Knees just a little to each side.','right'), P('Supine twist',20,'Knees just a little to each side.','left'),
+        P('Reclined butterfly',40,'Support your knees with pillows.'),
+      ]},
+      {id:'easy', name:'Whole-body easy', poses:[
+        P('Marching in place',40,'Easy pace, hold a counter.'),
+        P('Hip circles',30,'Small, slow circles.'),
+        P('Mountain with overhead reach',30,'Reach up only as high as is comfortable.'),
+        P('Standing side bend',20,'A small lean each way.','right'), P('Standing side bend',20,'A small lean each way.','left'),
+        P('Wall calf stretch',20,'Gentle, heel down.','right'), P('Wall calf stretch',20,'Gentle, heel down.','left'),
+        P('Standing breath',30,'Feet hip-width, three slow breaths.'),
+      ]},
+    ]},
+});
+PROGRAMS.calisthenics.cat = 'strength'; PROGRAMS.yoga.cat = 'mind'; PROGRAMS.meditation.cat = 'mind';
+const PROG_CATS = [['strength','Strength'],['mind','Mind & body'],['stretch','Stretching & mobility']];
+
 const medStages = entry => { const g = entry.goalMin || 10; const L = PROGRAMS.meditation.ladder.filter(m=>m<=g); if(L[L.length-1]!==g) L.push(g); return L; };
 const medMin = entry => medStages(entry)[Math.min(entry.stage||0, medStages(entry).length-1)];
 const prTotal = entry => { const def = prDef(entry.id); return def.kind==='meditate' ? medStages(entry).length * def.perStage : def.total; };
@@ -2847,7 +3075,7 @@ function prSessions(entry){ return S.workouts.filter(w=>w.date>=entry.started &&
 function suggestedDays(def, mode){
   const pl = plan(), used = pl ? pl.days.map(d=>d.weekday) : [];
   if(def.perWeek>=7) return [...WEEK];
-  const spread = {2:['Mon','Thu'],3:['Mon','Wed','Fri'],4:['Mon','Tue','Thu','Fri']}[def.perWeek] || ['Mon','Wed','Fri'];
+  const spread = {2:['Mon','Thu'],3:['Mon','Wed','Fri'],4:['Mon','Tue','Thu','Fri'],5:['Mon','Tue','Wed','Thu','Fri']}[def.perWeek] || ['Mon','Wed','Fri'];
   if(mode==='replace') return used.length>=def.perWeek ? used.slice(0, def.perWeek) : spread;
   const rest = WEEK.filter(w=>!used.includes(w));
   // add-on: rest days first, then plan days
@@ -3122,14 +3350,16 @@ function programsSectionHtml(){
         ${def.kind!=='flows' ? practiceButtons('pr', entry.id) : (S.user&&FB?`<div class="row" style="margin-top:10px"><button class="btn sm" data-askcoach="pr:${entry.id}">💬 Ask the coach</button></div>`:'')}
         ${practiceHtml('pr', entry.id)}
       </div>`; }).join('')}
-    ${avail.length ? `<div class="card">${avail.map(([id,def])=>{ const open = S.prStart===id; const mode = S.prMode || def.defaultMode; const days = S.prDays || suggestedDays(def, mode);
+    ${avail.length ? PROG_CATS.map(([cat,label])=>{ const items = avail.filter(([,d])=>(d.cat||'strength')===cat); if(!items.length) return '';
+      return `<div class="hint progcat">${label.toUpperCase()}</div><div class="card">${items.map(([id,def])=>{ const open = S.prStart===id; const mode = S.prMode || def.defaultMode; const days = S.prDays || suggestedDays(def, mode);
       return `<div class="msopt"><div class="row" style="justify-content:space-between;align-items:flex-start"><div style="flex:1"><b>${def.icon} ${esc(def.title)}</b>${st.done.some(d=>d.id===id)?' <span class="chip on">✓ done</span>':''}
-          <div class="small muted">${esc(def.blurb)}</div><div class="hint">${def.kind==='meditate' ? 'Daily · 3 min to start, build to your goal' : `${def.perWeek}×/week · ${def.total} sessions`}</div></div>
+          ${def.ageHint && +p.age>=def.ageHint ? '<span class="chip on" style="margin-left:4px">Good fit for you</span>':''}
+          <div class="small muted">${esc(def.blurb)}</div>${def.forWho?`<div class="small" style="margin-top:2px">${esc(def.forWho)}</div>`:''}<div class="hint">${def.kind==='meditate' ? 'Daily · 3 min to start, build to your goal' : `${def.perWeek}×/week · ${def.total} sessions`}</div></div>
           <button class="btn sm" data-propen="${id}">${open?'Close':'Start'}</button></div>
         ${open ? `<div style="margin-top:10px">
           ${def.kind==='meditate' ? `<div class="small muted" style="margin:0 0 4px">Build up to how many minutes a day?</div>
             <div class="seg">${def.goals.map(g=>`<input type="radio" id="mg-${g}" name="medgoal" value="${g}" ${(+S.prGoal||10)===g?'checked':''}><label for="mg-${g}">${g} min</label>`).join('')}</div>
-            <div class="hint" style="margin:6px 0">10 minutes a day is a great goal for most people; you can change it later. It’s added on top of your plan.</div>` : `
+            <div class="hint" style="margin:6px 0">10 minutes a day is a great goal for most people; you can change it later. It’s added on top of your plan.</div>` : def.addonOnly ? `<div class="hint" style="margin:0 0 6px">Added on top of your plan — sessions show up on the days you pick.</div>${def.cat==='stretch'?`<div class="hint" style="margin:0 0 6px">${esc(def.howTo)}</div>`:''}` : `
           <div class="seg">
             <input type="radio" id="pm-add" name="prmode" value="addon" ${mode==='addon'?'checked':''}><label for="pm-add">Add on top</label>
             <input type="radio" id="pm-rep" name="prmode" value="replace" ${mode==='replace'?'checked':''} ${hasReplace?'disabled':''}><label for="pm-rep">Replace my plan</label>
@@ -3138,7 +3368,7 @@ function programsSectionHtml(){
           <div class="small muted" style="margin:8px 0 4px">Which days? (${def.perWeek>=7?'every day is best':def.perWeek+' recommended'})</div>
           <div class="seg daypick">${WEEK.map(w=>`<input type="checkbox" id="pd-${w}" value="${w}" ${days.includes(w)?'checked':''}><label for="pd-${w}">${w}</label>`).join('')}</div>
           <button class="btn primary block" data-prgo="${id}" style="margin-top:10px">Start ${esc(def.title)}</button></div>` : ''}
-      </div>`; }).join('')}</div>` : ''}
+      </div>`; }).join('')}</div>`; }).join('') : ''}
   `;
 }
 function bindPrograms(){
@@ -4215,7 +4445,7 @@ COACHING MODE (profile exists)
   {"type":"set_milestone_level","id":"<active milestone id>","level":<level number, 1 = first>,"label":"Go back to knee push-ups"}
   {"type":"create_milestone","title":"25 push-ups in a row","exercise":"<exercise id from the library, reps or holds — not cardio>","target":<number of reps, or seconds for holds>,"label":"Start: 25 push-ups in a row"}
   {"type":"stop_milestone","id":"<active milestone id>","label":"Stop the pull-up milestone"}
-  {"type":"start_program","id":"calisthenics|yoga|meditation","mode":"addon|replace","days":["Mon","Wed","Fri"],"label":"Add yoga on your rest days"}   (meditation: add "goal": 10|15|20|30 minutes a day; it's always add-on and best daily)
+  {"type":"start_program","id":"calisthenics|yoga|meditation|stretch-desk|stretch-warmup|stretch-cooldown|stretch-hips|stretch-50|stretch-injury","mode":"addon|replace","days":["Mon","Wed","Fri"],"label":"Add yoga on your rest days"}   (meditation: add "goal": 10|15|20|30 minutes a day; it's always add-on and best daily)
   {"type":"stop_program","id":"<active program id>","label":"Stop calisthenics"}
 - PROGRAMS: multi-week routines. "calisthenics" = Calisthenics Foundations (bodyweight push/pull/legs/core, each levels up separately; good as a replacement plan for bodyweight or home users). "yoga" = Yoga for Busy Parents (short guided flows: morning, desk reset, post-workout, evening; great on rest days, as an add-on). "addon" keeps their plan and adds sessions on the chosen days; "replace" swaps their plan for the program (their old plan comes back if they stop it).
 - MILESTONES: short programs toward a goal (first push-up, first pull-up, run a mile, or custom "N in a row" / "hold N seconds"). Practice blocks are added to plan days automatically and level up when logged sets hit the goal. Use the ACTIVE MILESTONES data to coach them: technique, staying at a level, repeating a level (set_milestone_level), or skipping ahead. When they finish one (see COMPLETED MILESTONES) or ask what's next, suggest a realistic next challenge with create_milestone (e.g. after a first push-up: 10 then 25 in a row) or a built-in with start_milestone. Keep custom targets achievable in a few weeks.
