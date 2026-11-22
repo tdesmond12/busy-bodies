@@ -597,7 +597,7 @@ E('Wall Push-Up','push_h','none',1,'Hands on the wall at shoulder height, body s
 E('Countertop Push-Up','push_h','none',1,'Hands on a kitchen counter (about 3 ft high), body in a straight line.','m');
 E('Waist-High Push-Up','push_h','none',1,'Hands on a sturdy table or desk around waist height.','m');
 E('Knee Push-Up','push_h','none',1,'On your knees, hips in line with your shoulders — no bending at the waist.','m');
-E('Knee-High Elevated Push-Up','push_h','none',2,'Hands on a step or low bench about knee height, full plank position.','m');
+E('Knee-High Elevated Push-Up','push_h','none',1,'Hands on a sturdy step, low bench or couch edge about knee height, full plank position, chest to the edge.','m');
 E('Negative Push-Up','push_h','none',1,'Start at the top of a hard push-up and lower as slowly as you can (5+ seconds). Reset any way you like.','m');
 E('Dead Hang','pull_v','bar',1,'Hang from the bar with straight arms, shoulders active (not shrugged to your ears).','tm');
 E('Scapular Pull-Up','pull_v','bar',1,'From a dead hang, pull your shoulder blades down and back without bending your elbows.','m');
@@ -661,8 +661,27 @@ const EXBY = Object.fromEntries(EX.map(e=>[e.id,e]));
 // Retired exercises → their replacements (old plans and logs keep working).
 const EX_RENAMED = {'inverted-table-row':'towel-door-row', 'feet-elevated-table-row':'single-arm-towel-door-row'};
 for(const [o,n] of Object.entries(EX_RENAMED)) Object.defineProperty(EXBY, o, {value:EXBY[n], enumerable:false});
+// Milestone level order changes: keep each person on the same exercise they were doing.
+// v2 (Nov 22, 2026): first-pushup knee-high step moved before knee push-ups (levels 3 and 4 swapped).
+const MS_ORDER = {'first-pushup':2};
+function migrateMilestoneOrder(acc){
+  const ms = acc && acc.milestones; if(!ms) return false; ms.order = ms.order || {}; let changed = false;
+  if((ms.order['first-pushup']||1) < 2){
+    const sw = l => l===3 ? 4 : l===4 ? 3 : l;
+    for(const m of ms.active||[]) if(m.id==='first-pushup'){ m.level = sw(m.level); delete m.ready; }
+    for(const e of ms.events||[]) if(e.id==='first-pushup' && typeof e.level==='number') e.level = sw(e.level);
+    ms.order['first-pushup'] = 2; changed = true;
+  }
+  return changed;
+}
+// Logged sessions store a level index; re-derive it from the exercise so history stays right after reorders.
+function normalizeMsLevels(workouts){
+  for(const w of workouts||[]) for(const e of w.exercises||[]){ if(!e.ms) continue; const def = MILESTONES[e.ms.id]; if(!def) continue;
+    const i = def.levels.findIndex(l=>l.ex===e.id); if(i>=0) e.ms.level = i; }
+  return workouts;
+}
 function migrateExerciseIds(acc){
-  if(!acc) return false; let changed = false;
+  if(!acc) return false; let changed = migrateMilestoneOrder(acc);
   const fixDays = pl => (pl && pl.days || []).forEach(d=>{ d.exercises = (d.exercises||[]).map(id=>{ if(EX_RENAMED[id]){ changed = true; return EX_RENAMED[id]; } return id; }); });
   fixDays(acc.plan); fixDays(acc.programs && acc.programs.savedPlan); Object.values(acc.weekPlans||{}).forEach(fixDays);
   return changed;
@@ -3185,8 +3204,8 @@ const MILESTONES = {
       {ex:'wall-push-up', name:'Wall push-up', sets:3, plan:'3–4 sets × 5–10', goal:{reps:10}},
       {ex:'countertop-push-up', name:'Countertop push-up', sets:3, plan:'3–4 sets × 5–10', goal:{reps:10}},
       {ex:'waist-high-push-up', name:'Waist-high push-up', sets:3, plan:'3–4 sets × 5–10', goal:{reps:10}},
+      {ex:'knee-high-elevated-push-up', name:'Knee-high push-up', sets:3, plan:'3–4 sets × 5–10', goal:{reps:10}},
       {ex:'knee-push-up', name:'Knee push-up', sets:3, plan:'3–4 sets × 5–10', goal:{reps:10}},
-      {ex:'knee-high-elevated-push-up', name:'Knee-high elevated push-up', sets:3, plan:'3–4 sets × 5–10', goal:{reps:10}},
       {ex:'push-up', name:'Your first full push-up', sets:3, plan:'3–4 attempts — one clean rep wins it', goal:{reps:1}},
     ],
     next:[{title:'10 push-ups in a row', exercise:'push-up', target:10},{title:'25 push-ups in a row', exercise:'push-up', target:25}],
@@ -3230,7 +3249,7 @@ const MILESTONES = {
 
 const relDay = d => { const t = prettyDate(d); return /^(Today|Yesterday)$/.test(t) ? t.toLowerCase() : t; };
 const msState = () => {
-  const m = S.account.milestones || (S.account.milestones = {});
+  const m = S.account.milestones || (S.account.milestones = {order:{...MS_ORDER}});
   m.active = m.active || []; m.done = m.done || []; m.custom = m.custom || {}; m.events = m.events || [];
   return m;
 };
@@ -4025,7 +4044,7 @@ async function importData(e){
         await S.store.clearDays();
         for(const [date, day] of Object.entries(pendingImport.days)) if(/^\d{4}-\d{2}-\d{2}$/.test(date)) await S.store.saveDay(date, day);
       }
-      S.account = await S.store.getAccount(); if(migrateExerciseIds(S.account)) S.store.saveAccount(S.account).catch(()=>{}); S.workouts = await S.store.listWorkouts(); S.days = {}; S.monthsLoaded = {}; pendingImport = null; renderBadge();
+      S.account = await S.store.getAccount(); if(migrateExerciseIds(S.account)) S.store.saveAccount(S.account).catch(()=>{}); S.workouts = normalizeMsLevels(await S.store.listWorkouts()); S.days = {}; S.monthsLoaded = {}; pendingImport = null; renderBadge();
       toast('Backup restored'); viewProfile();
     };
   }catch(err){ pendingImport = null; msg.textContent = 'That file isn’t a valid backup.'; }
@@ -4076,7 +4095,7 @@ async function doSignOut(){ if(FB){ await FB.A.signOut(FB.auth); toast('Signed o
 
 async function useLocal(){
   S.user = null; S.store = localBackend(); S.draft = null; S.days = {}; S.nDate = null; S.monthsLoaded = {}; S.calSel = null; S.calMonth = null;
-  S.account = await S.store.getAccount(); if(migrateExerciseIds(S.account)) S.store.saveAccount(S.account).catch(()=>{}); S.workouts = await S.store.listWorkouts(); S.chat = [];
+  S.account = await S.store.getAccount(); if(migrateExerciseIds(S.account)) S.store.saveAccount(S.account).catch(()=>{}); S.workouts = normalizeMsLevels(await S.store.listWorkouts()); S.chat = [];
   S.ready = true; renderBadge(); route();
 }
 async function useCloud(user){
