@@ -2720,7 +2720,9 @@ const POSE_FIG = {'Child’s pose':'child','Cat-cow':'catcow','Downward dog':'do
   'Doorway chest stretch':'doorway','Standing side bend':'sidebend','Half-kneeling hip flexor stretch':'lowlunge','Wall calf stretch':'calf','Knee to chest':'kneechest',
   'Marching in place':'march','Arm circles':'tpose','Leg swings':'legswing','Hip circles':'hipcircle','Bodyweight squats':'squat','Deep squat hold':'squat','Lunge with reach':'lowlunge',
   'Inchworm':'downdog','Torso twists':'tpose','Walking lunges':'lowlunge','Calf raises':'mountain','Ankle rocks':'calf','Wall slides':'reach','Arm swings across chest':'tpose',
-  'Cross-body shoulder stretch':'eagle','Overhead triceps stretch':'reach','Lying hamstring stretch':'supineham','Figure-4 stretch (lying)':'fig4','Glute bridge':'bridge'};
+  'Cross-body shoulder stretch':'eagle','Overhead triceps stretch':'reach','Lying hamstring stretch':'supineham','Figure-4 stretch (lying)':'fig4','Glute bridge':'bridge',
+  'Hip hinge':'fold','Hip hinge with club':'fold','Club rotations':'tpose','Lunge with rotation':'lowlunge','Open book':'supinetwist','Side leg swings':'legswing','Trail-shoulder stretch':'eagle',
+  'Kneel to stand':'lowlunge','90/90 hip switch':'crosslegged','Adductor rock':'catcow','Floor sit to stand':'crosslegged','Sit to stand':'seated','Bear crawl hold':'catcow'};
 const poseFig = (p, cls='') => { const q = FIG_POSES[POSE_FIG[p.name]]; return q ? `<div class="${cls} ${p.side==='left'?'fig-mirror':''}">${figSVG(q)}</div>` : ''; };
 
 // ---------- Programs (multi-week routines) ----------
@@ -3048,6 +3050,79 @@ Object.assign(PROGRAMS, {
         P('Standing side bend',20,'A small lean each way.','right'), P('Standing side bend',20,'A small lean each way.','left'),
         P('Wall calf stretch',20,'Gentle, heel down.','right'), P('Wall calf stretch',20,'Gentle, heel down.','left'),
         P('Standing breath',30,'Feet hip-width, three slow breaths.'),
+      ]},
+    ]},
+});
+
+Object.assign(PROGRAMS, {
+  'stretch-golf': {
+    title:'Golfer’s Mobility', icon:'⛳', kind:'flows', cat:'stretch', perWeek:3, total:12, defaultMode:'addon', addonOnly:true,
+    forWho:'For golfers: hips, upper back and shoulders that turn freely, so your low back doesn’t have to compensate.',
+    blurb:'A pre-round warm-up for the range or first tee, a post-round stretch, and a rotation routine for home.',
+    source:'Built from Mayo Clinic golf stretches and its golf physical therapist’s pre-round warm-up, Titleist Performance Institute (TPI) advice to warm up before stretching, and Washington University Orthopedics’ golf warm-up sheet (short 2–5 s moving reps before play, 20–30 s holds at home).',
+    howTo:'Before a round: walk 5 minutes, then do the warm-up with short, moving reps (a club works as a prop). After a round or at home: hold each stretch about 30 seconds. Gentle — no bouncing, and stop if anything hurts.',
+    flows:[
+      {id:'pre', name:'Pre-round warm-up', poses:[
+        P('Marching in place',40,'Walk or march to get warm first.'),
+        P('Leg swings',30,'Hold your club or cart, swing forward and back.','right'), P('Leg swings',30,'Hold your club or cart, swing forward and back.','left'),
+        P('Side leg swings',30,'Swing across your body and out to the side.','right'), P('Side leg swings',30,'Swing across your body and out to the side.','left'),
+        P('Hip hinge with club',40,'Club along your spine (head, upper back, tailbone touching it). Push hips back, chest down, stand up.'),
+        P('Club rotations',40,'Club across your shoulders in golf posture. Turn back and through, smooth and easy.'),
+        P('Arm circles',30,'Small to big, both directions.'),
+        P('Lunge with rotation',30,'Step into a lunge and turn your chest toward the front leg. Alternate.'),
+        P('Bodyweight squats',30,'Easy reps to finish waking up the legs.'),
+        P('Wrist circles and stretch',30,'Circle both ways, then gently stretch each palm back and forward.'),
+      ]},
+      {id:'post', name:'Post-round stretch', poses:[
+        P('Half-kneeling hip flexor stretch',30,'Back knee down, squeeze the glute, hips forward.','right'), P('Half-kneeling hip flexor stretch',30,'Back knee down, squeeze the glute, hips forward.','left'),
+        P('Seated figure-4',30,'On a bench or cart seat: ankle on the opposite thigh, lean forward with a tall back.','right'), P('Seated figure-4',30,'On a bench or cart seat: ankle on the opposite thigh, lean forward with a tall back.','left'),
+        P('Trail-shoulder stretch',30,'In golf posture, hold your elbow and pull the arm across your chest.','right'), P('Trail-shoulder stretch',30,'In golf posture, hold your elbow and pull the arm across your chest.','left'),
+        P('Doorway chest stretch',30,'Forearm on a post or door frame, turn away gently.','right'), P('Doorway chest stretch',30,'Forearm on a post or door frame, turn away gently.','left'),
+        P('Lying hamstring stretch',30,'Towel around your foot, leg up.','right'), P('Lying hamstring stretch',30,'Towel around your foot, leg up.','left'),
+        P('Supine twist',30,'Knees to one side, arms wide.','right'), P('Supine twist',30,'Knees to one side, arms wide.','left'),
+      ]},
+      {id:'rotate', name:'Rotation & back (home)', poses:[
+        P('Cat-cow',45,'Move one segment of your spine at a time.'),
+        P('Thread the needle',30,'Slide one arm under, shoulder to the floor, then reach it up to the ceiling.','right'), P('Thread the needle',30,'Slide one arm under, shoulder to the floor, then reach it up to the ceiling.','left'),
+        P('Open book',30,'Lie on your side, knees bent, arms together in front. Open the top arm across to the other side and follow it with your eyes.','right'), P('Open book',30,'Lie on your side, knees bent, arms together in front. Open the top arm across to the other side and follow it with your eyes.','left'),
+        P('Seated twist',30,'Sit tall, turn from your ribs.','right'), P('Seated twist',30,'Sit tall, turn from your ribs.','left'),
+        P('Pigeon or figure-4',45,'Front shin across, hips square.','right'), P('Pigeon or figure-4',45,'Front shin across, hips square.','left'),
+        P('Sphinx',30,'Forearms down, chest lifted, gentle on the low back.'),
+        P('Child’s pose',40,'Walk your hands to one side, then the other, to stretch your lats.'),
+      ]},
+    ]},
+  'stretch-parent': {
+    title:'Active Parent Mobility', icon:'🧸', kind:'flows', cat:'stretch', perWeek:4, total:16, defaultMode:'addon', addonOnly:true,
+    forWho:'For parents (and grandparents) who want to get down on the floor, keep up, and lift and carry kids without back pain.',
+    blurb:'Get-down-and-up practice, lifting and carrying prep, and a quick nap-time reset.',
+    source:'Built from physical-therapist guidance on getting up and down from the floor (Hinge Health, Livestrong with Lee Hanses, PT), Harvard Health’s advice on avoiding injury while caring for kids, and ACSM stretching guidelines.',
+    howTo:'Do these on the floor while the kids play — they’ll probably join in. When you lift a child: squat down, bend your knees, keep your back straight and the child close, then lift straight up. To get down to the floor, kneel first, then sit; to get up, roll to hands and knees, then kneel and stand.',
+    flows:[
+      {id:'floor', name:'Floor-ready (down & up)', poses:[
+        P('Deep squat hold',40,'Heels down (on a book if needed), elbows pressing knees out. Hold a couch for balance.'),
+        P('90/90 hip switch',40,'Sit with both knees bent to one side, then swing them to the other side. Slow and controlled.'),
+        P('Adductor rock',40,'On hands and knees, one leg out to the side. Rock your hips back toward your heel and forward.'),
+        P('Half-kneeling hip flexor stretch',30,'Back knee down, hips forward.','right'), P('Half-kneeling hip flexor stretch',30,'Back knee down, hips forward.','left'),
+        P('Kneel to stand',40,'From kneeling, step one foot forward and stand up, then kneel back down. Alternate legs; hold something if needed.'),
+        P('Floor sit to stand',45,'Sit on the floor, then get up the way the coach described: roll to hands and knees, kneel, stand. Repeat slowly.'),
+        P('Child’s pose',40,'Rest and breathe.'),
+      ]},
+      {id:'lift', name:'Lift & carry prep', poses:[
+        P('Hip hinge',40,'Hands on hips, soft knees, push your hips back with a flat back, then stand tall. This is your lifting pattern.'),
+        P('Bodyweight squats',40,'Sit back and down, chest up, then stand.'),
+        P('Glute bridge',30,'Lift hips, squeeze glutes, lower slowly. Strong glutes protect your back when lifting.'),
+        P('Cat-cow',40,'Arch and round with your breath.'),
+        P('Doorway chest stretch',30,'Undo all that forward holding and carrying.','right'), P('Doorway chest stretch',30,'Undo all that forward holding and carrying.','left'),
+        P('Cross-body shoulder stretch',30,'Pull one arm across your chest.','right'), P('Cross-body shoulder stretch',30,'Pull one arm across your chest.','left'),
+        P('Wrist circles and stretch',30,'Great for wrists sore from lifting a baby or car seat.'),
+      ]},
+      {id:'nap', name:'Nap-time reset', poses:[
+        P('Chin tucks',30,'Undo the phone-and-baby head tilt. Slide your chin straight back.'),
+        P('Shoulder rolls',30,'Big slow circles backward.'),
+        P('Standing side bend',30,'Reach up and over.','right'), P('Standing side bend',30,'Reach up and over.','left'),
+        P('Wall calf stretch',30,'Back heel down.','right'), P('Wall calf stretch',30,'Back heel down.','left'),
+        P('Standing forward fold',30,'Soft knees, hang heavy.'),
+        P('Standing breath',30,'Three slow breaths before the next round.'),
       ]},
     ]},
 });
@@ -4445,7 +4520,7 @@ COACHING MODE (profile exists)
   {"type":"set_milestone_level","id":"<active milestone id>","level":<level number, 1 = first>,"label":"Go back to knee push-ups"}
   {"type":"create_milestone","title":"25 push-ups in a row","exercise":"<exercise id from the library, reps or holds — not cardio>","target":<number of reps, or seconds for holds>,"label":"Start: 25 push-ups in a row"}
   {"type":"stop_milestone","id":"<active milestone id>","label":"Stop the pull-up milestone"}
-  {"type":"start_program","id":"calisthenics|yoga|meditation|stretch-desk|stretch-warmup|stretch-cooldown|stretch-hips|stretch-50|stretch-injury","mode":"addon|replace","days":["Mon","Wed","Fri"],"label":"Add yoga on your rest days"}   (meditation: add "goal": 10|15|20|30 minutes a day; it's always add-on and best daily)
+  {"type":"start_program","id":"calisthenics|yoga|meditation|stretch-desk|stretch-warmup|stretch-cooldown|stretch-hips|stretch-50|stretch-injury|stretch-golf|stretch-parent","mode":"addon|replace","days":["Mon","Wed","Fri"],"label":"Add yoga on your rest days"}   (meditation: add "goal": 10|15|20|30 minutes a day; it's always add-on and best daily)
   {"type":"stop_program","id":"<active program id>","label":"Stop calisthenics"}
 - PROGRAMS: multi-week routines. "calisthenics" = Calisthenics Foundations (bodyweight push/pull/legs/core, each levels up separately; good as a replacement plan for bodyweight or home users). "yoga" = Yoga for Busy Parents (short guided flows: morning, desk reset, post-workout, evening; great on rest days, as an add-on). "addon" keeps their plan and adds sessions on the chosen days; "replace" swaps their plan for the program (their old plan comes back if they stop it).
 - MILESTONES: short programs toward a goal (first push-up, first pull-up, run a mile, or custom "N in a row" / "hold N seconds"). Practice blocks are added to plan days automatically and level up when logged sets hit the goal. Use the ACTIVE MILESTONES data to coach them: technique, staying at a level, repeating a level (set_milestone_level), or skipping ahead. When they finish one (see COMPLETED MILESTONES) or ask what's next, suggest a realistic next challenge with create_milestone (e.g. after a first push-up: 10 then 25 in a row) or a built-in with start_milestone. Keep custom targets achievable in a few weeks.
