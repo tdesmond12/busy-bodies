@@ -206,7 +206,7 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .mssched select{width:auto;min-height:0;padding:5px 8px;font-size:13px}
 .minmark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text);opacity:.55;border-radius:1px}
 .progcat{margin:16px 4px 6px;font-weight:700;letter-spacing:.08em}
-.progfold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:12px 14px;margin:16px 0 6px;background:var(--panel);border:1px solid var(--line);border-radius:14px}
+.progfold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:12px 14px;margin:10px 0 6px;background:var(--panel);border:1px solid var(--line);border-radius:14px}
 .progfold>summary::-webkit-details-marker{display:none}
 .progfold>summary::after{content:'▾';margin-left:auto;font-size:14px;transition:transform .2s}
 .progfold:not([open])>summary::after{transform:rotate(-90deg)}
@@ -3441,8 +3441,8 @@ function programsSectionHtml(){
         ${practiceHtml('pr', entry.id)}
       </div>`; }).join('')}
     ${avail.length ? PROG_CATS.map(([cat,label])=>{ const items = avail.filter(([,d])=>(d.cat||'strength')===cat); if(!items.length) return '';
-      const fold = cat==='stretch', isOpen = !fold || (S.progCatOpen||{})[cat] || items.some(([id])=>S.prStart===id);
-      return `${fold ? `<details class="progfold" data-progcat="${cat}" ${isOpen?'open':''}><summary class="hint progcat">${label.toUpperCase()} <span class="pfcount">${items.length} routines</span></summary>` : `<div class="hint progcat">${label.toUpperCase()}</div>`}<div class="card">${items.map(([id,def])=>{ const open = S.prStart===id; const mode = S.prMode || def.defaultMode; const days = S.prDays || suggestedDays(def, mode);
+      const fold = true, isOpen = !fold || (S.progCatOpen||{})[cat] || items.some(([id])=>S.prStart===id);
+      return `${fold ? `<details class="progfold" data-progcat="${cat}" ${isOpen?'open':''}><summary class="hint progcat">${label.toUpperCase()} <span class="pfcount">${items.length} ${cat==='stretch'?'routine':'program'}${items.length===1?'':'s'}</span></summary>` : `<div class="hint progcat">${label.toUpperCase()}</div>`}<div class="card">${items.map(([id,def])=>{ const open = S.prStart===id; const mode = S.prMode || def.defaultMode; const days = S.prDays || suggestedDays(def, mode);
       return `<div class="msopt"><div class="row" style="justify-content:space-between;align-items:flex-start"><div style="flex:1"><b>${def.icon} ${esc(def.title)}</b>${st.done.some(d=>d.id===id)?' <span class="chip on">✓ done</span>':''}
           ${def.ageHint && +p.age>=def.ageHint ? '<span class="chip on" style="margin-left:4px">Good fit for you</span>':''}
           <div class="small muted">${esc(def.blurb)}</div>${def.forWho?`<div class="small" style="margin-top:2px">${esc(def.forWho)}</div>`:''}<div class="hint">${def.kind==='meditate' ? 'Daily · 3 min to start, build to your goal' : `${def.perWeek}×/week · ${def.total} sessions`}</div></div>
