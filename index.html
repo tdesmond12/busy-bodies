@@ -202,6 +202,7 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.minmark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text);opacity:.55;border-radius:1px}
 .progcat{margin:16px 4px 6px;font-weight:700;letter-spacing:.08em}
 .guidelink{display:flex;gap:8px;margin:0 0 12px}
 .guidelink a{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--text);text-decoration:none}
@@ -806,7 +807,11 @@ function bodyStats(p){
   else if(p.goal==='fat_loss' || has(p,'fat_loss')) target = Math.max(tdee-500, p.sex==='male'?1500:1200);
   else if(p.goal==='muscle' || has(p,'muscle')) target = tdee+300;
   const bmiCat = bmi<18.5?'Underweight':bmi<25?'Healthy range':bmi<30?'Overweight':'Obese range';
-  return {bmi, bmiCat, bmr, tdee, target, proteinLo:Math.round(p.weight*0.7), proteinHi:Math.round(p.weight*1.0)};
+  // Protein: fat loss / muscle → 1 g per lb of goal weight (current weight if no goal set), minimum 0.7 g/lb.
+  // Using goal weight keeps the target sensible for people carrying extra weight (ISSN: 1.4–2.0 g/kg; up to 2.3–3.1 g/kg lean mass in a deficit).
+  const goalW = +(S.account && S.account.bodyGoal) || 0, refW = goalW >= 80 ? goalW : p.weight, body = has(p,'fat_loss') || has(p,'muscle') || p.goal==='fat_loss' || p.goal==='muscle';
+  const proteinGoal = Math.round(body ? refW*1.0 : p.weight*0.8), proteinLo = Math.round((body ? Math.min(p.weight, refW) : p.weight)*0.7);
+  return {bmi, bmiCat, bmr, tdee, target, proteinGoal, proteinLo: Math.min(proteinLo, proteinGoal), proteinHi: proteinGoal, proteinBasis: body ? (goalW>=80 ? `1 g per lb of your ${goalW} lb goal weight` : '1 g per lb of body weight') : '0.8 g per lb of body weight'};
 }
 
 // ---------- storage ----------
@@ -1014,10 +1019,11 @@ function saveDaySoon(date){
   }, 700);
 }
 
-function bar(val, goal, label, unit){
-  const pct = goal ? Math.min(100, Math.round(val/goal*100)) : 0;
+function bar(val, goal, label, unit, min){
+  const pct = goal ? Math.min(100, Math.round(val/goal*100)) : 0, mpct = min && goal ? Math.round(min/goal*100) : 0;
   return `<div class="nbar"><div class="row" style="justify-content:space-between"><span class="k">${label}</span><span><b>${Math.round(val).toLocaleString()}</b><span class="muted"> / ${Math.round(goal).toLocaleString()} ${unit}</span></span></div>
-    <div class="track"><div class="fill ${val>=goal?'done':''}" style="width:${pct}%"></div></div></div>`;
+    <div class="track" style="position:relative"><div class="fill ${val>=goal?'done':''}" style="width:${pct}%"></div>${mpct?`<i class="minmark" style="left:${mpct}%" title="Minimum ${min} ${unit}"></i>`:''}</div>
+    ${min?`<div class="hint" style="margin-top:2px">${val>=goal?'Target reached ✓':val>=min?`Minimum reached ✓ · ${Math.round(goal-val)} ${unit} to target`:`Minimum ${min} ${unit} · target ${goal} ${unit}`}</div>`:''}</div>`;
 }
 
 
@@ -1119,7 +1125,7 @@ async function viewNutritionInner(){
   if(!S.sleepLoaded?.[date]){ try{ const got = await S.store.listDaysRange(shiftDate(date,-7), shiftDate(date,-2)); for(const [k,v] of Object.entries(got)) if(!S.days[k]) S.days[k] = {...emptyDay(), ...v}; }catch(e){} (S.sleepLoaded = S.sleepLoaded||{})[date] = 1; }
   if(location.hash!=='#nutrition') return;
   const p = profile(), st = p ? bodyStats(p) : null, t = dayTotals(d), ns = nutritionSettings(), wg = waterGoal();
-  const calGoal = st ? Math.round(st.target/10)*10 : 2000, proGoal = st ? st.proteinLo : 120;
+  const calGoal = st ? Math.round(st.target/10)*10 : 2000, proGoal = st ? st.proteinGoal : 120;
   const suppsDone = ns.supplements.filter(x=>d.supps[x.id]).length;
   const favs = favorites();
   const mealType = S.mealType || (S.mealType = guessMealType());
@@ -1133,7 +1139,7 @@ async function viewNutritionInner(){
       </div>
       <div style="display:grid;gap:12px;margin-top:14px">
         ${bar(t.cal, calGoal, 'Calories', 'cal')}
-        ${bar(t.protein, proGoal, 'Protein', 'g')}
+        ${bar(t.protein, proGoal, 'Protein', 'g', st?st.proteinLo:0)}
         ${macroRowHtml(t, calGoal, proGoal)}
         ${bar(d.water, wg, 'Water', 'oz')}
         ${ns.supplements.length?bar(suppsDone, ns.supplements.length, 'Supplements', 'taken'):''}
@@ -1851,7 +1857,7 @@ function viewProfile(){
         <div class="stat"><div class="k">BMI</div><div class="v">${st.bmi.toFixed(1)}</div><div class="s">${st.bmiCat}</div></div>
         <div class="stat"><div class="k">Resting burn</div><div class="v">${Math.round(st.bmr).toLocaleString()}</div><div class="s">cal/day (BMR)</div></div>
         <div class="stat"><div class="k">Maintenance</div><div class="v">${Math.round(st.tdee/10)*10}</div><div class="s">cal/day estimate</div></div>
-        <div class="stat"><div class="k">Goal calories</div><div class="v">${Math.round(st.target/10)*10}</div><div class="s">${st.proteinLo}–${st.proteinHi} g protein</div></div>
+        <div class="stat"><div class="k">Goal calories</div><div class="v">${Math.round(st.target/10)*10}</div><div class="s">${st.proteinGoal} g protein (min ${st.proteinLo})</div></div>
       </div>
       <div class="disclaimer">Estimates from the Mifflin-St Jeor formula. Check with a doctor before starting a new program.</div>
     </div>`:`<div class="card hero"><h2>Let’s get started</h2><p class="muted" style="margin:0">Add your details here, then set up your workouts on the next tab.${S.user?' Or <a href="#coach">set it all up by chatting with your coach</a>.':''}</p></div>`}
@@ -3994,10 +4000,10 @@ async function viewLog(){
       ${hasNutrition(nd) ? `
         <div class="grid3">
           <div class="stat"><div class="k">Calories</div><div class="v" style="font-size:22px">${t.cal.toLocaleString()}</div><div class="s">${st?`of ${Math.round(st.target/10)*10}`:''}</div></div>
-          <div class="stat"><div class="k">Protein</div><div class="v" style="font-size:22px">${t.protein} g</div><div class="s">${st?`of ${st.proteinLo} g`:''}</div></div>
+          <div class="stat"><div class="k">Protein</div><div class="v" style="font-size:22px">${t.protein} g</div><div class="s">${st?`of ${st.proteinGoal} g`:''}</div></div>
           <div class="stat"><div class="k">Water</div><div class="v" style="font-size:22px">${nd.water} oz</div><div class="s">of ${waterGoal()} oz</div></div>
         </div>
-        <div style="margin-top:8px">${macroRowHtml(t, st?Math.round(st.target):2000, st?st.proteinLo:120)}</div>
+        <div style="margin-top:8px">${macroRowHtml(t, st?Math.round(st.target):2000, st?st.proteinGoal:120)}</div>
         ${fastHtml}
         ${nd.meals.length?`<div class="small" style="margin-top:10px">${nd.meals.map(mm=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(mm.name)} <span class="muted">· ${esc(mm.type)}</span></span><span class="muted" style="text-align:right">${[mm.cal?mm.cal+' cal':'', mm.protein?`${mm.protein}P`:'', mm.carbs?`${mm.carbs}C`:'', mm.fat?`${mm.fat}F`:'', mm.sugar?`${mm.sugar} sugar`:''].filter(Boolean).join(' · ')}</span></div>`).join('')}</div>`:''}
         ${ns.supplements.length?`<div class="small muted" style="margin-top:8px">Supplements: ${ns.supplements.map(x=>`${nd.supps[x.id]?'✓':'○'} ${esc(x.name)}`).join(' · ')}</div>`:''}
@@ -4457,7 +4463,7 @@ function coachContext(){
   lines.push(`AVAILABLE EQUIPMENT: ${(p.gear||[]).map(k=>GEAR[k]).join(', ') || 'none (bodyweight only)'}.`);
   lines.push(`AVAILABLE CARDIO: ${(p.activities||[]).map(k=>ACTIVITIES[k]).join(', ') || 'none listed'}.`);
   lines.push(`GOALS: ${goalsLabel(p)}. MAIN FOCUS: ${GOALS[p.goal].label}. Tailor every recommendation (workouts, cardio, nutrition, programs, milestones) to the whole set of goals, prioritizing the main focus; point out when two goals pull in different directions and how to balance them.`);
-  lines.push(`ESTIMATES: BMI ${st.bmi.toFixed(1)} (${st.bmiCat}), maintenance ~${Math.round(st.tdee)} cal/day, goal ~${Math.round(st.target)} cal/day, protein ${st.proteinLo}-${st.proteinHi} g/day.`);
+  lines.push(`ESTIMATES: BMI ${st.bmi.toFixed(1)} (${st.bmiCat}), maintenance ~${Math.round(st.tdee)} cal/day, goal ~${Math.round(st.target)} cal/day, protein target ${st.proteinGoal} g/day (${st.proteinBasis}; minimum ${st.proteinLo} g).`);
   { const lc = lowCarb(); if(lc) lines.push(`DIET: low-carb (${LOW_CARB[lc.type]?.label||'custom'}), limit ${lc.limit} g ${lc.net?'NET carbs (carbs minus fiber)':'total carbs'} per day.`); }
   if(wkOv) lines.push(`THIS WEEK has a custom one-week plan (${wkOv.how||'custom'}) that replaces their regular plan for this week only; ${wkOv.days.length} workouts. Their regular plan resumes next week.`);
   if(pl) lines.push('CURRENT PLAN (day index: weekday name — exercise ids with prescription):\n' + pl.days.map((d,i)=>`${i}: ${d.weekday} ${d.name} — ` + d.exercises.map(id=>EXBY[id]?`${id} (${rx(EXBY[id],p).text})`:id).join('; ')).join('\n'));
@@ -4725,7 +4731,7 @@ async function weekSummary(w){
   if(prac.length) lines.push(`Program/milestone practice: ${prac.join('; ')}.`);
   const nd = Object.entries(S.days).filter(([k,d])=>k>=w.start && k<=w.end && d.meals && d.meals.length);
   if(nd.length){ const tot = nd.map(([,d])=>dayTotals(d)); const avg = k => Math.round(tot.reduce((a,t)=>a+t[k],0)/tot.length);
-    lines.push(`Nutrition: logged ${nd.length} of 7 days; average ${avg('cal')} cal (target ~${Math.round(st.target)}) and ${avg('protein')} g protein (target ${st.proteinLo}–${st.proteinHi} g); ${avg('carbs')} g carbs, ${avg('sugar')} g sugar, ${avg('fiber')} g fiber (target ~${Math.round(st.target/1000*14)} g), ${avg('fat')} g fat.`); }
+    lines.push(`Nutrition: logged ${nd.length} of 7 days; average ${avg('cal')} cal (target ~${Math.round(st.target)}) and ${avg('protein')} g protein (target ${st.proteinGoal} g, minimum ${st.proteinLo} g); ${avg('carbs')} g carbs, ${avg('sugar')} g sugar, ${avg('fiber')} g fiber (target ~${Math.round(st.target/1000*14)} g), ${avg('fat')} g fat.`); }
   else lines.push('Nutrition: nothing logged this week.');
   if(fastingOn()){ const rs = [...Array(7)].map((_,i)=>fastResult(shiftDate(w.start,i))).filter(Boolean); lines.push(`Fasting (${FAST_PLANS[nutritionSettings().fastPlan||'16']} goal): goal hit ${rs.filter(r=>r.hit).length} of ${rs.length} logged days${rs.length?`, average ${(rs.reduce((a,r)=>a+r.hours,0)/rs.length).toFixed(1)} h`:''}.`); }
   { const ss = [...Array(7)].map((_,i)=>sleepStats(S.days[shiftDate(w.start,i)])).filter(Boolean);
