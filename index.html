@@ -202,6 +202,12 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .levelpick input{accent-color:var(--accent)}
 .celebrate{text-align:center}
 .practice{display:grid;gap:4px;font-size:13px}
+.rtws{display:grid;gap:8px}
+.rtw{padding:8px 10px;border-radius:10px;background:var(--panel2);display:grid;gap:2px}
+.rtw.cur{outline:1.5px solid var(--accent)}
+.chip.ok{background:rgba(198,244,50,.16);color:var(--accent);border-color:transparent}
+.chip.no{background:rgba(255,107,107,.14);color:#ff8a8a;border-color:transparent}
+.progopt.unavail{opacity:.72}
 .mssched{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;margin-top:10px;padding:8px 10px;background:var(--panel2);border-radius:10px}
 .mssched select{width:auto;min-height:0;padding:5px 8px;font-size:13px}
 .minmark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text);opacity:.55;border-radius:1px}
@@ -486,7 +492,7 @@ const withTimeout = (p, ms) => Promise.race([p, new Promise((_,rej)=>setTimeout(
 // ---------- exercise library ----------
 // p = movement pattern, eq = none | db | gym, lvl = 1 beginner … 3 advanced, h = high impact, t = timed (seconds)
 const EX = [];
-function E(name,p,eq,lvl,cue,flags=''){ EX.push({id:name.toLowerCase().replace(/[^a-z0-9]+/g,'-'),name,p,eq,lvl,cue,h:flags.includes('h'),t:flags.includes('t'),ms:flags.includes('m')}); }
+function E(name,p,eq,lvl,cue,flags=''){ EX.push({id:name.toLowerCase().replace(/[^a-z0-9]+/g,'-'),name,p,eq,lvl,cue,h:flags.includes('h'),t:flags.includes('t'),ms:flags.includes('m'),noAuto:flags.includes('n')}); }
 // Squat
 E('Bodyweight Squat','squat','none',1,'Feet shoulder-width, sit hips back and down, chest up, drive through the whole foot.');
 E('Box Squat to Chair','squat','none',1,'Sit back to a sturdy chair, tap it lightly, and stand without rocking.');
@@ -624,6 +630,24 @@ E('Box Pistol Squat','squat','none',3,'One-leg squat down to a chair or couch, t
 E('Tuck L-Sit','core','none',3,'Hands on the floor or two sturdy chairs, push down and lift your hips and tucked knees off the ground.','tm');
 E('Yoga Flow','mobility','none',1,'Move slowly, breathe through your nose, never force a stretch.','m');
 E('Meditation','mobility','none',1,'Sit comfortably, follow the breath, and gently come back each time your mind wanders.','m');
+// Added for lifting programs (n = not auto-picked for generated plans, but you can add them yourself)
+E('Leg Extension','squat','gym',1,'Pad just above your ankles; straighten your knees, squeeze, and lower slowly.','n');
+E('Leg Curl','hinge','gym',1,'Pad just above your heels; curl toward your seat, pause, and lower with control.','n');
+E('Machine Crunch','core','gym',1,'Set the seat so you bend at the waist; curl down by tightening your abs, not pulling with your arms.','n');
+E('Incline Barbell Bench Press','push_h','gym',2,'Bench at 30–45°; lower the bar to your upper chest and press up and slightly back.','n');
+E('Barbell Curl','biceps','gym',1,'Elbows pinned to your sides; curl without swinging and lower slowly.','n');
+E('Skull Crusher','triceps','gym',2,'Lying on a bench, lower the bar toward your forehead by bending only the elbows, then extend.','n');
+E('Dumbbell Chest Fly','push_h','db',2,'Soft bend in the elbows; open your arms wide until you feel a chest stretch, then hug back up.','n');
+E('Hanging Leg Raise','core','bar',2,'Hang still, then lift your knees (or straight legs) toward your chest without swinging.','n');
+E('Dumbbell Shrug','shoulders','db',1,'Arms long; lift your shoulders straight up toward your ears, pause, and lower.','n');
+E('Dumbbell Reverse Lunge','lunge','db',1,'Dumbbells at your sides; step back, lower the back knee toward the floor, drive up through the front foot.','n');
+E('Turkish Get-Up','core','kb',3,'Bell locked out overhead, eyes on it; move from lying to standing and back one step at a time. Learn it light first.','n');
+E('Banded Squat','squat','bands',1,'Stand on the band, handles at your shoulders; squat down and drive up against the band.','n');
+E('Banded Romanian Deadlift','hinge','bands',1,'Stand on the band; push your hips back with a flat back, then squeeze your glutes to stand.','n');
+E('Band Face Pull','shoulders','bands',1,'Anchor at face height; pull toward your eyes with elbows high, squeezing your shoulder blades.','n');
+E('Band Lateral Raise','shoulders','bands',1,'Stand on the band; raise your arms out to shoulder height and lower slowly.','n');
+E('Banded Lateral Walk','hinge','bands',1,'Band around your legs, slight squat; step sideways keeping tension the whole time.','n');
+E('Crunch','core','none',1,'Knees bent, hands by your ears; curl your shoulders up by tightening your abs, then lower.','n');
 
 // ---------- equipment + activities ----------
 const GEAR = {
@@ -646,6 +670,7 @@ const NEEDS = {
   'barbell-back-squat':['barbell'], 'barbell-front-squat':['barbell'], 'barbell-romanian-deadlift':['barbell'], 'conventional-deadlift':['barbell'], 'barbell-reverse-lunge':['barbell'], 'barbell-overhead-press':['barbell'], 'barbell-bent-over-row':['barbell'], 'barbell-bench-press':['barbell','bench'],
   'seated-cable-row':['cable'], 'lat-pulldown':['cable'], 'cable-face-pull':['cable'], 'cable-curl':['cable'], 'cable-triceps-pushdown':['cable'], 'cable-pallof-press':['cable'],
   'pull-up':['pullup'], 'hanging-knee-raise':['pullup'],
+  'leg-extension':['machines'], 'leg-curl':['machines'], 'machine-crunch':['machines'], 'incline-barbell-bench-press':['barbell','bench'], 'barbell-curl':['barbell'], 'skull-crusher':['barbell','bench'], 'dumbbell-chest-fly':['dumbbells','bench'],
   // cardio needs an activity
   'brisk-or-incline-walk':['walk'], 'stair-climbing':['stairs'], 'jog-or-run':['run'], 'jump-rope':['jumprope'], 'stationary-bike':['bike'], 'outdoor-bike-ride':['bike'],
   'elliptical':['elliptical'], 'rowing-machine':['rower'], 'treadmill-incline-walk':['treadmill'], 'swimming':['swim'], 'cardio-of-your-choice':[],
@@ -738,7 +763,7 @@ function pick(pattern, p, rng, used){
   const have = haveSet(p), lvl = +p.level;
   const maxEq = Math.max(0, ...[...have].map(n=>GEAR_RANK[n]||0));
   // only exercises the user has the equipment / activity for — never relaxed
-  const avail = EX.filter(e=>e.p===pattern && canDo(e,p,have) && e.id!=='cardio-of-your-choice' && !e.ms);
+  const avail = EX.filter(e=>e.p===pattern && canDo(e,p,have) && e.id!=='cardio-of-your-choice' && !e.ms && !e.noAuto);
   let c = avail.filter(e=>!(p.lowImpact && e.h));
   if(!c.length) c = avail;
   if(!c.length) return pattern==='cardio' ? EXBY['cardio-of-your-choice'] : null;
@@ -2153,6 +2178,7 @@ function buildPlaySteps(draft, day){
     const ex = EXBY[e.id];
     let target, restS, timed = 0, cardio = false;
     if(e.ms){ const lv = msDef(e.ms.id).levels[e.ms.level]; target = lv.plan; restS = 60; const g = lv.goal||{}; if(g.secs || ex.t) timed = g.secs || 30; }
+    else if(e.prog && e.prog.wk!=null){ const it = routineItem(e.prog) || {}; const en = prState().active.find(x=>x.id===e.prog.id); target = (it.w531||it.fsl) && en ? routineSets(en,it).map(x=>x.reps).filter((v,i,a)=>a.indexOf(v)===i).join(' / ') : String(it.reps||'').replace(/\s*\(.*\)/,''); restS = it.top<=5 ? 150 : 90; if(ex.t) timed = it.top || 30; }
     else if(e.prog && e.prog.track){ const lv = trackLevels(prState().active.find(x=>x.id===e.prog.id)||{tracks:{}}, e.prog.track)[e.prog.level] || {}; target = lv.plan || ''; restS = 75; if(ex.t) timed = (lv.goal||{}).secs || 30; }
     else { const r = rx(ex, p); target = r.text.split(' · rest')[0].replace(/^\d+ ×\s*/,''); restS = restSecs(r.text); if(ex.t){ timed = (/(\d+) sec/.exec(r.text)||[])[1]*1 || 30; } if(ex.p==='cardio'||ex.p==='mobility') cardio = true; }
     target = String(target||'').replace(/^[\d–-]+\s*sets?\s*×\s*/i,'').replace(/^\d+\s*×\s*/,'');
@@ -2160,7 +2186,7 @@ function buildPlaySteps(draft, day){
     const lt = lastTimeOf(e.id), n = e.sets.length || 1, rr = repRange('× '+target);
     for(let j=0;j<n;j++){
       const prev = lt && lt.e.sets[j];
-      steps.push({type:'work', di:i, set:j, sets:n, ex, entry:e, name:ex.name, target, timed, cardio, cue:ex.cue, weight: usesWeight(ex) ? (prev && prev.w) || '' : '', defReps: cardio ? (parseInt(target)||20) : timed || (prev && prev.r) || (rr ? rr.lo : 10), last: prev ? `${prev.w?prev.w+' lb × ':''}${prev.r}${ex.t?' sec':cardio?' min':''}` : '' });
+      steps.push({type:'work', di:i, set:j, sets:n, ex, entry:e, name:ex.name, target, timed, cardio, cue:ex.cue, weight: usesWeight(ex) ? (e.sets[j] && e.sets[j].w) || (prev && prev.w) || '' : '', defReps: cardio ? (parseInt(target)||20) : timed || (prev && prev.r) || (rr ? rr.lo : 10), last: prev ? `${prev.w?prev.w+' lb × ':''}${prev.r}${ex.t?' sec':cardio?' min':''}` : '' });
       const lastSet = j===n-1, lastEx = k===exs.length-1;
       if(!(lastSet && lastEx) && !cardio) steps.push({type:'rest', secs: lastSet ? Math.max(restS, 60) : restS, between: lastSet});
     }
@@ -3143,6 +3169,200 @@ Object.assign(PROGRAMS, {
 });
 PROGRAMS.calisthenics.cat = 'strength'; PROGRAMS.yoga.cat = 'mind'; PROGRAMS.meditation.cat = 'mind';
 const PROG_CATS = [['strength','Strength'],['mind','Mind & body'],['stretch','Stretching & mobility']];
+// ===================== Lifting programs from well-known free sources (kind: 'routine') =====================
+// Each workout lists exercises with sets × reps. Equipment needed is worked out from the exercises.
+// R(exercise id, sets, reps, opts): reps like '5', '8–12', '5+' (last set as many as you can). opts.inc = lb added when you hit every rep.
+const R = (ex, sets, reps, o={}) => ({ex, sets, reps, top: Math.max(...String(reps).match(/\d+/g).map(Number)), ...o});
+const W531 = [[[.65,'5'],[.75,'5'],[.85,'5+']], [[.70,'3'],[.80,'3'],[.90,'3+']], [[.75,'5'],[.85,'3'],[.95,'1+']]];
+Object.assign(PROGRAMS, {
+  'stronglifts': { title:'StrongLifts 5×5', icon:'🏋️', kind:'routine', cat:'strength', level:'Beginner', perWeek:3, weeks:12, total:36, minutes:45, defaultMode:'replace',
+    blurb:'The classic barbell starter: two alternating full-body workouts, three days a week, adding a little weight every session.',
+    source:'Based on StrongLifts 5×5 by Mehdi Hadim.', url:'https://stronglifts.com/stronglifts-5x5/workout-program/',
+    warmup:'5 min easy cardio, then 2 light warm-up sets of each lift (empty bar ×5, then about half your work weight ×5).',
+    howTo:'Alternate Workout A and B (A/B/A one week, B/A/B the next). Start light. When you get all 5 sets of 5, add 5 lb next time (10 lb on deadlift). Miss reps? Repeat the weight. Rest 1.5–3 min between sets.',
+    workouts:[
+      {name:'Workout A', ex:[R('barbell-back-squat',5,'5'), R('barbell-bench-press',5,'5'), R('barbell-bent-over-row',5,'5')]},
+      {name:'Workout B', ex:[R('barbell-back-squat',5,'5'), R('barbell-overhead-press',5,'5'), R('conventional-deadlift',1,'5',{inc:10})]},
+    ]},
+  'starting-strength': { title:'Starting Strength (novice)', icon:'🏋️', kind:'routine', cat:'strength', level:'Beginner', perWeek:3, weeks:12, total:36, minutes:45, defaultMode:'replace',
+    blurb:'Mark Rippetoe’s novice barbell program: squat every session, alternate the presses, and one heavy set of deadlifts.',
+    source:'Based on the Starting Strength novice program (Phase 1), via Lift Vault.', url:'https://liftvault.com/programs/strength/starting-strength-spreadsheet/',
+    warmup:'Empty bar for 2 sets of 5, then 2–3 lighter sets working up to your work weight.',
+    howTo:'Alternate Workout A and B, three days a week on non-back-to-back days. Do 3 sets of 5 at one weight (deadlift 1 set of 5). Add 5 lb each session you get every rep (10 lb on deadlift early on).',
+    workouts:[
+      {name:'Workout A', ex:[R('barbell-back-squat',3,'5'), R('barbell-overhead-press',3,'5'), R('conventional-deadlift',1,'5',{inc:10})]},
+      {name:'Workout B', ex:[R('barbell-back-squat',3,'5'), R('barbell-bench-press',3,'5'), R('conventional-deadlift',1,'5',{inc:10})]},
+    ]},
+  'greyskull': { title:'Greyskull LP (Phrak’s)', icon:'🏋️', kind:'routine', cat:'strength', level:'Beginner', perWeek:3, weeks:12, total:36, minutes:45, defaultMode:'replace',
+    blurb:'Linear progression with a last set “as many reps as you can,” plus chin-ups and rows for a more balanced upper body.',
+    source:'Based on Phrak’s Greyskull LP (from John Sheaffer’s Greyskull LP), via Lift Vault.', url:'https://liftvault.com/programs/best-full-body-workout-routines/',
+    warmup:'A few light ramp-up sets on each lift before your work sets.',
+    howTo:'Alternate A and B. Do 2 sets of 5, then a last set of as many reps as you can (5+). Add 2.5–5 lb to upper-body lifts and 5–10 lb to lower-body lifts each time you get at least 5 on the last set; if you get 10 or more, add double. If you miss, drop the weight about 10% and build back up.',
+    workouts:[
+      {name:'Workout A', ex:[R('barbell-overhead-press',3,'5+',{inc:2.5}), R('chin-up',3,'5+',{inc:0}), R('barbell-back-squat',3,'5+')]},
+      {name:'Workout B', ex:[R('barbell-bench-press',3,'5+',{inc:2.5}), R('barbell-bent-over-row',3,'5+',{inc:2.5}), R('conventional-deadlift',1,'5+')]},
+    ]},
+  'wendler-531b': { title:'5/3/1 for Beginners', icon:'🏋️', kind:'routine', cat:'strength', level:'Beginner–Intermediate', perWeek:3, weeks:12, total:36, minutes:60, defaultMode:'replace',
+    blurb:'Jim Wendler’s full-body version of 5/3/1: two main lifts a session on a 3-week wave, plus simple push, pull and leg work.',
+    source:'Based on Jim Wendler’s 5/3/1 for Beginners, via Lift Vault.', url:'https://liftvault.com/programs/strength/5-3-1-for-beginners/',
+    warmup:'Jumps, mobility, then 40%, 50% and 60% of your training max for 5, 5, 3 reps.',
+    howTo:'Each main lift uses a training max (90% of your best single). Week 1 is 5/5/5+, week 2 is 3/3/3+, week 3 is 5/3/1+ (last set as many as you can), then 5 sets of 5 at the first set’s weight. After each 3-week cycle add 5 lb (upper) or 10 lb (lower) to the training max. The app works out your training max from your logged lifts; for your first week, pick weights you could do for about 8.',
+    workouts:[
+      {name:'Day 1 · Squat + bench', ex:[R('barbell-back-squat',3,'5/3/1',{w531:true}), R('barbell-back-squat',5,'5',{fsl:true}), R('barbell-bench-press',3,'5/3/1',{w531:true}), R('barbell-bench-press',5,'5',{fsl:true}), R('push-up',5,'10–20',{inc:0}), R('barbell-bent-over-row',5,'10',{inc:5}), R('reverse-lunge',3,'10–15',{inc:0})]},
+      {name:'Day 2 · Deadlift + press', ex:[R('conventional-deadlift',3,'5/3/1',{w531:true}), R('conventional-deadlift',5,'5',{fsl:true}), R('barbell-overhead-press',3,'5/3/1',{w531:true}), R('barbell-overhead-press',5,'5',{fsl:true}), R('push-up',5,'10–20',{inc:0}), R('barbell-bent-over-row',5,'10',{inc:5}), R('plank',3,'30–60',{inc:0})]},
+      {name:'Day 3 · Bench + squat', ex:[R('barbell-bench-press',3,'5/3/1',{w531:true}), R('barbell-bench-press',5,'5',{fsl:true}), R('barbell-back-squat',3,'5/3/1',{w531:true}), R('barbell-back-squat',5,'5',{fsl:true}), R('push-up',5,'10–20',{inc:0}), R('barbell-bent-over-row',5,'10',{inc:5}), R('reverse-lunge',3,'10–15',{inc:0})]},
+    ]},
+  'gzclp': { title:'GZCLP', icon:'🏋️', kind:'routine', cat:'strength', level:'Beginner–Intermediate', perWeek:4, weeks:12, total:48, minutes:60, defaultMode:'replace',
+    blurb:'Cody Lefever’s tiered beginner program: one heavy lift (T1), one lighter volume lift (T2) and an accessory (T3) each day.',
+    source:'Based on GZCLP by Cody Lefever (u/gzcl), via Lift Vault and the r/Fitness wiki.', url:'https://liftvault.com/programs/best-full-body-workout-routines/',
+    warmup:'Light ramp-up sets on the T1 lift.',
+    howTo:'Run the 4 days in order, 3 or 4 times a week. T1: 5×3 with the last set as many as you can — add weight each session; if you miss, switch to 6×2, then 10×1 at the same weight, then retest. T2: 3×10 — add weight each session; if you miss, go to 3×8, then 3×6. T3: 3×15+ — add weight when the last set reaches 25.',
+    workouts:[
+      {name:'Day 1 · Squat', ex:[R('barbell-back-squat',5,'3+',{tier:'T1'}), R('barbell-bench-press',3,'10',{tier:'T2'}), R('lat-pulldown',3,'15+',{tier:'T3', top:25})]},
+      {name:'Day 2 · Press', ex:[R('barbell-overhead-press',5,'3+',{tier:'T1', inc:2.5}), R('conventional-deadlift',3,'10',{tier:'T2'}), R('one-arm-dumbbell-row',3,'15+',{tier:'T3', top:25})]},
+      {name:'Day 3 · Bench', ex:[R('barbell-bench-press',5,'3+',{tier:'T1'}), R('barbell-back-squat',3,'10',{tier:'T2'}), R('lat-pulldown',3,'15+',{tier:'T3', top:25})]},
+      {name:'Day 4 · Deadlift', ex:[R('conventional-deadlift',5,'3+',{tier:'T1', inc:10}), R('barbell-overhead-press',3,'10',{tier:'T2', inc:2.5}), R('one-arm-dumbbell-row',3,'15+',{tier:'T3', top:25})]},
+    ]},
+  'reddit-ppl': { title:'Reddit PPL (6-day)', icon:'🏋️', kind:'routine', cat:'strength', level:'Beginner–Intermediate', perWeek:6, weeks:12, total:72, minutes:60, defaultMode:'replace',
+    blurb:'The r/Fitness push/pull/legs routine: heavy barbell lifts plus plenty of accessory work, six days a week.',
+    source:'Based on u/metallicadpa’s PPL from r/Fitness, via Lift Vault.', url:'https://liftvault.com/programs/strength/reddit-ppl/',
+    warmup:'5 min easy cardio, then ramp-up sets on the first lift.',
+    howTo:'Run Pull, Push, Legs, Pull, Push, Legs and rest one day. Main lifts: the last set is as many reps as you can; add 5 lb each session you hit every rep (deadlift 10 lb). Accessories: work from the bottom to the top of the rep range, then add weight. Too much? Run it 3 days a week instead.',
+    workouts:[
+      {name:'Pull A · Deadlift', ex:[R('conventional-deadlift',1,'5+',{inc:10}), R('lat-pulldown',3,'8–12'), R('seated-cable-row',3,'8–12'), R('cable-face-pull',5,'15–20'), R('hammer-curl',4,'8–12'), R('dumbbell-curl',4,'8–12')]},
+      {name:'Push A · Bench', ex:[R('barbell-bench-press',5,'5 (last 5+)'), R('barbell-overhead-press',3,'8–12'), R('incline-dumbbell-press',3,'8–12'), R('cable-triceps-pushdown',3,'8–12'), R('overhead-dumbbell-triceps-extension',3,'8–12'), R('dumbbell-lateral-raise',6,'15–20')]},
+      {name:'Legs A', ex:[R('barbell-back-squat',3,'5 (last 5+)'), R('barbell-romanian-deadlift',3,'8–12'), R('leg-press',3,'8–12',{inc:10}), R('leg-curl',3,'8–12'), R('standing-calf-raise',5,'8–12')]},
+      {name:'Pull B · Row', ex:[R('barbell-bent-over-row',5,'5 (last 5+)'), R('lat-pulldown',3,'8–12'), R('seated-cable-row',3,'8–12'), R('cable-face-pull',5,'15–20'), R('hammer-curl',4,'8–12'), R('dumbbell-curl',4,'8–12')]},
+      {name:'Push B · Press', ex:[R('barbell-overhead-press',5,'5 (last 5+)'), R('barbell-bench-press',3,'8–12'), R('incline-dumbbell-press',3,'8–12'), R('cable-triceps-pushdown',3,'8–12'), R('overhead-dumbbell-triceps-extension',3,'8–12'), R('dumbbell-lateral-raise',6,'15–20')]},
+      {name:'Legs B', ex:[R('barbell-back-squat',3,'5 (last 5+)'), R('barbell-romanian-deadlift',3,'8–12'), R('leg-press',3,'8–12',{inc:10}), R('leg-curl',3,'8–12'), R('standing-calf-raise',5,'8–12')]},
+    ]},
+  'phul': { title:'PHUL (upper/lower)', icon:'🏋️', kind:'routine', cat:'strength', level:'Intermediate', perWeek:4, weeks:12, total:48, minutes:60, defaultMode:'replace',
+    blurb:'Power Hypertrophy Upper Lower: two heavy days and two muscle-building days a week.',
+    source:'Based on PHUL by Brandon Campbell (Muscle & Strength), as laid out by StrengthLog.', url:'https://www.strengthlog.com/phul-workout-routine/',
+    warmup:'5 min easy cardio and a few ramp-up sets on the first lift.',
+    howTo:'Upper power, lower power, rest, upper muscle, lower muscle, then two rest days. Power days: heavy 3–5 reps, rest 3–5 min. Muscle days: 8–12 reps, rest 1–2 min. Add weight once you hit the top of the range on every set.',
+    workouts:[
+      {name:'Upper power', ex:[R('barbell-bench-press',3,'3–5'), R('barbell-bent-over-row',3,'3–5'), R('incline-dumbbell-press',3,'6–10'), R('lat-pulldown',3,'6–10'), R('barbell-overhead-press',2,'5–8'), R('barbell-curl',2,'6–10'), R('skull-crusher',2,'8–12')]},
+      {name:'Lower power', ex:[R('barbell-back-squat',3,'3–5'), R('conventional-deadlift',3,'3–5',{inc:10}), R('bulgarian-split-squat',3,'6–10'), R('leg-curl',3,'6–10'), R('dumbbell-calf-raise',3,'6–10')]},
+      {name:'Upper muscle', ex:[R('incline-barbell-bench-press',3,'8–12'), R('seated-cable-row',3,'8–12'), R('dumbbell-chest-fly',3,'8–12'), R('one-arm-dumbbell-row',3,'8–12'), R('dumbbell-lateral-raise',3,'8–12'), R('dumbbell-curl',3,'8–12'), R('cable-triceps-pushdown',3,'10–15')]},
+      {name:'Lower muscle', ex:[R('barbell-reverse-lunge',3,'8–12'), R('leg-press',3,'8–12',{inc:10}), R('leg-extension',3,'8–12'), R('leg-curl',3,'8–12'), R('dumbbell-calf-raise',3,'8–12'), R('seated-calf-raise-machine',3,'8–12')]},
+    ]},
+  'gym-machines': { title:'Beginner Machine Program', icon:'🏢', kind:'routine', cat:'strength', level:'Beginner', perWeek:2, weeks:8, total:16, minutes:40, defaultMode:'replace',
+    blurb:'Two short full-body workouts a week using gym machines only — a friendly first step into the weight room.',
+    source:'Based on StrengthLog’s Beginner Machine Program.', url:'https://www.strengthlog.com/beginner-machine-program/',
+    warmup:'5–10 min on a bike, rower or elliptical, then a light set on each machine.',
+    howTo:'Alternate A and B with 3–4 days between (for example Monday and Thursday). Start light. When you get every set of 10, go up one small step next time. Rest 1–2 minutes.',
+    workouts:[
+      {name:'Workout A', ex:[R('leg-press',3,'10',{inc:10}), R('leg-extension',2,'10'), R('machine-chest-press',3,'10'), R('seated-cable-row',3,'10'), R('machine-crunch',3,'10')]},
+      {name:'Workout B', ex:[R('leg-press',3,'10',{inc:10}), R('leg-curl',2,'10'), R('machine-shoulder-press',3,'10'), R('lat-pulldown',3,'10'), R('back-extension',3,'10',{inc:0})]},
+    ]},
+  'machines-db-3day': { title:'3-Day Machines & Dumbbells', icon:'🏢', kind:'routine', cat:'strength', level:'Beginner', perWeek:3, weeks:8, total:24, minutes:60, defaultMode:'replace',
+    blurb:'Full-body workouts for gyms with machines and dumbbells but no barbells (Planet Fitness–style).',
+    source:'Based on Muscle & Strength’s 3 Day Full Body Planet Fitness Workout (Smith row and skull crushers swapped for dumbbell versions).', url:'https://www.muscleandstrength.com/workouts/3-day-full-body-planet-fitness-workout',
+    warmup:'5 min easy cardio, then a light set of the first exercise.',
+    howTo:'Do Day 1, 2 and 3 on non-back-to-back days. Pick weights that leave 1–2 reps in the tank. When you reach the top of the rep range on every set, go up a step.',
+    workouts:[
+      {name:'Day 1', ex:[R('goblet-squat',4,'8–12'), R('leg-curl',3,'10–15'), R('standing-calf-raise',2,'15–20'), R('one-arm-dumbbell-row',4,'8–12'), R('lat-pulldown',3,'10–15'), R('incline-dumbbell-press',4,'8–12'), R('dumbbell-lateral-raise',3,'10–15')]},
+      {name:'Day 2', ex:[R('dumbbell-romanian-deadlift',4,'8–12'), R('leg-extension',3,'10–15'), R('assisted-pull-up',4,'8–12'), R('seated-cable-row',3,'10–15'), R('dumbbell-shoulder-press',4,'8–12'), R('dumbbell-bench-press',3,'10–15'), R('overhead-dumbbell-triceps-extension',3,'8–12'), R('dumbbell-curl',3,'8–12')]},
+      {name:'Day 3', ex:[R('leg-press',4,'8–12',{inc:10}), R('dumbbell-walking-lunge',3,'10–15'), R('standing-calf-raise',2,'15–20'), R('chest-supported-dumbbell-row',4,'8–12'), R('cable-face-pull',3,'10–15'), R('push-up',3,'10–15',{inc:0}), R('close-grip-push-up',3,'8–12',{inc:0}), R('cable-curl',3,'8–12')]},
+    ]},
+  'dumbbell-ppl': { title:'Dumbbell PPL', icon:'💪', kind:'routine', cat:'strength', level:'Beginner–Intermediate', perWeek:3, weeks:12, total:36, minutes:45, defaultMode:'replace',
+    blurb:'Push, pull and legs with just dumbbells, a bench and a pull-up bar. Run it 3 days a week (or 6 if you have time).',
+    source:'Based on the Dumbbell PPL from r/Fitness (u/gregariousHermit), via Lift Vault.', url:'https://liftvault.com/programs/bodybuilding/dumbbell-ppl-program-push-pull-legs-from-r-fitness/',
+    warmup:'5 min easy cardio and a light set of the first exercise.',
+    howTo:'Pick weights you can lift at least 8 times. Do 3 sets of as many reps as you can, up to 12. When you get 12 on all 3 sets, go heavier. Stuck at the same numbers 3 sessions in a row? Drop about 10% and build back up.',
+    workouts:[
+      {name:'Push', ex:[R('dumbbell-bench-press',3,'8–12'), R('dumbbell-chest-fly',3,'8–12'), R('arnold-press',3,'8–12'), R('overhead-dumbbell-triceps-extension',3,'8–12'), R('hanging-leg-raise',3,'8–12',{inc:0})]},
+      {name:'Pull', ex:[R('pull-up',3,'8–12',{inc:0}), R('one-arm-dumbbell-row',3,'8–12'), R('dumbbell-rear-delt-fly',3,'8–12'), R('dumbbell-curl',3,'8–12'), R('dumbbell-shrug',3,'8–12'), R('hanging-leg-raise',3,'8–12',{inc:0})]},
+      {name:'Legs', ex:[R('goblet-squat',3,'8–12'), R('dumbbell-walking-lunge',3,'8–12'), R('single-leg-dumbbell-rdl',3,'8–12'), R('dumbbell-calf-raise',3,'8–12'), R('hanging-leg-raise',3,'8–12',{inc:0})]},
+    ]},
+  'dumbbell-beginner': { title:'Beginner Dumbbell Program', icon:'💪', kind:'routine', cat:'strength', level:'Beginner', perWeek:3, weeks:8, total:24, minutes:30, defaultMode:'replace',
+    blurb:'Six simple dumbbell exercises in two short workouts — about 30 minutes, at home with just a pair of dumbbells.',
+    source:'Based on StrengthLog’s Beginner Dumbbell Program (floor press instead of a bench press).', url:'https://www.strengthlog.com/beginner-dumbbell-program/',
+    warmup:'5 min of marching, arm circles and bodyweight squats.',
+    howTo:'Alternate A and B three days a week. Aim for 3 sets of 10. Add reps each time until you get 10 on every set, then move to heavier dumbbells and start around 8.',
+    workouts:[
+      {name:'Workout A', ex:[R('goblet-squat',3,'10'), R('dumbbell-floor-press',3,'10'), R('one-arm-dumbbell-row',3,'10')]},
+      {name:'Workout B', ex:[R('dumbbell-romanian-deadlift',3,'10'), R('dumbbell-reverse-lunge',3,'10'), R('dumbbell-shoulder-press',3,'10')]},
+    ]},
+  'kb-simple-sinister': { title:'Kettlebell Simple & Sinister', icon:'🔔', kind:'routine', cat:'strength', level:'Beginner–Intermediate', perWeek:5, weeks:8, total:40, minutes:20, defaultMode:'addon',
+    blurb:'Two moves, about 20 minutes, most days: 100 one-arm swings and 10 get-ups. Pavel Tsatsouline’s famous kettlebell practice.',
+    source:'Based on Kettlebell Simple & Sinister by Pavel Tsatsouline, via Lift Vault.', url:'https://liftvault.com/programs/strength/simple-sinister-kettlebell-program-spreadsheet-pavel/',
+    warmup:'A few goblet squats, hip bridges and halos with a light bell.',
+    howTo:'Swings: 10 sets of 10, switching hands each set (aim for 5 minutes). Rest a minute. Get-ups: 10 singles, alternating sides (aim for 10 minutes). Use a bell you can handle with clean form, and move up a size once both parts feel smooth on time. Learn the swing and get-up from a coach or good video first.',
+    workouts:[
+      {name:'Swings + get-ups', ex:[R('kettlebell-swing',10,'10',{inc:0}), R('turkish-get-up',10,'1',{inc:0})]},
+    ]},
+  'bands-fullbody': { title:'Resistance Band Full Body', icon:'🎗️', kind:'routine', cat:'strength', level:'Beginner', perWeek:3, weeks:8, total:24, minutes:30, defaultMode:'replace',
+    blurb:'Three full-body sessions a week with a resistance band and your bodyweight — great for home or travel.',
+    source:'Based on the Resistance Band Full Body Workout Plan from Macros Inc.', url:'https://macrosinc.net/workout/resistance-band-full-body-workout-plan/',
+    warmup:'5 min of marching, arm circles and hip circles.',
+    howTo:'Do A, B and C on non-back-to-back days, 3 sets each with 60 seconds rest. The last 2–3 reps should feel hard. Too easy? Stand farther from the anchor, choke up on the band, double it, or use a heavier band. After 4 weeks add pauses and slower lowering.',
+    workouts:[
+      {name:'A · Squat + push', ex:[R('banded-squat',3,'12–15',{inc:0}), R('band-chest-press',3,'12–15',{inc:0}), R('banded-row',3,'12–15',{inc:0}), R('banded-glute-bridge',3,'15',{inc:0}), R('band-pull-apart',3,'15–20',{inc:0}), R('dead-bug',3,'10',{inc:0})]},
+      {name:'B · Hinge + pull', ex:[R('banded-romanian-deadlift',3,'12–15',{inc:0}), R('band-overhead-press',3,'12–15',{inc:0}), R('band-face-pull',3,'15',{inc:0}), R('glute-bridge',3,'15',{inc:0}), R('banded-lateral-walk',3,'10',{inc:0}), R('bird-dog',3,'10',{inc:0})]},
+      {name:'C · Full body', ex:[R('banded-squat',3,'12–15',{inc:0}), R('knee-push-up',3,'10–15',{inc:0}), R('band-lateral-raise',3,'12–15',{inc:0}), R('banded-row',3,'12–15',{inc:0}), R('reverse-lunge',3,'10–12',{inc:0}), R('crunch',3,'15',{inc:0})]},
+    ]},
+});
+PROGRAMS.calisthenics.level = 'Beginner'; PROGRAMS.calisthenics.needs = [];
+// Equipment a program needs (routines: every exercise's needs; others: none — they adapt).
+function prNeeds(def){
+  if(def.kind!=='routine') return def.needs || [];
+  const s = new Set(); for(const w of def.workouts) for(const it of w.ex) for(const n of (EXBY[it.ex]?.needs||[])) s.add(n);
+  return [...s].sort((a,b)=>Object.keys(GEAR).indexOf(a)-Object.keys(GEAR).indexOf(b));
+}
+const prMissing = (def, p=profile()) => { const have = haveSet(p); return prNeeds(def).filter(n=>!have.has(n)); };
+const gearNames = ns => ns.map(n=>GEAR[n]||ACTIVITIES[n]||n).join(', ');
+// Which workout is next, and what to lift.
+const routineNext = entry => { const def = prDef(entry.id); return prSessions(entry) % def.workouts.length; };
+const roundTo = (v, step) => Math.round(v/step)*step;
+function bestE1rm(exId, days=120){
+  const since = shiftDate(todayStr(), -days); let best = 0;
+  for(const w of S.workouts){ if(w.date < since) continue; for(const e of w.exercises) if(e.id===exId) for(const s of e.sets||[]){ const wt = num(s.w), r = num(s.r); if(wt>0 && r>0 && r<=12) best = Math.max(best, wt*(1+r/30)); } }
+  return best;
+}
+// Suggested weight for one routine item: last weight, plus the increment if every set hit the top of the range.
+function routineWeight(it){
+  const ex = EXBY[it.ex]; if(!usesWeight(ex) || it.inc===0) return null;
+  const lt = lastTimeOf(it.ex); if(!lt) return null;
+  const ws = lt.e.sets.map(s=>num(s.w)).filter(Boolean); if(!ws.length) return null;
+  const top = Math.max(...ws), atTop = lt.e.sets.filter(s=>num(s.w)===top);
+  const hit = atTop.length >= Math.min(it.sets, lt.e.sets.length) && atTop.every(s=>num(s.r) >= it.top);
+  return hit ? top + (it.inc ?? 5) : top;
+}
+// Sets (weight + reps text) for an item this session.
+function routineSets(entry, it){
+  if(it.w531 || it.fsl){
+    const wave = W531[Math.floor(prSessions(entry)/3) % 3], e1 = bestE1rm(it.ex), tm = e1 ? e1*0.9 : 0;
+    const rows = it.fsl ? Array.from({length:it.sets}, ()=>[wave[0][0], '5']) : wave;
+    return rows.map(([pct, reps])=>({w: tm ? String(roundTo(tm*pct, 5)) : '', reps, pct}));
+  }
+  const w = routineWeight(it);
+  return Array.from({length:it.sets}, ()=>({w: w ? String(w) : '', reps: it.reps}));
+}
+function routineScheme(entry, it){
+  const ss = routineSets(entry, it), ex = EXBY[it.ex];
+  if(it.w531 || it.fsl){ const sc = it.fsl ? `5×5 @ ${Math.round(ss[0].pct*100)}% (first-set-last)` : ss.map(s=>`${s.reps} @ ${Math.round(s.pct*100)}%`).join(', ');
+    return sc + (ss[0].w ? ` · ${ss.map(s=>s.w).filter((v,i,a)=>a.indexOf(v)===i).join('/')} lb` : ''); }
+  const w = ss[0].w;
+  return `${it.tier?it.tier+' · ':''}${it.sets} × ${it.reps}${ex && ex.t?' sec':''}${w ? ` @ ${w} lb` : ''}`;
+}
+function routineDraftEntries(entry){
+  const def = prDef(entry.id), wk = routineNext(entry);
+  return def.workouts[wk].ex.filter(it=>EXBY[it.ex]).map((it, i)=>({id:it.ex, sets: routineSets(entry, it).map(s=>({w:s.w, r:''})), prog:{id:entry.id, wk, i}}));
+}
+function routineWorkoutsHtml(def, entry){
+  return def.workouts.map((w,wi)=>`<div class="rtw ${entry && routineNext(entry)===wi?'cur':''}"><div class="small" style="font-weight:600">${esc(w.name)}${entry && routineNext(entry)===wi?' <span class="chip on" style="margin-left:4px">Next</span>':''}</div>
+    ${w.ex.filter(it=>EXBY[it.ex]).map(it=>`<div class="small"><span>${esc(EXBY[it.ex].name)}</span> <span class="muted">${esc(entry ? routineScheme(entry,it) : `${it.tier?it.tier+' · ':''}${it.w531?'5/3/1 wave':it.fsl?'5 × 5 (first-set-last)':`${it.sets} × ${it.reps}${EXBY[it.ex].t?' sec':''}`}`)}</span></div>`).join('')}</div>`).join('');
+}
+function routineCardHtml(entry){
+  const def = prDef(entry.id), miss = prMissing(def);
+  return `${miss.length?`<div class="hint" style="color:#ffb547;margin-top:8px">⚠️ Your profile no longer lists: ${esc(gearNames(miss))}. Swap exercises when you log, or update your equipment.</div>`:''}
+    <div class="rtws" style="margin-top:10px">${routineWorkoutsHtml(def, entry)}</div>
+    <div class="hint" style="margin-top:6px">Weights are suggested from your last session: the same weight, or a little more if you hit every rep.</div>`;
+}
+const routineItem = prog => { const def = prDef(prog.id); return def && def.workouts && def.workouts[prog.wk] ? def.workouts[prog.wk].ex[prog.i] : null; };
+
 
 const medStages = entry => { const g = entry.goalMin || 10; const L = PROGRAMS.meditation.ladder.filter(m=>m<=g); if(L[L.length-1]!==g) L.push(g); return L; };
 const medMin = entry => medStages(entry)[Math.min(entry.stage||0, medStages(entry).length-1)];
@@ -3165,7 +3385,7 @@ function prSessions(entry){ return S.workouts.filter(w=>w.date>=entry.started &&
 function suggestedDays(def, mode){
   const pl = plan(), used = pl ? pl.days.map(d=>d.weekday) : [];
   if(def.perWeek>=7) return [...WEEK];
-  const spread = {2:['Mon','Thu'],3:['Mon','Wed','Fri'],4:['Mon','Tue','Thu','Fri'],5:['Mon','Tue','Wed','Thu','Fri']}[def.perWeek] || ['Mon','Wed','Fri'];
+  const spread = {2:['Mon','Thu'],3:['Mon','Wed','Fri'],4:['Mon','Tue','Thu','Fri'],5:['Mon','Tue','Wed','Thu','Fri'],6:['Mon','Tue','Wed','Thu','Fri','Sat']}[def.perWeek] || ['Mon','Wed','Fri'];
   if(mode==='replace') return used.length>=def.perWeek ? used.slice(0, def.perWeek) : spread;
   const rest = WEEK.filter(w=>!used.includes(w));
   // add-on: rest days first, then plan days
@@ -3210,6 +3430,11 @@ function progBlockHtml(entry){
     return `<div class="prblock"><div><b>${def.icon} ${esc(def.title)}</b> <span class="muted small">· session ${Math.min(n+1,prTotal(entry))} of ${prTotal(entry)}</span></div>
       <div class="small">Suggested: ${esc(f.name)} · ${flowMinutes(f)} min</div>
       <div class="row" style="margin-top:8px;gap:6px">${def.flows.map(fl=>`<button class="btn sm ${fl.id===f.id?'primary':''}" data-flow="${entry.id}:${fl.id}">▶ ${esc(fl.name)}</button>`).join('')}</div></div>`; }
+  if(def.kind==='routine'){ const wk = def.workouts[routineNext(entry)];
+    return `<div class="prblock"><div><b>${def.icon} ${esc(def.title)}</b> <span class="muted small">· session ${Math.min(n+1,prTotal(entry))} of ${prTotal(entry)}</span></div>
+      <div class="small" style="margin-top:4px;font-weight:600">${esc(wk.name)}</div>
+      <div class="small" style="margin-top:2px;display:grid;gap:2px">${wk.ex.filter(it=>EXBY[it.ex]).map(it=>`<div>${esc(EXBY[it.ex].name)} <span class="muted">— ${esc(routineScheme(entry,it))}</span></div>`).join('')}</div>
+      <div class="hint">Warm-up: ${esc(def.warmup)}</div></div>`; }
   return `<div class="prblock"><div><b>${def.icon} ${esc(def.title)}</b> <span class="muted small">· session ${Math.min(n+1,prTotal(entry))} of ${prTotal(entry)}</span></div>
     <div class="small" style="margin-top:4px;display:grid;gap:2px">${Object.entries(def.tracks).map(([k,t])=>{ const lv=trackLevels(entry,k)[entry.tracks[k]]; return `<div><span class="muted">${t.label}:</span> ${esc(lv.name)} — ${esc(lv.plan)}</div>`; }).join('')}</div>
     <div class="hint">Warm-up: ${esc(def.warmup)}</div></div>`;
@@ -3219,6 +3444,7 @@ function progDraftEntries(entry, flowId){
   const def = prDef(entry.id);
   if(def.kind==='meditate') return [{id:'meditation', sets:[{w:'', r:String(medMin(entry))}], prog:{id:entry.id, stage:entry.stage||0}}];
   if(def.kind==='flows'){ const f = def.flows.find(x=>x.id===flowId) || nextFlow(entry); return [{id:'yoga-flow', sets:[{w:'', r:String(flowMinutes(f))}], prog:{id:entry.id, flow:f.id}, label:`${def.title}: ${f.name}`}]; }
+  if(def.kind==='routine') return routineDraftEntries(entry);
   return Object.keys(def.tracks).map(k=>{ const lv = trackLevels(entry,k)[entry.tracks[k]]; return {id:lv.ex, sets:blankSets(EXBY[lv.ex], lv.sets||3), prog:{id:entry.id, track:k, level:entry.tracks[k]}}; });
 }
 // After saving: level up program movements and mark programs complete.
@@ -3433,20 +3659,27 @@ function programsSectionHtml(){
               ${entry.ready && entry.ready[k]===entry.tracks[k] && entry.tracks[k]<levels.length-1 ? `<div class="upask"><div><b>🎯 Goal hit!</b> Move up to <b>${esc(levels[entry.tracks[k]+1].name)}</b>?</div>
                 <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button class="btn sm primary" data-prup="${entry.id}:${k}">Move up</button><button class="btn sm" data-prstay="${entry.id}:${k}">Stay</button>${S.user&&FB?`<button class="btn sm" data-prupask="${entry.id}:${k}">💬 Coach</button>`:''}</div></div>` : ''}
               <div class="row" style="margin-top:6px;gap:6px"><button class="btn sm ghost" data-trk="${entry.id}:${k}:-1" ${entry.tracks[k]===0?'disabled':''} style="padding:2px 8px">‹</button><button class="btn sm ghost" data-trk="${entry.id}:${k}:1" ${entry.tracks[k]>=levels.length-1?'disabled':''} style="padding:2px 8px">›</button></div></div>`; }).join('')}</div>`
+          : def.kind==='routine' ? routineCardHtml(entry)
           : `<div style="display:grid;gap:8px;margin-top:10px">${def.flows.map(f=>`<button class="btn" data-flow="${entry.id}:${f.id}" style="text-align:left;width:100%;min-width:0;overflow:hidden"><div style="display:flex;justify-content:space-between"><span>▶ ${esc(f.name)}</span><span class="muted">${flowMinutes(f)} min</span></div>
               <div class="posestrip">${f.poses.filter((p,i,a)=>!(p.side==='left' && a[i-1] && a[i-1].name===p.name)).map(p=>poseFig(p,'ps')).join('')}</div></button>`).join('')}</div>`}
         <details style="margin-top:8px"><summary class="small muted">How it works</summary><div class="small" style="margin-top:6px;display:grid;gap:4px">
-          ${def.warmup?`<div><b>Warm-up:</b> ${esc(def.warmup)}</div>`:''}<div>${esc(def.howTo)}</div><div class="hint">${esc(def.source)}</div></div></details>
+          ${def.warmup?`<div><b>Warm-up:</b> ${esc(def.warmup)}</div>`:''}<div>${esc(def.howTo)}</div><div class="hint">${esc(def.source)}${def.url?` <a href="${def.url}" target="_blank" rel="noopener">Source ↗</a>`:''}</div></div></details>
         ${def.kind!=='flows' ? practiceButtons('pr', entry.id) : (S.user&&FB?`<div class="row" style="margin-top:10px"><button class="btn sm" data-askcoach="pr:${entry.id}">💬 Ask the coach</button></div>`:'')}
         ${practiceHtml('pr', entry.id)}
       </div>`; }).join('')}
-    ${avail.length ? PROG_CATS.map(([cat,label])=>{ const items = avail.filter(([,d])=>(d.cat||'strength')===cat); if(!items.length) return '';
+    ${avail.length ? `<label class="row small" style="gap:8px;margin:12px 4px 0;align-items:center"><input type="checkbox" id="prAvailOnly" ${S.prAvailOnly?'checked':''} style="width:auto;min-height:0"> Only show programs I have the equipment for</label>
+      <div class="hint" style="margin:4px 4px 0">Equipment comes from your profile: ${esc(gearSummary(p))}. <a href="#profile">Change</a></div>` : ''}
+    ${avail.length ? PROG_CATS.map(([cat,label])=>{ const items = avail.filter(([,d])=>(d.cat||'strength')===cat && !(S.prAvailOnly && prMissing(d,p).length)).sort((a,b)=>(prMissing(a[1],p).length?1:0)-(prMissing(b[1],p).length?1:0)); if(!items.length) return '';
       const fold = true, isOpen = !fold || (S.progCatOpen||{})[cat] || items.some(([id])=>S.prStart===id);
       return `${fold ? `<details class="progfold" data-progcat="${cat}" ${isOpen?'open':''}><summary class="hint progcat">${label.toUpperCase()} <span class="pfcount">${items.length} ${cat==='stretch'?'routine':'program'}${items.length===1?'':'s'}</span></summary>` : `<div class="hint progcat">${label.toUpperCase()}</div>`}<div class="card">${items.map(([id,def])=>{ const open = S.prStart===id; const mode = S.prMode || def.defaultMode; const days = S.prDays || suggestedDays(def, mode);
-      return `<div class="msopt"><div class="row" style="justify-content:space-between;align-items:flex-start"><div style="flex:1"><b>${def.icon} ${esc(def.title)}</b>${st.done.some(d=>d.id===id)?' <span class="chip on">✓ done</span>':''}
+      const miss = prMissing(def, p), need = prNeeds(def), canStart = !miss.length;
+      return `<div class="msopt progopt ${canStart?'':'unavail'}"><div class="row" style="justify-content:space-between;align-items:flex-start"><div style="flex:1"><b>${def.icon} ${esc(def.title)}</b>${st.done.some(d=>d.id===id)?' <span class="chip on">✓ done</span>':''}
+          <div style="margin:3px 0">${canStart?'<span class="chip ok">✓ Available</span>':'<span class="chip no">Unavailable</span>'}${def.level?` <span class="chip">${esc(def.level)}</span>`:''}</div>
           ${def.ageHint && +p.age>=def.ageHint ? '<span class="chip on" style="margin-left:4px">Good fit for you</span>':''}
-          <div class="small muted">${esc(def.blurb)}</div>${def.forWho?`<div class="small" style="margin-top:2px">${esc(def.forWho)}</div>`:''}<div class="hint">${def.kind==='meditate' ? 'Daily · 3 min to start, build to your goal' : `${def.perWeek}×/week · ${def.total} sessions`}</div></div>
-          <button class="btn sm" data-propen="${id}">${open?'Close':'Start'}</button></div>
+          <div class="small muted">${esc(def.blurb)}</div>${def.forWho?`<div class="small" style="margin-top:2px">${esc(def.forWho)}</div>`:''}<div class="hint">${def.kind==='meditate' ? 'Daily · 3 min to start, build to your goal' : def.kind==='routine' ? `${def.perWeek}×/week · ${def.weeks} weeks · ~${def.minutes} min` : `${def.perWeek}×/week · ${def.total} sessions`}</div>
+          ${def.kind==='routine' || need.length ? `<div class="hint">Equipment: ${need.length ? need.map(n=>miss.includes(n)?`<b style="color:#ff8a8a">${esc(GEAR[n]||n)}</b>`:esc(GEAR[n]||n)).join(', ') : 'none (bodyweight)'}${miss.length?` · <a href="#profile">Add equipment</a>`:''}</div>` : ''}
+          ${def.kind==='routine' ? `<details style="margin-top:6px"><summary class="small muted">See the workouts</summary><div class="rtws" style="margin-top:6px">${routineWorkoutsHtml(def)}</div><div class="small" style="margin-top:6px">${esc(def.howTo)}</div><div class="hint" style="margin-top:4px">${esc(def.source)} <a href="${def.url}" target="_blank" rel="noopener">Source ↗</a></div></details>` : ''}</div>
+          ${canStart ? `<button class="btn sm" data-propen="${id}">${open?'Close':'Start'}</button>` : '<button class="btn sm" disabled title="Missing equipment">Start</button>'}</div>
         ${open ? `<div style="margin-top:10px">
           ${def.kind==='meditate' ? `<div class="small muted" style="margin:0 0 4px">Build up to how many minutes a day?</div>
             <div class="seg">${def.goals.map(g=>`<input type="radio" id="mg-${g}" name="medgoal" value="${g}" ${(+S.prGoal||10)===g?'checked':''}><label for="mg-${g}">${g} min</label>`).join('')}</div>
@@ -3463,6 +3696,7 @@ function programsSectionHtml(){
   `;
 }
 function bindPrograms(){
+  const pao = document.getElementById('prAvailOnly'); if(pao) pao.onchange = ()=>{ S.prAvailOnly = pao.checked; const y = window.scrollY; viewPlan(); window.scrollTo(0,y); };
   document.querySelectorAll('[data-progcat]').forEach(d=>d.ontoggle=()=>{ S.progCatOpen = {...(S.progCatOpen||{}), [d.dataset.progcat]: d.open}; });
   bindPractice();
   const rer = ()=>{ const y=window.scrollY; viewPlan(); window.scrollTo(0,y); };
@@ -4161,7 +4395,9 @@ function logExHtml(e, i, p){
   const msd = e.ms && msDef(e.ms.id), mlv = msd && msd.levels[e.ms.level];
   const prd = e.prog && prDef(e.prog.id);
   const plv = prd && e.prog.track ? (()=>{ const en = prState().active.find(x=>x.id===e.prog.id); return en ? trackLevels(en, e.prog.track)[e.prog.level] : null; })() : null;
+  const rit = prd && prd.kind==='routine' ? routineItem(e.prog) : null, ren = rit && prState().active.find(x=>x.id===e.prog.id);
   const target = mlv ? `🎯 ${msd.title} · ${mlv.name}: ${mlv.plan} · move up at ${goalText(mlv.goal)}`
+    : rit ? `${prd.icon} ${prd.workouts[e.prog.wk].name}: ${ren ? routineScheme(ren, rit) : `${rit.sets} × ${rit.reps}`}`
     : prd ? (plv ? `${prd.icon} ${prd.tracks[e.prog.track].label}: ${plv.plan} · move up at ${plv.goal.reps||plv.goal.secs}${plv.goal.secs?' s':''} on all ${plv.goal.sets||1} sets` : `${prd.icon} ${esc(e.label||prd.title)} — minutes`)
     : p && ex.p!=='mobility' ? rx(ex,p).text : '';
   return `<div class="logex ${e.ms?'msx':''} ${e.prog?'prx':''}">
@@ -4538,8 +4774,8 @@ function coachContext(){
   lines.push(mst.active.length ? 'ACTIVE MILESTONES:\n' + mst.active.map(m=>{ const def=msDef(m.id); if(!def) return ''; const {best,sessions,lv}=msBestAtLevel(m); return `- id ${m.id}: ${def.title}, practice schedule: ${msSchedLabel(m)}, level ${m.level+1} of ${def.levels.length} (${lv.name}; ${lv.plan}; moves up at ${goalText(lv.goal)}; ${lv.goal.sessions?`${sessions} sessions done`:`best at this level: ${best??'none yet'}`}). Levels: ${def.levels.map((l,i)=>`${i+1}=${l.name}`).join(', ')}`; }).join('\n') : 'ACTIVE MILESTONES: none.');
   if(mst.done.length) lines.push('COMPLETED MILESTONES: ' + mst.done.map(d=>`${d.title} (${d.date})`).join('; '));
   const ps = prState();
-  lines.push(ps.active.length ? 'ACTIVE PROGRAMS:\n' + ps.active.map(e=>{ const def=prDef(e.id); return `- ${e.id}: ${def.title} (${e.mode==='replace'?'replaces their plan':'added on top of their plan'}, on ${e.days.join('/')}, ${prSessions(e)}/${prTotal(e)} sessions)` + (def.kind==='tracks' ? ': ' + Object.entries(def.tracks).map(([k,t])=>`${t.label} level ${e.tracks[k]+1} (${trackLevels(e,k)[e.tracks[k]].name})`).join(', ') : def.kind==='meditate' ? `: currently ${medMin(e)}-minute sessions, building to ${e.goalMin} min/day (ladder ${medStages(e).join('→')}); ${medSessions(e,{atStage:true}).length}/${def.perStage} sessions done at this length` : `: flows ${def.flows.map(f=>`${f.name} ${flowMinutes(f)} min`).join(', ')}`); }).join('\n') : 'ACTIVE PROGRAMS: none.');
-  lines.push('PROGRAMS THEY CAN START: ' + Object.entries(PROGRAMS).filter(([id])=>!ps.active.some(e=>e.id===id)).map(([id,def])=>`${id} = ${def.title} (${def.kind==='meditate'?'daily, 3 min building to 10/15/20/30':`${def.perWeek}x/week, ${def.total} sessions`})`).join('; '));
+  lines.push(ps.active.length ? 'ACTIVE PROGRAMS:\n' + ps.active.map(e=>{ const def=prDef(e.id); return `- ${e.id}: ${def.title} (${e.mode==='replace'?'replaces their plan':'added on top of their plan'}, on ${e.days.join('/')}, ${prSessions(e)}/${prTotal(e)} sessions)` + (def.kind==='routine' ? `: next up ${def.workouts[routineNext(e)].name} (${def.workouts[routineNext(e)].ex.filter(it=>EXBY[it.ex]).map(it=>`${EXBY[it.ex].name} ${routineScheme(e,it)}`).join('; ')})` : '') + (def.kind==='tracks' ? ': ' + Object.entries(def.tracks).map(([k,t])=>`${t.label} level ${e.tracks[k]+1} (${trackLevels(e,k)[e.tracks[k]].name})`).join(', ') : def.kind==='meditate' ? `: currently ${medMin(e)}-minute sessions, building to ${e.goalMin} min/day (ladder ${medStages(e).join('→')}); ${medSessions(e,{atStage:true}).length}/${def.perStage} sessions done at this length` : `: flows ${def.flows.map(f=>`${f.name} ${flowMinutes(f)} min`).join(', ')}`); }).join('\n') : 'ACTIVE PROGRAMS: none.');
+  lines.push('PROGRAMS THEY CAN START (equipment-checked): ' + Object.entries(PROGRAMS).filter(([id,def])=>!ps.active.some(e=>e.id===id) && !prMissing(def).length).map(([id,def])=>`${id} = ${def.title} (${def.kind==='meditate'?'daily, 3 min building to 10/15/20/30':`${def.perWeek}x/week, ${def.total} sessions`})`).join('; '));
   lines.push('BUILT-IN MILESTONES THEY CAN START: ' + Object.entries(MILESTONES).filter(([id,def])=>msEligible(def,p) && !mst.active.some(m=>m.id===id)).map(([id,def])=>`${id} = ${def.title} (levels: ${def.levels.map((l,i)=>`${i+1}=${l.name}`).join(', ')})`).join('; '));
   lines.push(`Workouts logged this week: ${S.workouts.filter(w=>weekStart(parseYmd(w.date)).getTime()===wk).length} of ${pl?pl.days.length:p.days} planned.`);
   // Longer-term pattern data (cheap summary of the last 12 weeks) so the coach can spot habits.
@@ -4581,9 +4817,9 @@ COACHING MODE (profile exists)
   {"type":"set_milestone_schedule","id":"<active milestone id>","mode":"auto|workouts|daily|eod|days","days":["Mon","Wed","Fri"],"label":"Practice push-ups every other day"}   (days only with mode "days"; auto = a few workout days, eod = every other day)
   {"type":"create_milestone","title":"25 push-ups in a row","exercise":"<exercise id from the library, reps or holds — not cardio>","target":<number of reps, or seconds for holds>,"label":"Start: 25 push-ups in a row"}
   {"type":"stop_milestone","id":"<active milestone id>","label":"Stop the pull-up milestone"}
-  {"type":"start_program","id":"calisthenics|yoga|meditation|stretch-desk|stretch-warmup|stretch-cooldown|stretch-hips|stretch-50|stretch-injury|stretch-golf|stretch-parent","mode":"addon|replace","days":["Mon","Wed","Fri"],"label":"Add yoga on your rest days"}   (meditation: add "goal": 10|15|20|30 minutes a day; it's always add-on and best daily)
+  {"type":"start_program","id":"${Object.keys(PROGRAMS).join('|')}","mode":"addon|replace","days":["Mon","Wed","Fri"],"label":"Add yoga on your rest days"}   (meditation: add "goal": 10|15|20|30 minutes a day; it's always add-on and best daily)
   {"type":"stop_program","id":"<active program id>","label":"Stop calisthenics"}
-- PROGRAMS: multi-week routines. "calisthenics" = Calisthenics Foundations (bodyweight push/pull/legs/core, each levels up separately; good as a replacement plan for bodyweight or home users). "yoga" = Yoga for Busy Parents (short guided flows: morning, desk reset, post-workout, evening; great on rest days, as an add-on). "addon" keeps their plan and adds sessions on the chosen days; "replace" swaps their plan for the program (their old plan comes back if they stop it).
+- PROGRAMS: multi-week routines. "calisthenics" = Calisthenics Foundations (bodyweight push/pull/legs/core, each levels up separately; good as a replacement plan for bodyweight or home users). "yoga" = Yoga for Busy Parents (short guided flows: morning, desk reset, post-workout, evening; great on rest days, as an add-on). Lifting programs from well-known free sources (StrongLifts 5×5, Starting Strength, Greyskull LP, 5/3/1 for Beginners, GZCLP, Reddit PPL, PHUL, machine-only, machines & dumbbells, Dumbbell PPL, beginner dumbbell, kettlebell Simple & Sinister, resistance bands) rotate fixed workouts and suggest weights from their last session; only suggest ones listed in PROGRAMS THEY CAN START, which already match their equipment. "addon" keeps their plan and adds sessions on the chosen days; "replace" swaps their plan for the program (their old plan comes back if they stop it).
 - MILESTONES: short programs toward a goal (first push-up, first pull-up, run a mile, or custom "N in a row" / "hold N seconds"). Practice blocks are added to plan days automatically and level up when logged sets hit the goal. Use the ACTIVE MILESTONES data to coach them: technique, staying at a level, repeating a level (set_milestone_level), or skipping ahead. When they finish one (see COMPLETED MILESTONES) or ask what's next, suggest a realistic next challenge with create_milestone (e.g. after a first push-up: 10 then 25 in a row) or a built-in with start_milestone. Keep custom targets achievable in a few weeks.
 - EQUIPMENT RULE: only recommend exercises from the library below and cardio from AVAILABLE CARDIO — this applies to everything you write, not just actions. The library already contains only what this user can do. If the user wants something that needs equipment or an activity they don't have, say so and offer an update_profile action that adds it (e.g. they mention they joined a gym or bought a kettlebell).
 - For swaps, use the same movement pattern when possible. Use ONLY ids from the library.
@@ -4697,7 +4933,7 @@ function validateAction(a){
   if(a.type==='create_milestone'){ const ex=EXBY[a.exercise]; if(!ex || ex.p==='cardio' || !canDo(ex,p) || !(num(a.target)>0) || num(a.target)>500) return null; return {...a, label:a.label||`Start: ${a.title||'new milestone'}`}; }
   if(a.type==='stop_milestone'){ const m=st.active.find(x=>x.id===a.id); if(!m) return null; return {...a, label:a.label||`Stop ${msDef(m.id)?.title}`}; }
   const pst = prState();
-  if(a.type==='start_program'){ const def=PROGRAMS[a.id]; if(!def || pst.active.some(e=>e.id===a.id)) return null; let mode = a.mode==='replace'?'replace':'addon'; if(mode==='replace' && (pst.active.some(e=>e.mode==='replace') || def.addonOnly)) mode='addon';
+  if(a.type==='start_program'){ const def=PROGRAMS[a.id]; if(!def || pst.active.some(e=>e.id===a.id) || prMissing(def).length) return null; let mode = a.mode==='replace'?'replace':'addon'; if(mode==='replace' && (pst.active.some(e=>e.mode==='replace') || def.addonOnly)) mode='addon';
     const days = Array.isArray(a.days) ? a.days.filter(d=>WEEK.includes(d)) : []; return {...a, mode, days: days.length?days:suggestedDays(def,mode), label:a.label||`Start ${def.title}`}; }
   if(a.type==='stop_program'){ const e=pst.active.find(x=>x.id===a.id); if(!e) return null; return {...a, label:a.label||`Stop ${prDef(a.id).title}`}; }
   return null;
