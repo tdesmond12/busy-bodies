@@ -654,6 +654,34 @@ E('Band Face Pull','shoulders','bands',1,'Anchor at face height; pull toward you
 E('Band Lateral Raise','shoulders','bands',1,'Stand on the band; raise your arms out to shoulder height and lower slowly.','n');
 E('Banded Lateral Walk','hinge','bands',1,'Band around your legs, slight squat; step sideways keeping tension the whole time.','n');
 E('Crunch','core','none',1,'Knees bent, hands by your ears; curl your shoulders up by tightening your abs, then lower.','n');
+E('Dumbbell Bent-Over Row','pull_h','db',1,'Hinge forward with a flat back; pull both dumbbells to your hips and squeeze your shoulder blades.','n');
+E('Lying Dumbbell Triceps Extension','triceps','db',2,'On a bench, arms up; bend only the elbows to lower the dumbbells beside your head, then extend.','n');
+E('Dumbbell Leg Curl','hinge','db',2,'Face down on a bench with a dumbbell held between your feet; curl your heels toward your seat slowly.','n');
+E('Dumbbell Deadlift','hinge','db',1,'Dumbbells at your sides; push your hips back, bend your knees, lower to mid-shin and stand tall.','n');
+E('Reverse-Grip Dumbbell Press','push_h','db',2,'On a bench with palms facing you; press up and lower to your lower chest, elbows tucked.','n');
+E('Close-Grip Dumbbell Press','triceps','db',2,'On a bench, dumbbells pressed together over your chest; lower and press, elbows close to your sides.','n');
+E('Zottman Curl','biceps','db',1,'Curl up palms-up, turn palms down at the top, and lower slowly.','n');
+E('Dumbbell Triceps Kickback','triceps','db',1,'Hinge forward, upper arm by your side; straighten your elbow back and squeeze.','n');
+E('Incline Dumbbell Curl','biceps','db',2,'Lie back on an incline bench, arms hanging; curl without moving your upper arms.','n');
+E('Dumbbell Leg Extension','squat','db',2,'Seated at the end of a bench with a light dumbbell between your feet; straighten your knees slowly.','n');
+E('Dumbbell Sumo Squat','squat','db',1,'Wide stance, toes out, one dumbbell held between your legs; sit straight down and stand.','n');
+E('Sliding Leg Curl','hinge','none',2,'On your back, heels on a towel or sliders, hips up; slide your heels in and back out with control.','n');
+E('Single-Leg Hip Thrust','hinge','none',2,'Shoulders on a bench, one foot down; drive your hips up and squeeze your glute at the top.','n');
+E('Lateral Lunge','lunge','none',1,'Step wide to one side, sit back into that hip with the other leg straight, push back to center.','n');
+E('Donkey Kick','hinge','none',1,'On hands and knees; kick one heel up toward the ceiling with a bent knee, squeezing the glute.','n');
+E('Reverse Crunch','core','none',1,'On your back, knees bent; curl your hips off the floor toward your chest, lower slowly.','n');
+E('Lying Leg Raise','core','none',2,'On your back, low back pressed down; lift straight legs to vertical and lower slowly.','n');
+E('Oblique Crunch','core','none',1,'On your back, knees bent; crunch up and twist one elbow toward the opposite knee.','n');
+E('V-Up','core','none',3,'From lying flat, lift straight arms and legs to meet over your hips; tuck your knees to make it easier.','n');
+E('Walking Plank','core','none',2,'From a forearm plank, walk up to a high plank one hand at a time, then back down. Keep hips still.','n');
+E('Half Burpee','core','none',2,'Squat, hands down, jump your feet back to a plank, jump them in and stand — no push-up or jump.','nt');
+E('Dumbbell Swing','hinge','db',2,'Hold one dumbbell by the end; hinge and swing it between your legs, snap your hips to swing it to chest height.','n');
+E('Dumbbell Plank Pull-Through','core','db',2,'In a high plank with a dumbbell beside you; reach under and drag it to the other side without twisting.','n');
+E('Band Woodchopper','core','bands',1,'Anchor the band high; pull it down and across your body while your hips stay square.','n');
+E('Sit-Up','core','none',2,'Knees bent, feet flat, arms crossed on your chest; curl all the way up to sitting and lower with control.','n');
+E('Sit-Up Negative','core','none',1,'Start sitting up, knees bent; lower yourself to the floor as slowly as you can (aim for 5 seconds).','m');
+E('Hand-Assisted Sit-Up','core','none',1,'Sit up while sliding your hands along your thighs to help just enough to get all the way up.','m');
+E('Anchored Sit-Up','core','none',1,'Feet tucked under a couch or held by a partner; sit all the way up with arms crossed and lower slowly.','m');
 
 // ---------- equipment + activities ----------
 const GEAR = {
@@ -677,6 +705,8 @@ const NEEDS = {
   'seated-cable-row':['cable'], 'lat-pulldown':['cable'], 'cable-face-pull':['cable'], 'cable-curl':['cable'], 'cable-triceps-pushdown':['cable'], 'cable-pallof-press':['cable'],
   'pull-up':['pullup'], 'hanging-knee-raise':['pullup'],
   'leg-extension':['machines'], 'leg-curl':['machines'], 'machine-crunch':['machines'], 'incline-barbell-bench-press':['barbell','bench'], 'barbell-curl':['barbell'], 'skull-crusher':['barbell','bench'], 'dumbbell-chest-fly':['dumbbells','bench'],
+  'lying-dumbbell-triceps-extension':['dumbbells','bench'], 'dumbbell-leg-curl':['dumbbells','bench'], 'reverse-grip-dumbbell-press':['dumbbells','bench'], 'close-grip-dumbbell-press':['dumbbells','bench'],
+  'incline-dumbbell-curl':['dumbbells','bench'], 'dumbbell-leg-extension':['dumbbells','bench'], 'single-leg-hip-thrust':['bench'],
   // cardio needs an activity
   'brisk-or-incline-walk':['walk'], 'stair-climbing':['stairs'], 'jog-or-run':['run'], 'jump-rope':['jumprope'], 'stationary-bike':['bike'], 'outdoor-bike-ride':['bike'],
   'elliptical':['elliptical'], 'rowing-machine':['rower'], 'treadmill-incline-walk':['treadmill'], 'swimming':['swim'], 'cardio-of-your-choice':[],
@@ -718,7 +748,7 @@ function migrateMilestoneOrder(acc){
 // Logged sessions store a level index; re-derive it from the exercise so history stays right after reorders.
 function normalizeMsLevels(workouts){
   for(const w of workouts||[]) for(const e of w.exercises||[]){ if(!e.ms) continue; const def = MILESTONES[e.ms.id]; if(!def) continue;
-    const i = def.levels.findIndex(l=>l.ex===e.id); if(i>=0) e.ms.level = i; }
+    const hits = def.levels.map((l,i)=>l.ex===e.id?i:-1).filter(i=>i>=0); if(hits.length===1) e.ms.level = hits[0]; }   // only when the exercise pins down one level
   return workouts;
 }
 function migrateExerciseIds(acc){
@@ -3341,6 +3371,82 @@ Object.assign(PROGRAMS, {
       {name:'C · Full body', ex:[R('banded-squat',3,'12–15',{inc:0}), R('knee-push-up',3,'10–15',{inc:0}), R('band-lateral-raise',3,'12–15',{inc:0}), R('banded-row',3,'12–15',{inc:0}), R('reverse-lunge',3,'10–12',{inc:0}), R('crunch',3,'15',{inc:0})]},
     ]},
 });
+// ----- Dumbbell, bench & band programs -----
+Object.assign(PROGRAMS, {
+  'db-full-3': { title:'Dumbbell Full Body · 3 days', icon:'💪', kind:'routine', cat:'strength', level:'Beginner', perWeek:3, weeks:8, total:24, minutes:45, defaultMode:'replace',
+    blurb:'Three different full-body workouts a week with just dumbbells and a bench. A great first dumbbell program.',
+    source:'Based on Muscle & Strength’s 3 Day Full Body Dumbbell Workout by Josh England.', url:'https://www.muscleandstrength.com/workouts/3-day-full-body-dumbbell-workout',
+    warmup:'5 min easy cardio, then a light set of the first two exercises.',
+    howTo:'Do Day 1, 2 and 3 with a rest day between each (e.g. Mon/Wed/Fri). Lunges and step-ups are reps per leg. Rest 30–60 seconds between sets and finish every set of one exercise before the next. When you get all your sets and reps, move up to the next dumbbell; if you can’t, stay there until you can. Runs for about 8 weeks, then try the 4-day version.',
+    workouts:[
+      {name:'Day 1', ex:[R('dumbbell-front-squat',3,'10'), R('dumbbell-romanian-deadlift',3,'10'), R('dumbbell-bent-over-row',3,'10'), R('dumbbell-bench-press',3,'10'), R('dumbbell-lateral-raise',2,'8'), R('dumbbell-curl',2,'8'), R('lying-dumbbell-triceps-extension',2,'8')]},
+      {name:'Day 2', ex:[R('dumbbell-reverse-lunge',3,'10'), R('dumbbell-leg-curl',3,'10'), R('dumbbell-deadlift',3,'10'), R('dumbbell-shoulder-press',3,'10'), R('dumbbell-chest-fly',2,'8'), R('hammer-curl',2,'8'), R('overhead-dumbbell-triceps-extension',2,'8')]},
+      {name:'Day 3', ex:[R('dumbbell-step-up',3,'10'), R('dumbbell-romanian-deadlift',3,'10'), R('one-arm-dumbbell-row',3,'10'), R('reverse-grip-dumbbell-press',3,'10'), R('dumbbell-rear-delt-fly',2,'8'), R('zottman-curl',2,'8'), R('close-grip-dumbbell-press',2,'8')]},
+    ]},
+  'db-full-4': { title:'Dumbbell Full Body · 4 days', icon:'💪', kind:'routine', cat:'strength', level:'Beginner–Intermediate', perWeek:4, weeks:8, total:32, minutes:50, defaultMode:'replace',
+    blurb:'Three full-body dumbbell workouts (A, B, C) cycled across four days a week, so every muscle gets hit often.',
+    source:'Based on Muscle Evo’s Full Body Dumbbell Workout by Tom Lawson (A/B/C run in order, 4 days a week).', url:'https://muscleevo.net/full-body-dumbbell-workout/',
+    warmup:'1–3 lighter warm-up sets before the first exercise.',
+    howTo:'Run A → B → C → A… on four days (e.g. Mon, Tue, Thu, Fri), picking up next week where you left off. Paired moves (push-ups + rows, RDLs + presses, curls + extensions) can be done back to back with 30–60 s rest. Take sets close to failure. Beat last time each session — more reps, a heavier dumbbell, or an extra set. If the top of a range gets easy, move to a higher range.',
+    workouts:[
+      {name:'Workout A', ex:[R('push-up',3,'20–30',{inc:0}), R('one-arm-dumbbell-row',3,'8–12'), R('bulgarian-split-squat',3,'10–15'), R('dumbbell-romanian-deadlift',3,'10–15'), R('dumbbell-shoulder-press',3,'15–20'), R('hammer-curl',2,'10–15'), R('overhead-dumbbell-triceps-extension',2,'10–15')]},
+      {name:'Workout B', ex:[R('incline-dumbbell-press',3,'8–12'), R('dumbbell-pullover',3,'12–15'), R('dumbbell-reverse-lunge',3,'8–12'), R('sliding-leg-curl',3,'8–12',{inc:0}), R('dumbbell-lateral-raise',3,'15–20'), R('dumbbell-curl',2,'12–15'), R('dumbbell-triceps-kickback',2,'15–20')]},
+      {name:'Workout C', ex:[R('dumbbell-bench-press',3,'10–15'), R('chest-supported-dumbbell-row',3,'10–15'), R('dumbbell-leg-extension',3,'10–15'), R('dumbbell-leg-curl',3,'12–15'), R('dumbbell-rear-delt-fly',3,'12–15'), R('incline-dumbbell-curl',2,'10–15'), R('overhead-dumbbell-triceps-extension',2,'10–15')]},
+    ]},
+  'db-pushpull-4': { title:'Dumbbell Push/Pull · 4 days', icon:'💪', kind:'routine', cat:'strength', level:'Beginner–Intermediate', perWeek:4, weeks:10, total:40, minutes:50, defaultMode:'replace',
+    blurb:'Alternating push and pull days with dumbbells and a bench. Legs are split in: squats and lunges on push days, hinges and curls on pull days.',
+    source:'Based on Muscle Evo’s 4 Day Dumbbell Workout Routine (push/pull) by Tom Lawson.', url:'https://muscleevo.net/?p=21579',
+    warmup:'1–3 lighter warm-up sets before the first exercise.',
+    howTo:'Push A, Pull A, rest, Push B, Pull B, then 2 rest days (e.g. Mon, Tue, Thu, Fri). Rest a couple of minutes between sets and stop each set within a rep or two of failure. Rep ranges are flexible to match the dumbbells you have — once you hit the top of the range on every set, go heavier.',
+    workouts:[
+      {name:'Push A', ex:[R('incline-dumbbell-press',3,'8–12'), R('bulgarian-split-squat',3,'8–12'), R('dumbbell-bench-press',3,'10–15'), R('dumbbell-leg-extension',3,'10–15'), R('dumbbell-lateral-raise',4,'15–20'), R('overhead-dumbbell-triceps-extension',3,'10–15')]},
+      {name:'Pull A', ex:[R('chest-supported-dumbbell-row',3,'8–12'), R('dumbbell-romanian-deadlift',3,'10–15'), R('dumbbell-pullover',3,'12–15'), R('sliding-leg-curl',3,'10–15',{inc:0}), R('dumbbell-curl',3,'12–15'), R('crunch',3,'20–25',{inc:0})]},
+      {name:'Push B', ex:[R('push-up',3,'10+',{inc:0}), R('goblet-squat',3,'10–15'), R('dumbbell-chest-fly',3,'12–15'), R('dumbbell-reverse-lunge',3,'8–12'), R('dumbbell-lateral-raise',4,'15–20'), R('overhead-dumbbell-triceps-extension',3,'10–15')]},
+      {name:'Pull B', ex:[R('one-arm-dumbbell-row',3,'8–12'), R('dumbbell-romanian-deadlift',3,'10–15'), R('dumbbell-rear-delt-fly',3,'12–15'), R('dumbbell-leg-curl',3,'8–12'), R('incline-dumbbell-curl',3,'8–12'), R('reverse-crunch',3,'15–20',{inc:0})]},
+    ]},
+  'dbb-full-3': { title:'Dumbbells & Bands Full Body · 3 days', icon:'🎗️', kind:'routine', cat:'strength', level:'Beginner', perWeek:3, weeks:4, total:12, minutes:35, defaultMode:'replace',
+    blurb:'Short full-body workouts mixing dumbbells, resistance bands and bodyweight. Built for working out at home.',
+    source:'Based on Muscle & Strength’s 3 Day At-Home Workout (bands, dumbbells & bodyweight).', url:'https://www.muscleandstrength.com/workouts/3-day-at-home-womens-workout',
+    warmup:'5 min of marching, arm circles and bodyweight squats.',
+    howTo:'Workouts 1, 2 and 3 on Mon/Wed/Fri (or Tue/Thu/Sat). Rest about 30 seconds between sets and 1 minute between exercises. Pick weights and bands that challenge you with good form. After 4 weeks, try it as a circuit: one set of each exercise in order, rest 30 seconds, repeat.',
+    workouts:[
+      {name:'Workout 1', ex:[R('bodyweight-squat',3,'10',{inc:0}), R('reverse-lunge',3,'10',{inc:0}), R('single-leg-dumbbell-rdl',3,'6'), R('push-up',3,'6–10',{inc:0}), R('band-lat-pulldown',3,'10',{inc:0}), R('one-arm-dumbbell-row',3,'10'), R('plank',3,'30',{inc:0})]},
+      {name:'Workout 2', ex:[R('banded-romanian-deadlift',3,'10',{inc:0}), R('goblet-squat',3,'10'), R('glute-bridge',3,'12',{inc:0}), R('donkey-kick',3,'12',{inc:0}), R('banded-row',3,'10',{inc:0}), R('dumbbell-shoulder-press',3,'8–10'), R('crunch',3,'15',{inc:0})]},
+      {name:'Workout 3', ex:[R('push-up',3,'6–10',{inc:0}), R('dumbbell-lateral-raise',3,'10'), R('band-lat-pulldown',3,'10',{inc:0}), R('one-arm-dumbbell-row',3,'10'), R('bodyweight-squat',3,'10',{inc:0}), R('glute-bridge',3,'15',{inc:0}), R('side-plank',3,'30',{inc:0})]},
+    ]},
+  'dbb-full-4': { title:'Dumbbells & Bands Full Body · 4 days', icon:'🎗️', kind:'routine', cat:'strength', level:'Beginner', perWeek:4, weeks:8, total:32, minutes:40, defaultMode:'replace',
+    blurb:'Four full-body home workouts with dumbbells, bands and a bench, rotating so each week starts with a different one.',
+    source:'Based on Muscle & Strength’s 4 Day At-Home Workout. Workout 3’s middle exercises and the pull-up swap (band pulldown, as the article suggests) were filled in for Busy Bodies.', url:'https://www.muscleandstrength.com/node/50161',
+    warmup:'5 min of marching, arm circles and hip circles.',
+    howTo:'Do the four workouts in order on four days, then keep rotating (next week starts with Workout 4, then 1, 2…). Rest 30–60 seconds between sets. Make it harder over time with a heavier dumbbell, a stronger band or a few more reps.',
+    workouts:[
+      {name:'Workout 1', ex:[R('goblet-squat',4,'10'), R('banded-romanian-deadlift',4,'10',{inc:0}), R('reverse-lunge',3,'15',{inc:0}), R('push-up',3,'6–10',{inc:0}), R('band-lat-pulldown',4,'10',{inc:0}), R('band-overhead-press',3,'10',{inc:0}), R('one-arm-dumbbell-row',3,'10'), R('crunch',3,'15',{inc:0})]},
+      {name:'Workout 2', ex:[R('bodyweight-squat',3,'10',{inc:0}), R('lateral-lunge',3,'8',{inc:0}), R('glute-bridge',3,'12',{inc:0}), R('single-leg-hip-thrust',3,'8–12',{inc:0}), R('band-lat-pulldown',3,'8–12',{inc:0}), R('band-curl',3,'12',{inc:0}), R('lying-leg-raise',3,'15',{inc:0})]},
+      {name:'Workout 3', ex:[R('band-chest-press',3,'12',{inc:0}), R('band-lat-pulldown',3,'12',{inc:0}), R('dumbbell-bench-press',3,'10–12'), R('chest-supported-dumbbell-row',3,'10–12'), R('donkey-kick',3,'12',{inc:0}), R('oblique-crunch',3,'15',{inc:0})]},
+      {name:'Workout 4', ex:[R('dumbbell-sumo-squat',3,'12'), R('single-leg-dumbbell-rdl',3,'12'), R('glute-bridge',3,'12',{inc:0}), R('band-lat-pulldown',3,'8',{inc:0}), R('band-pull-apart',3,'12–15',{inc:0}), R('plank',3,'30',{inc:0})]},
+    ]},
+  'dbb-pushpull-4': { title:'Dumbbells & Bands Push/Pull · 4 days', icon:'🎗️', kind:'routine', cat:'strength', level:'Beginner–Intermediate', perWeek:4, weeks:10, total:40, minutes:55, defaultMode:'replace',
+    blurb:'The dumbbell push/pull split with bands added for the moves dumbbells can’t do well — overhead pulldowns, face pulls and pull-aparts.',
+    source:'Based on Muscle Evo’s 4 Day Dumbbell push/pull routine; band moves added for Busy Bodies (the author notes a vertical pull is the missing piece in a dumbbell-only back day).', url:'https://muscleevo.net/?p=21579',
+    warmup:'Band pull-aparts and arm circles, then 1–3 lighter sets of the first exercise.',
+    howTo:'Push A, Pull A, rest, Push B, Pull B, then 2 rest days. Stop each set a rep or two short of failure. Dumbbells: go heavier once every set hits the top of the range. Bands: step farther from the anchor or use a stronger band.',
+    workouts:[
+      {name:'Push A', ex:[R('incline-dumbbell-press',3,'8–12'), R('bulgarian-split-squat',3,'8–12'), R('dumbbell-bench-press',3,'10–15'), R('dumbbell-leg-extension',3,'10–15'), R('dumbbell-lateral-raise',3,'15–20'), R('band-triceps-pushdown',3,'12–15',{inc:0}), R('band-pull-apart',2,'15–20',{inc:0})]},
+      {name:'Pull A', ex:[R('band-lat-pulldown',3,'10–15',{inc:0}), R('chest-supported-dumbbell-row',3,'8–12'), R('dumbbell-romanian-deadlift',3,'10–15'), R('dumbbell-pullover',3,'12–15'), R('sliding-leg-curl',3,'10–15',{inc:0}), R('dumbbell-curl',3,'12–15'), R('crunch',3,'20–25',{inc:0})]},
+      {name:'Push B', ex:[R('push-up',3,'10+',{inc:0}), R('goblet-squat',3,'10–15'), R('dumbbell-chest-fly',3,'12–15'), R('dumbbell-reverse-lunge',3,'8–12'), R('band-lateral-raise',3,'15–20',{inc:0}), R('overhead-dumbbell-triceps-extension',3,'10–15'), R('band-pull-apart',2,'15–20',{inc:0})]},
+      {name:'Pull B', ex:[R('one-arm-dumbbell-row',3,'8–12'), R('band-lat-pulldown',3,'10–15',{inc:0}), R('dumbbell-romanian-deadlift',3,'10–15'), R('band-face-pull',3,'15–20',{inc:0}), R('dumbbell-leg-curl',3,'8–12'), R('incline-dumbbell-curl',3,'8–12'), R('reverse-crunch',3,'15–20',{inc:0})]},
+    ]},
+  'dbb-legs-core': { title:'Legs & Core (dumbbells + bands)', icon:'🦵', kind:'routine', cat:'strength', level:'Beginner–Intermediate', perWeek:2, weeks:8, total:16, minutes:35, defaultMode:'addon',
+    blurb:'Two leg-and-core sessions you can add to any plan: a tough dumbbell circuit and a band-and-bench glute and core day.',
+    source:'Workout A is based on Coach magazine’s Dumbbell Legs and Core Workout (Shaun Vanheerden). Workout B was written for Busy Bodies with bands, a bench and dumbbells.', url:'https://www.coachweb.com/fitness/workouts/dumbbell-legs-and-core-workout',
+    warmup:'Workout A starts with its own warm-up rounds (lunges with a floor reach + hollow holds). For B: 2 min marching, hip circles and bodyweight squats.',
+    howTo:'Add it twice a week, alternating A and B. Workout A: squats are “1½ reps” (down, halfway up, down again, all the way up); pair the squats with walking planks, and do the lunges + V-ups as one round every 2 minutes; finish with 3 fast rounds of the conditioning moves. Workout B: rest 45–60 s; go heavier or use a stronger band once the reps feel easy.',
+    workouts:[
+      {name:'A · Dumbbell legs & core', ex:[R('reverse-lunge',3,'10',{inc:0}), R('hollow-body-hold',3,'40',{inc:0}), R('dumbbell-front-squat',4,'10–12'), R('walking-plank',4,'16',{inc:0}), R('dumbbell-reverse-lunge',5,'12'), R('v-up',5,'12',{inc:0}), R('half-burpee',3,'60',{inc:0}), R('dumbbell-swing',3,'16'), R('dumbbell-plank-pull-through',3,'12'), R('jump-squat',3,'8',{inc:0})]},
+      {name:'B · Bands & bench glutes + core', ex:[R('bulgarian-split-squat',3,'8–12'), R('dumbbell-hip-thrust',3,'10–12'), R('banded-romanian-deadlift',3,'12–15',{inc:0}), R('banded-lateral-walk',3,'10',{inc:0}), R('band-pallof-press',3,'10',{inc:0}), R('band-woodchopper',3,'10',{inc:0}), R('dead-bug',3,'10',{inc:0})]},
+    ]},
+});
+
 PROGRAMS.calisthenics.level = 'Beginner'; PROGRAMS.calisthenics.needs = [];
 // Equipment a program needs (routines: every exercise's needs; others: none — they adapt).
 function prNeeds(def){
@@ -3822,6 +3928,34 @@ const MILESTONES = {
     ],
     next:[{title:'5 pull-ups in a row', exercise:'pull-up', target:5},{title:'10 pull-ups in a row', exercise:'pull-up', target:10}],
   },
+  'first-situp': {
+    title:'First sit-up', icon:'🔥', blurb:'Build up from crunches and slow lowering to your first full sit-up — knees bent, arms crossed, feet on the floor.',
+    source:'Written for Busy Bodies from common sit-up progressions: crunches, slow negatives, then assisted and anchored sit-ups (BarBend, Livestrong).', url:'https://barbend.com/Sit-up/',
+    patterns:['core'], perWeek:3,
+    warmup:'Cat-cow (8 slow reps) and a 20-second dead bug.',
+    extras:['20–30 second plank'],
+    startHint:'Pick the first level you can’t do 8–15 clean reps of yet.',
+    moveUp:'Hit the level’s goal in one set to move up. Go slow — controlled reps beat fast ones. Any back pain? Stop and check with your doctor.',
+    levels:[
+      {ex:'crunch', name:'Crunch', sets:3, plan:'3 sets × 10–15', goal:{reps:15}},
+      {ex:'sit-up-negative', name:'Slow sit-up lowering', sets:3, plan:'3 sets × 5, about 5 seconds down', goal:{reps:8}},
+      {ex:'hand-assisted-sit-up', name:'Hand-assisted sit-up', sets:3, plan:'3 sets × 5–8', goal:{reps:8}},
+      {ex:'anchored-sit-up', name:'Feet-anchored sit-up', sets:3, plan:'3 sets × 5–8', goal:{reps:8}},
+      {ex:'sit-up', name:'Your first full sit-up', sets:3, plan:'3 attempts — one clean rep wins it', goal:{reps:1}},
+    ],
+    next:[{id:'situps-25', title:'25 sit-ups in a row'}],
+  },
+  'situps-25': {
+    title:'25 sit-ups in a row', icon:'🔥', blurb:'Once you have your first sit-up, build to 25 in a row, 5 reps at a time.',
+    source:'Written for Busy Bodies.',
+    patterns:['core'], perWeek:3,
+    warmup:'Cat-cow (8 slow reps) and 10 crunches.',
+    extras:['20–30 second plank'],
+    startHint:'Start at the first target you can’t hit in one set yet. Pick feet anchored or free and stick with it.',
+    moveUp:'Do one set of as many as you can, then 2 more sets of about half that. Hit the target in that first set to move up.',
+    levels:[5,10,15,20,25].map(n=>({ex:'sit-up', name:`${n} sit-ups in a row`, sets:3, plan:`1 max set, then 2 sets of about ${Math.max(2,Math.round(n/2))}`, goal:{reps:n}})),
+    next:[],
+  },
   'run-mile': {
     title:'Run a mile', icon:'🏃', blurb:'Go from walking to running a full mile without stopping, in short run/walk sessions.',
     source:'Written for Busy Bodies — send Claude your favorite program to swap it in.', requiresAny:['run','treadmill'],
@@ -4139,7 +4273,7 @@ function bindMilestones(){
   });
   document.querySelectorAll('[data-nextms]').forEach(b=>b.onclick=async ()=>{
     const n = msDef(S.msCelebrate).next[+b.dataset.nextms];
-    const id = makeCustomMilestone(n); if(id){ await startMilestone(id,0); toast(`Started ${n.title}`); }
+    const id = n.id && MILESTONES[n.id] ? n.id : makeCustomMilestone(n); if(id){ await startMilestone(id,0); toast(`Started ${n.title}`); }
     S.msCelebrate=null; rer();
   });
   $('#askNext')?.addEventListener('click', ()=>{ const t=msDef(S.msCelebrate).title; S.msCelebrate=null; go('coach'); setTimeout(()=>sendCoach(`I just completed my "${t}" milestone! What should my next milestone be?`), 50); });
