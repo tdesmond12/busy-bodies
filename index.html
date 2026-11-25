@@ -912,8 +912,12 @@ const profile = () => withGear(S.account.profile);
 const wkKey = (offset=0) => { const d = weekStart(parseYmd(todayStr())); d.setDate(d.getDate()+7*offset); return ymd(d); };
 const weekPlans = () => (S.account.weekPlans = S.account.weekPlans || {});
 const planWeekKey = () => S.planWeek || wkKey(0);
-const planFor = key => weekPlans()[key] || S.account.plan;
+// A custom week made before a plan-replacing program started is set aside so the program shows up.
+const replaceStartTs = () => { const e = (S.account.programs?.active||[]).find(x=>x.mode==='replace'); if(e && !e.startedTs) e.startedTs = Date.now();   // older entries: count from when this version first ran
+  return e ? e.startedTs : 0; };
+const planFor = key => { const o = weekPlans()[key]; return o && !(replaceStartTs() && (o.created||0) < replaceStartTs()) ? o : S.account.plan; };
 const plan = () => S.account.plan ? planFor(planWeekKey()) : S.account.plan;
+const hasOverride = key => !!S.account.plan && planFor(key)!==S.account.plan;
 const clonePlanDays = days => JSON.parse(JSON.stringify(days||[])).filter(d=>d.key!=='program');
 async function setWeekPlan(key, days, how){
   const wp = weekPlans(); wp[key] = { custom:true, how, created: Date.now(), edited:true, days: days.sort((a,b)=>WEEK.indexOf(a.weekday)-WEEK.indexOf(b.weekday)) };
@@ -2147,10 +2151,21 @@ function lastShort(id){
   const w = sets.find(s=>s.w)?.w;
   return `Last: ${w?`${w} lb × `:''}${sets.map(s=>s.r).join(', ')}${unit} · ${parseYmd(lt.w.date).toLocaleDateString(undefined,{month:'short',day:'numeric'})}`;
 }
+// Program days in a replaced plan have no exercises of their own — read them from the program.
+function progDayInfo(d){
+  if(!d || d.key!=='program') return null;
+  const entry = prState().active.find(e=>e.id===d.prog), def = entry && prDef(entry.id); if(!def) return null;
+  const items = progDraftEntries(entry).filter(e=>EXBY[e.id] && !(e.prog && e.prog.flow));
+  const names = [...new Set(items.map(e=>EXBY[e.id].name))];
+  return { entry, def, names, count: names.length, minutes: def.minutes || 30, sub: def.kind==='routine' ? def.workouts[routineNext(entry)].name : '' };
+}
+const dayExNames = d => { const pi = progDayInfo(d); return pi ? pi.names : d.exercises.map(id=>EXBY[id]?.name).filter(Boolean); };
+const dayExCount = d => { const pi = progDayInfo(d); return pi ? pi.count : d.exercises.length; };
+const dayMin = (d,p) => { const pi = progDayInfo(d); return pi ? pi.minutes : estMinutes(d,p); };
 function extrasFor(wd, di){
   const out = [];
   for(const e of progsOn(wd)){ const def = prDef(e.id); if(!def) continue;
-    const pd = di!=null ? plan().days[di] : null; if(e.mode!=='addon' && !(pd && pd.prog===e.id)) continue;
+    const pd = di!=null ? plan().days[di] : null; if(e.mode!=='addon') continue;   // a replacing program is shown as the day itself
     out.push({kind:'prog', e, def}); }
   for(const m of (di!=null ? (msDayMap()[di]||[]) : msForDate(dateOfWd(planWeekKey(), wd)))) out.push({kind:'ms', m, def: msDef(m.id), rest: di==null});
   return out;
@@ -2329,20 +2344,20 @@ function viewPlan(){
   const p = profile();
   if(!p || (S.planTab||'week')==='programs' || S.planTab==='milestones' || classicPlan()) return viewPlanClassic();
   if(S.planDay) return viewPlanDay();
-  const pl = plan(), wk = planWeekKey(), isNext = wk!==wkKey(0), override = !!weekPlans()[wk], today = todayStr();
+  const pl = plan(), wk = planWeekKey(), isNext = wk!==wkKey(0), override = hasOverride(wk), today = todayStr();
   const nActive = msState().active.length + prState().active.length;
   const todayWd = DOW3[parseYmd(today).getDay()];
   const dayAt = wd => pl.days.findIndex(d=>d.weekday===wd);
   const strip = WEEK.map(wd=>{ const date = dateOfWd(wk, wd), di = dayAt(wd), done = dayDone(date);
-    return `<button class="sd ${done?'done':''} ${date===today?'today':''}" data-openday="${wd}"><span>${wd[0]}</span><b>${parseYmd(date).getDate()}</b><i class="${di>=0?'':msForDate(date).length?'mini':'rest'}"></i></button>`; }).join('');
+    return `<button class="sd ${done?'done':''} ${date===today?'today':''}" data-openday="${wd}"><span>${wd[0]}</span><b>${parseYmd(date).getDate()}</b><i class="${di>=0?'':(msForDate(date).length || progsOn(wd).some(e=>e.mode==='addon'))?'mini':'rest'}"></i></button>`; }).join('');
   // Today card (this week only)
   let todayCard = '';
   if(!isNext){
     const di = dayAt(todayWd), d = di>=0 ? pl.days[di] : null, ex = extrasFor(todayWd, di>=0?di:null), done = dayDone(today);
     todayCard = d ? `<div class="card hero">
-        <div class="row" style="justify-content:space-between"><span class="chip on">TODAY · ${todayWd.toUpperCase()}</span><span class="hint">~${estMinutes(d,p)} min · ${d.exercises.length} exercise${d.exercises.length===1?'':'s'}</span></div>
-        <h2 class="heroh">${esc(d.name)}</h2>
-        <div class="small muted">${d.exercises.map(id=>EXBY[id]?.name).filter(Boolean).map(n=>esc(n.replace(/^(Dumbbell|Machine|Barbell|Cable|Kettlebell|Band) /,''))).join(' · ') || 'No exercises yet'}</div>
+        <div class="row" style="justify-content:space-between"><span class="chip on">TODAY · ${todayWd.toUpperCase()}</span><span class="hint">~${dayMin(d,p)} min · ${dayExCount(d)} exercise${dayExCount(d)===1?'':'s'}</span></div>
+        <h2 class="heroh">${esc(d.name)}</h2>${progDayInfo(d)?.sub?`<div class="small" style="font-weight:600;margin:-4px 0 4px">${esc(progDayInfo(d).sub)}</div>`:''}
+        <div class="small muted">${dayExNames(d).map(n=>esc(n.replace(/^(Dumbbell|Machine|Barbell|Cable|Kettlebell|Band) /,''))).join(' · ') || 'No exercises yet'}</div>
         ${ex.length?`<div class="xchips">${ex.map(x=>`<span>${extraChip(x)}</span>`).join('')}</div>`:''}
         ${done?'<div class="small" style="margin-top:10px;color:var(--accent)">✓ Logged today — nice work.</div>':''}
         <div class="row" style="margin-top:12px;gap:8px"><button class="btn primary" style="flex:1" data-playday="${di}">▶ Play workout</button><button class="btn" data-startday="${di}">${done?'Log another':'Log'}</button><button class="btn" data-openday="${todayWd}">View</button></div>
@@ -2361,7 +2376,7 @@ function viewPlan(){
   const restDays = WEEK.filter(wd=>dayAt(wd)<0 && (isNext || wd!==todayWd));
   const listCard = `<div class="card dlist">
     ${others.map(({d})=>{ const date = dateOfWd(wk, d.weekday), done = dayDone(date), past = date<today;
-      return `<button class="drow" data-openday="${d.weekday}"><span class="dow ${done?'':'off'}">${d.weekday.toUpperCase()}</span><span class="t"><b>${esc(d.name)}</b><span class="hint">${done?'✓ Done · ':past?'Missed · ':''}${d.exercises.length} exercise${d.exercises.length===1?'':'s'} · ~${estMinutes(d,p)} min</span></span><span class="chev">›</span></button>`; }).join('')}
+      return `<button class="drow" data-openday="${d.weekday}"><span class="dow ${done?'':'off'}">${d.weekday.toUpperCase()}</span><span class="t"><b>${esc(d.name)}</b><span class="hint">${done?'✓ Done · ':past?'Missed · ':''}${progDayInfo(d)?.sub?esc(progDayInfo(d).sub)+' · ':''}${dayExCount(d)} exercise${dayExCount(d)===1?'':'s'} · ~${dayMin(d,p)} min</span></span><span class="chev">›</span></button>`; }).join('')}
     ${restDays.length?`<div class="drow restrow"><span class="dow off">${restDays.map(w=>w.toUpperCase()).join('·')}</span><span class="t"><span class="hint">Rest day${restDays.length>1?'s':''}${prState().active.some(e=>e.mode==='addon' && restDays.some(w=>e.days.includes(w)))?' · extras only':''} — tap a day above to open it</span></span></div>`:''}
     ${!pl.days.length?`<div class="small" style="padding:12px 0"><b>No workouts planned.</b> Use <b>⋯ Week</b> to plan the week or add a day.</div>`:''}
   </div>`;
@@ -2401,7 +2416,7 @@ function bindExtraButtons(){
   document.querySelectorAll('#app [data-flow]').forEach(b=>b.onclick=()=>{ const [id,f]=b.dataset.flow.split(':'); playFlow(id,f); });
 }
 function viewPlanDay(){
-  const p = profile(), pl = plan(), wd = S.planDay, wk = planWeekKey(), isNext = wk!==wkKey(0), ro = isNext && !weekPlans()[wk];
+  const p = profile(), pl = plan(), wd = S.planDay, wk = planWeekKey(), isNext = wk!==wkKey(0), ro = isNext && !hasOverride(wk);
   const di = pl.days.findIndex(d=>d.weekday===wd), d = di>=0 ? pl.days[di] : null, date = dateOfWd(wk, wd), today = todayStr();
   const edit = !!S.planEdit && !ro, ex = extrasFor(wd, di>=0?di:null), done = dayDone(date);
   const back = `<button class="iconbtn" id="dayBack" aria-label="Back">←</button>`;
@@ -2416,16 +2431,18 @@ function viewPlanDay(){
     $('#logRestDay')?.addEventListener('click', ()=>{ if(ex.some(x=>x.kind==='prog')) startDraft(null, null, wd); else startDraft(null); go('workout'); });
     bindExtraButtons(); return;
   }
+  const pday = progDayInfo(d);
   const notes = (d.intensity==='easy'?['<b>Easy week:</b> stop each set with 3–4 reps in the tank and skip finishers.']:d.intensity==='hard'?['<b>Push harder:</b> add a set to your first two exercises, or go up in weight.']:[])
     .concat(d.key==='recovery'?['<b>Recovery:</b> a gentle yoga flow plus an easy walk. Keep it relaxed.']:d.exercises.length?dayNotes(d,p):[]);
   const exOptions = Object.keys(PATTERN_LABEL).map(pat=>{ const opts = EX.filter(e=>e.p===pat && canDo(e,p) && e.id!=='cardio-of-your-choice' && !e.ms && !d.exercises.includes(e.id)); return opts.length ? `<optgroup label="${PATTERN_LABEL[pat]}">${opts.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>` : ''; }).join('');
   $('#app').innerHTML = `
     <div class="dayhdr">${back}<h2>${wd} · ${esc(d.name)}</h2>${ro?'':`<button class="btn sm ${edit?'primary':''}" id="editToggle">${edit?'Done':'✏️ Edit'}</button>`}</div>
-    <div class="hint" style="margin:-6px 2px 10px">${parseYmd(date).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})}${done?' · <span style="color:var(--accent)">✓ Logged</span>':''} · ~${estMinutes(d,p)} min</div>
+    <div class="hint" style="margin:-6px 2px 10px">${parseYmd(date).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})}${done?' · <span style="color:var(--accent)">✓ Logged</span>':''} · ~${dayMin(d,p)} min</div>
     ${edit?`<div class="card editbar"><div class="row" style="gap:8px;flex-wrap:wrap"><span class="small">Move to</span><select class="dowsel2" id="moveDay">${WEEK.map(w=>`<option ${w===wd?'selected':''}>${w}</option>`).join('')}</select><button class="btn sm ghost" id="delDay" style="margin-left:auto">Remove day</button></div>
       <div class="hint" style="margin-top:6px">Moving onto a day that has a workout swaps the two.</div></div>`:''}
     ${notes.length?`<details class="tips"><summary>🔥 ${notes[0].replace(/<\/?b>/g,'')}${notes.length>1?` <u>${notes.length-1} more tip${notes.length>2?'s':''}</u>`:''}</summary>${notes.slice(1).map(n=>`<div class="small" style="margin-top:6px">${n}</div>`).join('')}</details>`:''}
-    <div class="card exlist2">
+    ${pday ? `<div class="card">${progBlockHtml(pday.entry)}<div class="hint" style="margin-top:8px">Part of your ${esc(pday.def.title)} — change it from Plan → Programs.</div></div>` : ''}
+    <div class="card exlist2" ${pday && !d.exercises.length && !edit?'hidden':''}>
       ${d.exercises.map((id,ei)=>{ const e = EXBY[id]; if(!e) return ''; const r = rx(e,p), last = lastShort(id);
         return `<div class="exr"><span class="n">${ei+1}</span><div class="t"><b>${esc(e.name)}</b><span class="rx">${r.text}</span><span class="last">${last||'New'}</span>
           <div class="cue" ${S.cueOpen===id?'':'hidden'}>${esc(e.cue)}</div></div>
@@ -2433,7 +2450,7 @@ function viewPlanDay(){
       ${edit?`<select id="addEx" style="margin-top:10px"><option value="">+ Add an exercise…</option>${exOptions}</select>`:''}
     </div>
     ${ex.length?`<div class="hint" style="margin:4px 2px 6px">ALSO ${date===today?'TODAY':'THIS DAY'}</div>${ex.map(x=>extraRow(x, !isNext && date===today)).join('')}`:''}
-    ${!isNext?`<div class="stickylog row" style="gap:8px"><button class="btn primary" style="flex:1" id="playThis" ${d.exercises.length?'':'disabled'}>▶ Play</button><button class="btn" style="flex:1;background:var(--panel)" id="logThis" ${d.exercises.length||ex.length?'':'disabled'}>${done?'Log it again':'Log'}</button></div>`:''}`;
+    ${!isNext?`<div class="stickylog row" style="gap:8px"><button class="btn primary" style="flex:1" id="playThis" ${d.exercises.length||pday?'':'disabled'}>▶ Play</button><button class="btn" style="flex:1;background:var(--panel)" id="logThis" ${d.exercises.length||ex.length||pday?'':'disabled'}>${done?'Log it again':'Log'}</button></div>`:''}`;
   $('#dayBack').onclick = ()=>{ S.planDay=null; S.planEdit=false; viewPlan(); window.scrollTo(0,0); };
   $('#editToggle')?.addEventListener('click', ()=>{ S.planEdit=!S.planEdit; const y=window.scrollY; viewPlan(); window.scrollTo(0,y); });
   document.querySelectorAll('[data-cue]').forEach(b=>b.onclick=()=>{ S.cueOpen = S.cueOpen===b.dataset.cue ? null : b.dataset.cue; const y=window.scrollY; viewPlan(); window.scrollTo(0,y); });
@@ -2464,7 +2481,7 @@ async function addDayTo(dow, type, p){
   if(type==='custom'){ S.planDay = dow; S.planEdit = true; }
 }
 function openWeekMenu(){
-  const wk = planWeekKey(), isNext = wk!==wkKey(0), override = !!weekPlans()[wk], pl = plan(), p = profile(), prevKey = shiftDate(wk,-7), prevLogged = daysFromLogged(prevKey).length;
+  const wk = planWeekKey(), isNext = wk!==wkKey(0), override = hasOverride(wk), pl = plan(), p = profile(), prevKey = shiftDate(wk,-7), prevLogged = daysFromLogged(prevKey).length;
   const replacing = prState().active.find(e=>e.mode==='replace'), free = WEEK.filter(w=>!pl.days.some(d=>d.weekday===w));
   const el = document.createElement('div'); el.className = 'bsheet-wrap';
   const close = () => { el.remove(); document.body.classList.remove('noscroll'); };
@@ -2472,7 +2489,7 @@ function openWeekMenu(){
   const render = (panel) => {
     el.innerHTML = `<div class="bdim"></div><div class="bsheet"><div class="grab"></div>
       <div class="row" style="justify-content:space-between;margin-bottom:4px"><h3 style="margin:0">${panel==='repeat'?'Repeat which week?':panel==='add'?'Add a day':'Week options'}</h3><span class="hint">${weekLabel(wk)}</span></div>
-      ${panel==='repeat' ? `${opt('mRepPlan','📋',`Same plan as ${isNext?'this':'last'} week`,`${planFor(prevKey).days.length} workouts${weekPlans()[prevKey]?' · custom':''}`)}
+      ${panel==='repeat' ? `${opt('mRepPlan','📋',`Same plan as ${isNext?'this':'last'} week`,`${planFor(prevKey).days.length} workouts${hasOverride(prevKey)?' · custom':''}`)}
           ${opt('mRepLog','✅',`What I actually logged ${isNext?'this':'last'} week`,`${prevLogged} workout${prevLogged===1?'':'s'}`, prevLogged?'':'disabled')}
           <button class="btn ghost block" id="mBack" style="margin-top:8px">← Back</button>`
       : panel==='add' ? (free.length ? `<div class="grid2" style="margin-top:8px"><select id="mDow">${free.map(w=>`<option>${w}</option>`).join('')}</select><select id="mType">${Object.entries(ADD_DAY_TYPES).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></div>
@@ -2520,7 +2537,7 @@ function viewPlanClassic(){
   const bindTabs = ()=>document.querySelectorAll('input[name=pltab]').forEach(r=>r.onchange=()=>{ S.planTab=r.value; viewPlan(); window.scrollTo(0,0); });
   if(ptab==='programs'){ $('#app').innerHTML = tabsHtml + programsSectionHtml() + `<h2 class="section-h">Milestones</h2>` + viewMilestones(); bindTabs(); bindPrograms(); bindMilestones(); return; }
   const replacing = prState().active.find(e=>e.mode==='replace');
-  const wk = planWeekKey(), isNext = wk!==wkKey(0), override = !!weekPlans()[wk], ro = isNext && !override;
+  const wk = planWeekKey(), isNext = wk!==wkKey(0), override = hasOverride(wk), ro = isNext && !override;
   const prevKey = shiftDate(wk,-7), prevLogged = daysFromLogged(prevKey).length;
   const weekBar = `<div class="card weekbar">
       <div class="seg"><input type="radio" id="wk-0" name="wk" value="0" ${!isNext?'checked':''}><label for="wk-0">This week</label><input type="radio" id="wk-1" name="wk" value="1" ${isNext?'checked':''}><label for="wk-1">Next week</label></div>
@@ -2532,7 +2549,7 @@ function viewPlanClassic(){
         ${override?'<button class="btn sm ghost" id="wkRegular">Use regular plan</button>':''}
       </div>
       ${S.wkRepeatOpen ? `<div class="wkrep">
-        <button class="btn block" data-rep="plan">Same plan as ${isNext?'this':'last'} week <span class="hint">(${planFor(prevKey).days.length} workouts${weekPlans()[prevKey]?' · custom':''})</span></button>
+        <button class="btn block" data-rep="plan">Same plan as ${isNext?'this':'last'} week <span class="hint">(${planFor(prevKey).days.length} workouts${hasOverride(prevKey)?' · custom':''})</span></button>
         <button class="btn block" data-rep="logged" ${prevLogged?'':'disabled'}>What I actually logged ${isNext?'this':'last'} week <span class="hint">(${prevLogged} workout${prevLogged===1?'':'s'})</span></button></div>` : ''}
     </div>`;
   const msMap = msDayMap();
@@ -3395,7 +3412,7 @@ async function startProgram(id, mode, days, goalMin){
   const def = prDef(id), st = prState(), p = profile();
   if(st.active.some(e=>e.id===id)) return;
   if(def.addonOnly) mode = 'addon';
-  const entry = { id, mode, days:[...days].sort((a,b)=>WEEK.indexOf(a)-WEEK.indexOf(b)), started: todayStr() };
+  const entry = { id, mode, days:[...days].sort((a,b)=>WEEK.indexOf(a)-WEEK.indexOf(b)), started: todayStr(), startedTs: Date.now() };
   if(def.kind==='meditate'){ entry.goalMin = def.goals.includes(+goalMin) ? +goalMin : 10; entry.stage = 0; entry.stageTs = Date.now(); }
   if(def.kind==='tracks'){
     entry.tracks = Object.fromEntries(Object.keys(def.tracks).map(k=>[k,0]));
@@ -3404,6 +3421,7 @@ async function startProgram(id, mode, days, goalMin){
   if(mode==='replace'){
     if(st.active.some(e=>e.mode==='replace')) return toast('Only one program can replace your plan at a time');
     st.savedPlan = clean(S.account.plan);
+    const wp = weekPlans(); for(const k of Object.keys(wp)) if(k >= wkKey(0)) delete wp[k];   // custom weeks from now on give way to the program
     S.account.plan = { ...(S.account.plan||{}), edited:true, days: entry.days.map(wd=>({key:'program', prog:id, name:def.title, weekday:wd, exercises:[]})) };
   }
   st.active.push(entry);
