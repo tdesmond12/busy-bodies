@@ -242,6 +242,12 @@ b.dm{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:
 .glast{font-size:max(15px,3vmin);color:#9aa3ad}.gcue{font-size:max(14px,2.6vmin);color:#9aa3ad;max-width:70ch}
 .gsub{font-size:max(15px,3vmin);color:#cfd6dc}
 .glog{display:flex;flex-direction:column;align-items:center;gap:1vmin;background:#12161a;border:1px solid #2b3037;border-radius:2vmin;padding:1.5vmin 3vmin;font-size:max(14px,2.6vmin);color:#9aa3ad}
+.gwt{display:flex;align-items:center;justify-content:center;gap:1.5vmin;flex-wrap:wrap;padding:1.2vmin 2vmin;border-radius:14px;background:rgba(255,255,255,.06)}
+.gwt.need{outline:2px solid var(--accent)}
+.gwl{color:#9aa3ad;font-size:max(14px,2.6vmin);width:100%;text-align:center}
+.gwin{width:5.5ch;min-height:0;text-align:center;font:800 max(26px,6vmin) "Barlow Condensed",sans-serif;color:#f4f7f9;background:transparent;border:0;border-bottom:2px solid rgba(255,255,255,.25);border-radius:0;padding:0 2px}
+.gwin:focus{outline:none;border-bottom-color:var(--accent)}
+.gwu{color:#9aa3ad;font-size:max(16px,3vmin)}
 .gadj{display:flex;align-items:center;gap:1.5vmin}.gadj b{color:#f4f7f9;font-size:max(18px,3.6vmin);min-width:4ch}
 .gnext{display:flex;flex-direction:column;align-items:center;gap:.4vmin;margin-top:1vmin}
 .gnext span{font:700 max(12px,2.2vmin) Inter;letter-spacing:.12em;color:#9aa3ad}.gnext b{font:800 max(24px,6vmin) "Barlow Condensed",sans-serif;text-transform:uppercase}.gnext em{font-style:normal;color:var(--accent);font-size:max(15px,3vmin)}
@@ -2235,6 +2241,10 @@ function playWorkout(dayIdx){
     else if(st.type==='warm') say(`Warm up. ${Math.round(st.secs/60)} minutes. ${st.sub}.`);
     render();
   };
+  // Weight for a set; later sets of the same exercise that haven't been done yet follow along.
+  const setWeight = (st, v) => { const old = st.weight; v = v==='' || v==null ? '' : String(Math.max(0, Math.round(num(v)*10)/10)); st.weight = v;
+    for(const s2 of steps) if(s2!==st && s2.type==='work' && s2.di===st.di && s2.set>st.set && !logged[`${s2.di}:${s2.set}`] && (!s2.weight || s2.weight===old)) s2.weight = v; };
+  const wStep = ex => (ex.eq==='kb' ? 4 : 5);
   const finishSet = () => { const st = steps[idx]; if(st.type!=='work') return; if(!logged[`${st.di}:${st.set}`]) record(st, st.timed ? st.timed : st.defReps, st.weight); if(idx>=steps.length-1) return summary(); enter(idx+1); };
   const tick = () => { if(paused) return; const st = steps[idx];
     if(st.type==='work' && !st.timed){ left++; const t = el.querySelector('#gClock'); if(t) t.textContent = clock(left); return; }
@@ -2284,7 +2294,9 @@ function playWorkout(dayIdx){
     if(st.type==='work'){
       main = `<div class="gmain work"><div class="gtag">${st.sets>1?`SET ${st.set+1} OF ${st.sets}`:'GO'}${st.entry.ms?' · MILESTONE':st.entry.prog?' · PROGRAM':''}</div>
         <h1>${esc(st.name)}</h1>
-        <div class="gtarget">${st.timed ? `${st.timed} sec` : esc(st.target)}${st.weight?` <span>@ ${st.weight} lb</span>`:''}</div>
+        <div class="gtarget">${st.timed ? `${st.timed} sec` : esc(st.target)}${st.weight && !usesWeight(st.ex)?` <span>@ ${st.weight} lb</span>`:''}</div>
+        ${usesWeight(st.ex) ? `<div class="gwt ${st.weight?'':'need'}"><span class="gwl">${st.weight?'Weight':'How much weight?'}</span>
+          <button class="gico" id="gWm" aria-label="Less weight">−</button><input id="gW" class="gwin" inputmode="decimal" enterkeyhint="done" autocomplete="off" value="${esc(st.weight||'')}" placeholder="0" aria-label="Weight in pounds"><span class="gwu">lb</span><button class="gico" id="gWp" aria-label="More weight">+</button></div>` : ''}
         ${st.timed ? `<div class="gring" style="--p:1"><span id="gClock">${clock(left)}</span></div>` : `<div class="gclock small"><span id="gClock">${clock(left)}</span></div>`}
         ${st.last?`<div class="glast">Last time: ${esc(st.last)}</div>`:''}
         <div class="gcue">${esc(st.cue||'')}</div></div>`;
@@ -2325,12 +2337,20 @@ function playWorkout(dayIdx){
     on('gPlus', ()=>{ left+=30; st.secs = Math.max(st.secs, left); render(); });
     on('gSkip', ()=>{ if(idx>=steps.length-1) summary(); else enter(idx+1); });
     on('gBack', ()=>{ let i = idx-1; while(i>0 && steps[i].type==='rest') i--; enter(Math.max(0,i)); });
-    el.querySelectorAll('[data-reps]').forEach(b=>b.onclick=()=>{ st.defReps = +b.dataset.reps; finishSet(); });
+    el.querySelectorAll('[data-reps]').forEach(b=>b.onclick=()=>{ const wi = el.querySelector('#gW'); if(wi) setWeight(st, wi.value); st.defReps = +b.dataset.reps; finishSet(); });
+    const wi = el.querySelector('#gW');
+    if(wi){ const apply = () => { setWeight(st, wi.value); tvPush(tvState()); };
+      wi.oninput = () => { el.querySelector('.gwt')?.classList.toggle('need', !wi.value); };
+      wi.onchange = apply; wi.onblur = apply;
+      wi.onkeydown = e => { e.stopPropagation(); if(e.key==='Enter'){ e.preventDefault(); apply(); wi.blur(); } };
+      on('gWm', ()=>{ setWeight(st, Math.max(0, num(wi.value) - wStep(st.ex))); render(); });
+      on('gWp', ()=>{ setWeight(st, num(wi.value) + wStep(st.ex)); render(); });
+      const dn = el.querySelector('#gDone'); if(dn) dn.onclick = () => { setWeight(st, wi.value); finishSet(); }; }
     el.querySelectorAll('[data-adj]').forEach(b=>b.onclick=()=>{ const [k,d]=b.dataset.adj.split(':'); const cur = logged[`${prevSet.di}:${prevSet.set}`];
-      if(k==='r') cur.r = Math.max(0, num(cur.r)+(+d)); else cur.w = Math.max(0, num(cur.w)+(+d)); record(prevSet, cur.r, cur.w); render(); });
+      if(k==='r') cur.r = Math.max(0, num(cur.r)+(+d)); else { cur.w = Math.max(0, num(cur.w)+(+d)); setWeight(prevSet, cur.w); } record(prevSet, cur.r, cur.w); render(); });
     (el.querySelector('#gDone') || el.querySelector('#gPause'))?.focus({preventScroll:true});
   };
-  const onKey = e => { if(!el.isConnected || (e.target && e.target.id==='gCode')) return; const k = e.key; const st = steps[idx];
+  const onKey = e => { if(!el.isConnected || (e.target && (e.target.id==='gCode' || e.target.id==='gW'))) return; const k = e.key; const st = steps[idx];
     const map = { 'ArrowRight':'gSkip', 'MediaTrackNext':'gSkip', 'ArrowLeft':'gBack', 'MediaTrackPrevious':'gBack', 'ArrowUp':'gPlus', ' ':'gPause', 'MediaPlayPause':'gPause', 'Escape':'gEnd', 'Backspace':'gEnd', 'GoBack':'gEnd' };
     let id = map[k]; if(k==='Enter') id = st && st.type==='work' && !st.timed ? 'gDone' : (document.activeElement && el.contains(document.activeElement) && document.activeElement.tagName==='BUTTON' ? null : 'gPause');
     if(k===' ' && st && st.type==='work' && !st.timed) id = 'gDone';
