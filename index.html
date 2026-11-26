@@ -391,10 +391,11 @@ body.tvmode > *:not(.tvroot):not(.toast){display:none!important}
 .tabs a.dot::after{content:'';position:absolute;top:6px;left:calc(50% + 8px);width:8px;height:8px;border-radius:50%;background:var(--warn)}
 .linkbtn{background:none;border:0;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;padding:0}
 .fhlist{display:grid;gap:6px;max-height:62vh;overflow:auto;margin:0 -4px;padding:0 4px}
-.fhrow{display:grid;grid-template-columns:78px 1fr 1fr;gap:8px;align-items:end;padding:8px 10px;border-radius:12px;background:var(--panel2)}
+.fhrow{display:grid;grid-template-columns:78px minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:end;padding:8px 10px;border-radius:12px;background:var(--panel2)}
 .fhday{display:flex;flex-direction:column;font-size:12px;color:var(--muted);align-self:center}.fhday b{color:var(--text);font-size:13px}
 .fhrow label{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--muted);min-width:0}
-.fhrow input{min-height:0;padding:6px 4px;font-size:14px;width:100%;box-sizing:border-box}
+.fhrow input{min-height:0;padding:6px 4px;font-size:14px;width:100%;min-width:0;max-width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none;text-align:center}
+.fhwarn{grid-column:1/-1;font-size:12px;color:#ffb547;display:flex;flex-wrap:wrap;align-items:center;gap:6px}.fhwarn:empty{display:none}.fhwarn .btn{min-height:0;padding:3px 8px;font-size:12px}
 .fhres{margin-top:4px}
 .fhchip{display:inline-block;font-size:12px;font-weight:700;padding:3px 7px;border-radius:8px;background:rgba(255,255,255,.06);color:var(--muted);white-space:nowrap}
 .fhchip.hit{background:rgba(198,244,50,.16);color:var(--accent)}.fhchip.miss{background:rgba(255,181,71,.14);color:#ffb547}
@@ -1135,10 +1136,14 @@ const hm = t => { if(!t || !/^\d{1,2}:\d{1,2}/.test(t)) return null; const [h,m]
 const fmtClock = t => { const v=hm(t); if(v==null) return ''; const h=Math.floor(v/60), m=v%60; return `${(h%12)||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`; };
 const fmtDur = mins => `${Math.floor(mins/60)}h${mins%60?` ${mins%60}m`:''}`;
 const nowHM = () => { const d=new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+// A last meal earlier in the day than the first meal is almost always an AM/PM slip (7:15 AM for 7:15 PM).
+function fastAmPmSlip(f){ const first = hm(f && f.first), last = hm(f && f.last); return first!=null && last!=null && last < first && last < 720 && last + 720 > first; }
+const plus12 = t => { const m = (hm(t) + 720) % 1440; return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; };
 function fastStats(date){
   const d = S.days[date] || {}, prev = S.days[shiftDate(date,-1)] || {};
   const f = d.fast || {}, first = hm(f.first), last = hm(f.last), prevLast = hm((prev.fast||{}).last);
   const out = {};
+  if(fastAmPmSlip(prev.fast)) out.check = true;   // yesterday's last meal looks wrong, so this fast can't be trusted
   if(first!=null && last!=null) out.window = (last - first + 1440) % 1440;
   if(first!=null && prevLast!=null) out.fasted = 1440 - prevLast + first;
   // fasting right now (today, after last meal)
@@ -1199,7 +1204,9 @@ function fastingCardHtml(date){
       <label class="field"><span class="small muted">First meal</span><div class="row" style="gap:6px;flex-wrap:nowrap"><input type="time" id="fastFirst" style="flex:1" value="${esc(f.first||'')}">${date===todayStr()?'<button class="btn sm" data-fastnow="first">Now</button>':''}</div></label>
       <label class="field"><span class="small muted">Last meal</span><div class="row" style="gap:6px;flex-wrap:nowrap"><input type="time" id="fastLast" style="flex:1" value="${esc(f.last||'')}">${date===todayStr()?'<button class="btn sm" data-fastnow="last">Now</button>':''}</div></label>
     </div>
-    ${fs.fasted!=null ? `<div style="margin-top:12px">${target ? bar(fs.fasted/60, target, 'Overnight fast', 'h') : `<div class="small"><b>Fasted ${fmtDur(fs.fasted)}</b></div>`}
+    ${fastAmPmSlip(f) ? `<div class="fhwarn" style="margin-top:10px">⚠️ Last meal (${fmtClock(f.last)}) is before your first meal. <button class="btn sm" id="fastFix">Change to ${fmtClock(plus12(f.last))}</button></div>` : ''}
+    ${fs.check ? `<div class="hint" style="margin-top:10px">⚠️ Yesterday’s last meal looks like an AM/PM mix-up, so this fast isn’t counted. Fix it in 📅 Fill in past days.</div>` : ''}
+    ${fs.fasted!=null && !fs.check ? `<div style="margin-top:12px">${target ? bar(fs.fasted/60, target, 'Overnight fast', 'h') : `<div class="small"><b>Fasted ${fmtDur(fs.fasted)}</b></div>`}
         <div class="hint">From ${fmtClock(prevLast)} yesterday to ${fmtClock(f.first)}${target?` · ${fs.fasted/60>=target?'goal reached ✓':`${fmtDur(target*60-fs.fasted)} short of your goal`}`:''}</div></div>`
       : f.first ? `<div class="hint" style="margin-top:10px">Add yesterday’s last meal to see how long you fasted.</div>` : ''}
     ${fs.window!=null ? `<div class="small" style="margin-top:8px">Eating window: <b>${fmtDur(fs.window)}</b> <span class="muted">(${fmtClock(f.first)} – ${fmtClock(f.last)})</span></div>` : ''}
@@ -1344,6 +1351,7 @@ async function viewNutritionInner(){
   $('#fastClear')?.addEventListener('click', ()=>{ delete d.fast; saveDaySoon(date); rerender(); });
   $('#fastPlan').onchange = async e => { ns.fastPlan = e.target.value; await saveAccount(); rerender(); };
   document.querySelectorAll('[data-fasthist]').forEach(b=>b.onclick = ()=>openFastHistory(rerender));
+  $('#fastFix')?.addEventListener('click', ()=>setFast('last', plus12(d.fast.last)));
   }
   $('#wGoalSave').onclick = async ()=>{ const v=Math.round(num($('#wGoalIn').value)); if(v<16||v>300){ toast('Enter a goal between 16 and 300 oz'); return; } ns.waterGoal=v; await saveAccount(); rerender(); };
   // supplements
@@ -4785,7 +4793,7 @@ function bindWeightCard(){
 
 // ----- Progress: intermittent fasting -----
 const fastTarget = () => +nutritionSettings().fastPlan || 16;
-function fastResult(date){ const fs = fastStats(date); return fs.fasted==null ? null : {hours: fs.fasted/60, hit: fs.fasted >= fastTarget()*60}; }
+function fastResult(date){ const fs = fastStats(date); return fs.fasted==null || fs.check ? null : {hours: fs.fasted/60, hit: fs.fasted >= fastTarget()*60}; }
 function fastProgressShell(){ return fastingOn() ? `<div id="fastProg" class="fastmini"><div class="hint">Loading fasting…</div></div>` : ''; }
 // Fill in or fix first/last meal times for recent days, all on one sheet.
 async function openFastHistory(onDone){
@@ -4795,12 +4803,13 @@ async function openFastHistory(onDone){
   const tgt = fastTarget();
   const el = document.createElement('div'); el.className = 'bsheet-wrap'; document.body.classList.add('noscroll');
   const close = () => { el.remove(); document.body.classList.remove('noscroll'); onDone && onDone(); };
-  const chip = dt => { const r = fastResult(dt); return r ? `<span class="fhchip ${r.hit?'hit':'miss'}">${fmtDur(Math.round(r.hours*60))}${r.hit?' ✓':''}</span>` : `<span class="fhchip">—</span>`; };
+  const chip = dt => { if(fastStats(dt).check) return '<span class="fhchip miss">Check ↓</span>'; const r = fastResult(dt); return r ? `<span class="fhchip ${r.hit?'hit':'miss'}">${fmtDur(Math.round(r.hours*60))}${r.hit?' ✓':''}</span>` : `<span class="fhchip">—</span>`; };
+  const warn = dt => { const f = S.days[dt].fast; return fastAmPmSlip(f) ? `⚠️ Last meal (${fmtClock(f.last)}) is before your first meal. <button class="btn sm" data-fhfix="${dt}">Change to ${fmtClock(plus12(f.last))}</button>` : ''; };
   const rowHtml = dt => { const f = S.days[dt].fast || {};
     return `<div class="fhrow" data-fhday="${dt}"><div class="fhday"><b>${dt===today?'Today':dt===shiftDate(today,-1)?'Yesterday':parseYmd(dt).toLocaleDateString(undefined,{weekday:'short'})}</b><span>${parseYmd(dt).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span><div class="fhres" data-fhres="${dt}">${chip(dt)}</div></div>
       <label><span>First meal</span><input type="time" data-fh="${dt}:first" value="${esc(f.first||'')}"></label>
       <label><span>Last meal</span><input type="time" data-fh="${dt}:last" value="${esc(f.last||'')}"></label>
-      </div>`; };
+      <div class="fhwarn" data-fhwarn="${dt}">${warn(dt)}</div></div>`; };
   const days = [...Array(DAYS)].map((_,i)=>shiftDate(today,-i));
   el.innerHTML = `<div class="bdim"></div><div class="bsheet"><div class="grab"></div>
     <div class="row" style="justify-content:space-between;margin-bottom:2px"><h3 style="margin:0">Fasting — past 2 weeks</h3><button class="btn sm" id="fhDone">Done</button></div>
@@ -4808,7 +4817,10 @@ async function openFastHistory(onDone){
     <div class="fhlist">${days.map(rowHtml).join('')}</div></div>`;
   document.body.appendChild(el);
   el.querySelector('.bdim').onclick = close; el.querySelector('#fhDone').onclick = close;
-  const refresh = dt => { for(const d of [dt, shiftDate(dt,1)]){ const box = el.querySelector(`[data-fhres="${d}"]`); if(box) box.innerHTML = chip(d); } };
+  const bindFix = () => el.querySelectorAll('[data-fhfix]').forEach(b=>b.onclick = ()=>{ const dt = b.dataset.fhfix, d = S.days[dt]; d.fast.last = plus12(d.fast.last); saveDaySoon(dt);
+    const inp = el.querySelector(`[data-fh="${dt}:last"]`); if(inp) inp.value = d.fast.last; refresh(dt); });
+  const refresh = dt => { for(const d of [dt, shiftDate(dt,1)]){ const box = el.querySelector(`[data-fhres="${d}"]`); if(box) box.innerHTML = chip(d); const w = el.querySelector(`[data-fhwarn="${d}"]`); if(w) w.innerHTML = warn(d); } bindFix(); };
+  bindFix();
   el.querySelectorAll('[data-fh]').forEach(inp => {
     const [dt, k] = inp.dataset.fh.split(':');
     const set = v => { const d = S.days[dt]; d.fast = {...(d.fast||{}), [k]: v||''}; if(!d.fast.first && !d.fast.last) delete d.fast; saveDaySoon(dt); refresh(dt); };
