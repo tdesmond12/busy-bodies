@@ -2243,22 +2243,23 @@ function exInfoHtml(e, notes=[]){
     <a class="xi-demo" href="${demoUrl(e)}" target="_blank" rel="noopener">▶ Watch a demo video</a></div>`;
 }
 // Rows for a program day: [{e, scheme, notes}]
-function progDayRows(entry){
+function progDayRows(entry, date){
   const def = prDef(entry.id);
-  if(def.kind==='routine'){ const wk = def.workouts[routineNext(entry)];
+  if(def.kind==='routine'){ const wk = def.workouts[routineNext(entry, date)];
     return wk.ex.filter(it=>EXBY[it.ex]).map(it=>({e:EXBY[it.ex], tag: it.tier || (it.fsl?'FSL':it.w531?'5/3/1':''), scheme: routineScheme(entry,it).replace(/^T\d · /,''), notes: routineNotes(it, entry)})); }
   if(def.kind==='tracks') return Object.entries(def.tracks).map(([k,t])=>{ const lv = trackLevels(entry,k)[entry.tracks[k]], e = EXBY[lv.ex]; return e ? {e, tag:t.label, scheme: lv.plan, notes:[`Your level: ${lv.name}. Hit the goal to move up a level.`]} : null; }).filter(Boolean);
   return [];
 }
 function progHeroHtml(entry, d){
-  const def = prDef(entry.id), n = prSessions(entry), tot = prTotal(entry), sub = def.kind==='routine' ? def.workouts[routineNext(entry)].name : def.kind==='flows' ? nextFlow(entry).name : def.kind==='meditate' ? `${medMin(entry)}-minute meditation` : `Session ${Math.min(n+1,tot)}`;
-  const rows = progDayRows(entry), pct = Math.min(100, Math.round(n/tot*100));
+  const def = prDef(entry.id), n = prSessions(entry), tot = prTotal(entry), sub = def.kind==='routine' ? def.workouts[routineNext(entry, d && d.date)].name : def.kind==='flows' ? nextFlow(entry).name : def.kind==='meditate' ? `${medMin(entry)}-minute meditation` : `Session ${Math.min(n+1,tot)}`;
+  const rows = progDayRows(entry, d && d.date), pct = Math.min(100, Math.round(n/tot*100)), ahead = def.kind==='routine' ? routineAhead(entry, d && d.date) : 0;
+  const loggedToday = d && d.date && d.date<=todayStr() && def.kind==='routine' && routineLoggedOn(entry, d.date)!=null, sNo = Math.min(tot, n + ahead + (loggedToday ? 0 : 1));
   return `<div class="phero">
     <div class="phero-top"><span class="phero-ic">${def.icon}</span><span class="phero-prog">${esc(def.title)}</span>${def.level?`<span class="chip">${esc(def.level)}</span>`:''}</div>
     <div class="phero-name">${esc(sub)}</div>
-    <div class="phero-meta">${rows.length?`<span>💪 ${rows.length} exercises</span>`:''}<span>⏱ ~${def.minutes || (def.kind==='meditate'?medMin(entry):30)} min</span>${def.kind==='routine'?`<span>📅 Week ${Math.floor(n/(def.perWeek||3))+1} of ${def.weeks}</span>`:''}</div>
+    <div class="phero-meta">${rows.length?`<span>💪 ${rows.length} exercises</span>`:''}<span>⏱ ~${def.minutes || (def.kind==='meditate'?medMin(entry):30)} min</span>${def.kind==='routine'?`<span>📅 Week ${Math.floor((sNo-1)/(def.perWeek||3))+1} of ${def.weeks}</span>`:''}</div>
     <div class="phero-bar"><i style="width:${Math.max(3,pct)}%"></i></div>
-    <div class="phero-prg"><span>Session ${Math.min(n+1,tot)} of ${tot}</span><span>${pct}% done</span></div>
+    <div class="phero-prg"><span>Session ${Math.max(1,sNo)} of ${tot}</span><span>${pct}% done</span></div>
   </div>
   ${def.warmup?`<div class="pwarm"><span>🔥</span><div><b>Warm-up</b><div>${esc(def.warmup)}</div></div></div>`:''}`;
 }
@@ -2266,9 +2267,9 @@ function progHeroHtml(entry, d){
 function progDayInfo(d){
   if(!d || d.key!=='program') return null;
   const entry = prState().active.find(e=>e.id===d.prog), def = entry && prDef(entry.id); if(!def) return null;
-  const items = progDraftEntries(entry).filter(e=>EXBY[e.id] && !(e.prog && e.prog.flow));
+  const date = dateOfWd(planWeekKey(), d.weekday), items = progDraftEntries(entry, null, date).filter(e=>EXBY[e.id] && !(e.prog && e.prog.flow));
   const names = [...new Set(items.map(e=>EXBY[e.id].name))];
-  return { entry, def, names, count: names.length, minutes: def.minutes || 30, sub: def.kind==='routine' ? def.workouts[routineNext(entry)].name : '' };
+  return { entry, def, names, count: names.length, minutes: def.minutes || 30, sub: def.kind==='routine' ? def.workouts[routineNext(entry, date)].name : '' };
 }
 const dayExNames = d => { const pi = progDayInfo(d); return pi ? pi.names : d.exercises.map(id=>EXBY[id]?.name).filter(Boolean); };
 const dayExCount = d => { const pi = progDayInfo(d); return pi ? pi.count : d.exercises.length; };
@@ -2566,7 +2567,7 @@ function viewPlanDay(){
     ${edit?`<div class="card editbar"><div class="row" style="gap:8px;flex-wrap:wrap"><span class="small">Move to</span><select class="dowsel2" id="moveDay">${WEEK.map(w=>`<option ${w===wd?'selected':''}>${w}</option>`).join('')}</select><button class="btn sm ghost" id="delDay" style="margin-left:auto">Remove day</button></div>
       <div class="hint" style="margin-top:6px">Moving onto a day that has a workout swaps the two.</div></div>`:''}
     ${notes.length?`<details class="tips"><summary>🔥 ${notes[0].replace(/<\/?b>/g,'')}${notes.length>1?` <u>${notes.length-1} more tip${notes.length>2?'s':''}</u>`:''}</summary>${notes.slice(1).map(n=>`<div class="small" style="margin-top:6px">${n}</div>`).join('')}</details>`:''}
-    ${pday ? progHeroHtml(pday.entry, d) + (progDayRows(pday.entry).length ? `<div class="card exlist2 pexlist">${progDayRows(pday.entry).map((r,i)=>{ const key = 'p'+i, last = lastShort(r.e.id), open = S.cueOpen===key;
+    ${pday ? progHeroHtml(pday.entry, {date}) + (progDayRows(pday.entry, date).length ? `<div class="card exlist2 pexlist">${progDayRows(pday.entry, date).map((r,i)=>{ const key = 'p'+i, last = lastShort(r.e.id), open = S.cueOpen===key;
         return `<div class="exr ${open?'open':''}" data-cue="${key}" role="button" tabindex="0" aria-expanded="${open}"><span class="n">${i+1}</span><div class="t"><b>${esc(r.e.name)}${r.tag?` <span class="xtag">${esc(r.tag)}</span>`:''}</b><span class="rx">${esc(r.scheme)}</span><span class="last">${last||'New for you'}</span>
           ${open?exInfoHtml(r.e, r.notes):''}</div><span class="xchev" aria-hidden="true">${open?'−':'+'}</span></div>`; }).join('')}
         <div class="hint pexfoot">Tap an exercise for how-to tips and a demo video.</div></div>` : `<div class="card">${progBlockHtml(pday.entry)}</div>`)
@@ -3538,7 +3539,25 @@ function prNeeds(def){
 const prMissing = (def, p=profile()) => { const have = haveSet(p); return prNeeds(def).filter(n=>!have.has(n)); };
 const gearNames = ns => ns.map(n=>GEAR[n]||ACTIVITIES[n]||n).join(', ');
 // Which workout is next, and what to lift.
-const routineNext = entry => { const def = prDef(entry.id); return prSessions(entry) % def.workouts.length; };
+// Which workout falls on a date: the next one today, then one step per scheduled program day after that.
+const routineLoggedOn = (entry, date) => { for(const w of S.workouts){ if(w.date!==date) continue; const e = w.exercises.find(x=>x.prog && x.prog.id===entry.id && x.prog.wk!=null); if(e) return e.prog.wk; } return null; };
+function routineNext(entry, date){
+  const def = prDef(entry.id), L = def.workouts.length, n = prSessions(entry);
+  if(!date) return n % L;
+  if(date <= todayStr()){ const w = routineLoggedOn(entry, date); return w!=null ? w % L : n % L; }
+  return (n + routineAhead(entry, date)) % L;
+}
+// How many scheduled program sessions come before this (future) date.
+function routineAhead(entry, date){
+  const today = todayStr(); if(!date || date <= today) return 0;
+  let k = 0;
+  for(let dt = today; dt < date; dt = shiftDate(dt, 1)){
+    if(!entry.days.includes(DOW3[parseYmd(dt).getDay()])) continue;
+    if(dt===today && routineLoggedOn(entry, today)!=null) continue;   // already counted in n
+    k++;
+  }
+  return k;
+}
 const roundTo = (v, step) => Math.round(v/step)*step;
 function bestE1rm(exId, days=120){
   const since = shiftDate(todayStr(), -days); let best = 0;
@@ -3571,8 +3590,8 @@ function routineScheme(entry, it){
   const w = ss[0].w;
   return `${it.tier?it.tier+' · ':''}${it.sets} × ${it.reps}${ex && ex.t?' sec':''}${w ? ` @ ${w} lb` : ''}`;
 }
-function routineDraftEntries(entry){
-  const def = prDef(entry.id), wk = routineNext(entry);
+function routineDraftEntries(entry, date){
+  const def = prDef(entry.id), wk = routineNext(entry, date);
   return def.workouts[wk].ex.filter(it=>EXBY[it.ex]).map((it, i)=>({id:it.ex, sets: routineSets(entry, it).map(s=>({w:s.w, r:''})), prog:{id:entry.id, wk, i}}));
 }
 function routineWorkoutsHtml(def, entry){
@@ -3665,11 +3684,11 @@ function progBlockHtml(entry){
     <div class="hint">Warm-up: ${esc(def.warmup)}</div></div>`;
 }
 // Draft entries for a program session (calisthenics → one exercise per movement; yoga → minutes).
-function progDraftEntries(entry, flowId){
+function progDraftEntries(entry, flowId, date){
   const def = prDef(entry.id);
   if(def.kind==='meditate') return [{id:'meditation', sets:[{w:'', r:String(medMin(entry))}], prog:{id:entry.id, stage:entry.stage||0}}];
   if(def.kind==='flows'){ const f = def.flows.find(x=>x.id===flowId) || nextFlow(entry); return [{id:'yoga-flow', sets:[{w:'', r:String(flowMinutes(f))}], prog:{id:entry.id, flow:f.id}, label:`${def.title}: ${f.name}`}]; }
-  if(def.kind==='routine') return routineDraftEntries(entry);
+  if(def.kind==='routine') return routineDraftEntries(entry, date);
   return Object.keys(def.tracks).map(k=>{ const lv = trackLevels(entry,k)[entry.tracks[k]]; return {id:lv.ex, sets:blankSets(EXBY[lv.ex], lv.sets||3), prog:{id:entry.id, track:k, level:entry.tracks[k]}}; });
 }
 // After saving: level up program movements and mark programs complete.
@@ -4574,7 +4593,7 @@ function startDraft(dayIdx, date, restWeekday){
   S.draft = {
     dayIdx, dayName: day ? day.name : progs.length ? progs.map(e=>prDef(e.id).title).join(' + ') : restMs.length ? restMs.map(m=>msDef(m.id).title).join(' + ') + ' practice' : 'Custom workout', date: date || todayStr(),
     exercises: [
-      ...progs.flatMap(e=>progDraftEntries(e)),
+      ...progs.flatMap(e=>progDraftEntries(e, null, date || todayStr())),
       // milestone practice first (while you're fresh)
       ...(dayIdx!=null ? (msDayMap()[dayIdx]||[]) : restMs).map(m=>{ const lv=msDef(m.id).levels[m.level]; return {id:lv.ex, sets:blankSets(EXBY[lv.ex], lv.sets||3), ms:{id:m.id, level:m.level}}; }),
       ...(day ? day.exercises.filter(id=>EXBY[id]).map(id=>({id, sets:blankSets(EXBY[id], rx(EXBY[id],p).sets), ...(canAddWeight(EXBY[id]) && lastHadWeight(id) ? {addWeight:true} : {})})) : []),
