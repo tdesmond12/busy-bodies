@@ -301,6 +301,24 @@ body.tvmode > *:not(.tvroot):not(.toast){display:none!important}
 .exr{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}.exr:last-of-type{border-bottom:0}
 .exr .n{width:26px;height:26px;flex:none;border-radius:50%;background:var(--panel2);display:grid;place-items:center;font-size:12px;color:var(--muted);margin-top:2px}
 .exr .t{flex:1;display:flex;flex-direction:column;min-width:0}.exr .rx{color:var(--accent);font-size:13px;font-weight:600}.exr .last{font-size:12px;color:var(--muted)}
+.phero{border-radius:18px;padding:16px;margin-bottom:10px;background:linear-gradient(145deg, rgba(198,244,50,.16), rgba(198,244,50,.03) 55%), var(--panel);border:1px solid rgba(198,244,50,.25)}
+.phero-top{display:flex;align-items:center;gap:8px}
+.phero-ic{width:34px;height:34px;border-radius:10px;background:rgba(198,244,50,.18);display:grid;place-items:center;font-size:18px;flex:none}
+.phero-prog{font-size:13px;font-weight:600;color:var(--muted);flex:1;min-width:0}
+.phero-name{font:800 34px/1 "Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:.01em;margin:12px 0 8px}
+.phero-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted)}
+.phero-bar{height:6px;border-radius:6px;background:rgba(255,255,255,.08);margin-top:14px;overflow:hidden}.phero-bar i{display:block;height:100%;background:var(--accent);border-radius:6px}
+.phero-prg{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px}
+.pwarm{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;margin-bottom:10px;border-radius:14px;background:var(--panel);font-size:13px;color:var(--muted)}.pwarm b{color:var(--text)}
+.pexlist .exr,.exr.tap{cursor:pointer}
+.exr .xchev{width:28px;height:28px;flex:none;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-weight:600;margin-top:2px}
+.exr.open .xchev{border-color:var(--accent);color:var(--accent)}
+.xtag{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:6px;background:var(--panel2);color:var(--muted);vertical-align:2px;margin-left:4px}
+.pexfoot{padding:8px 0 10px;text-align:center}
+.xinfo{display:grid;gap:10px;margin-top:10px;padding:12px;border-radius:12px;background:var(--panel2);font-size:13px;color:var(--muted);cursor:default}
+.xi-row{display:flex;gap:10px;align-items:flex-start}.xi-row b{color:var(--text);font-size:12px;letter-spacing:.02em}
+.xi-ic{width:22px;flex:none;text-align:center}
+.xi-demo{justify-self:start;font-weight:600;color:var(--accent);text-decoration:none;padding:6px 10px;border-radius:8px;border:1px solid rgba(198,244,50,.35)}
 .exr .cue{font-size:13px;color:var(--muted);background:var(--panel2);border-radius:8px;padding:8px;margin-top:6px}
 .exr .info{width:30px;height:30px;flex:none;border-radius:50%;border:1px solid var(--line);background:none;color:var(--muted);font:600 13px Inter;cursor:pointer}
 .editbar{padding:10px 14px}.dowsel2{width:auto;min-height:0;padding:6px 10px}
@@ -2187,6 +2205,63 @@ function lastShort(id){
   const w = sets.find(s=>s.w)?.w;
   return `Last: ${w?`${w} lb × `:''}${sets.map(s=>s.r).join(', ')}${unit} · ${parseYmd(lt.w.date).toLocaleDateString(undefined,{month:'short',day:'numeric'})}`;
 }
+// ----- exercise how-to panel (plan days, program days) -----
+const PATTERN_INFO = {
+  squat:{works:'Quads, glutes and core', breathe:'Breathe in and brace on the way down, breathe out as you stand.', avoid:'Knees caving in or heels lifting. Push your knees out over your toes and keep your whole foot down.'},
+  hinge:{works:'Hamstrings, glutes and lower back', breathe:'Breathe in and brace before you hinge, breathe out as you finish standing.', avoid:'Rounding your back. Push your hips back, keep a long spine and the weight close to your legs.'},
+  lunge:{works:'Quads, glutes and balance', breathe:'Breathe in as you lower, out as you drive up.', avoid:'Front knee caving in or heel lifting. Keep your weight in the front heel and your torso tall.'},
+  push_h:{works:'Chest, front shoulders and triceps', breathe:'Breathe in as you lower, out as you press.', avoid:'Elbows flared straight out or hips sagging. Keep elbows about 45° from your sides and your body braced.'},
+  push_v:{works:'Shoulders, triceps and upper back', breathe:'Breathe in at the bottom, out as you press up.', avoid:'Arching your lower back. Squeeze your glutes and keep your ribs down.'},
+  pull_h:{works:'Upper back, lats and biceps', breathe:'Breathe out as you pull, in as you lower.', avoid:'Yanking with your arms or shrugging. Lead with your elbows and squeeze your shoulder blades together.'},
+  pull_v:{works:'Lats, upper back and biceps', breathe:'Breathe out as you pull, in as you lower.', avoid:'Swinging or half reps. Start each rep from long arms and pull your elbows down toward your ribs.'},
+  shoulders:{works:'Shoulders and upper back', breathe:'Breathe out as you lift, in as you lower.', avoid:'Going too heavy and swinging. Use a light weight and move slowly — these are about control.'},
+  biceps:{works:'Biceps and forearms', breathe:'Breathe out as you curl, in as you lower.', avoid:'Swinging your body or letting your elbows drift forward. Keep your upper arms still.'},
+  triceps:{works:'Triceps', breathe:'Breathe out as you straighten your arms, in as you bend.', avoid:'Elbows flaring out. Keep them pointed forward and move only at the elbow.'},
+  calves:{works:'Calves and ankles', breathe:'Breathe steadily; pause at the top of each rep.', avoid:'Bouncing. Go all the way down for a stretch and all the way up with a short pause.'},
+  core:{works:'Abs, obliques and deep core', breathe:'Keep breathing — exhale on the hardest part, never hold your breath for long.', avoid:'Arching your lower back or pulling on your neck. Keep your low back steady and your chin slightly tucked.'},
+  cardio:{works:'Heart, lungs and legs', breathe:'Breathe steadily. At an easy pace you should be able to talk in short sentences.', avoid:'Starting too fast. Ease in for the first few minutes.'},
+  mobility:{works:'Flexibility and joint range', breathe:'Slow, deep breaths through your nose; relax a little more on each exhale.', avoid:'Forcing a stretch. Mild tension is good; sharp pain means back off.'},
+};
+const demoUrl = e => 'https://www.youtube.com/results?search_query=' + encodeURIComponent(`how to do ${e.name} exercise`);
+function routineNotes(it, entry){
+  const out = [], ex = EXBY[it.ex];
+  if(it.w531 && entry){ out.push(`Sets this week: ${routineSets(entry,it).map(s=>`${s.reps}${s.w?` @ ${s.w} lb`:` @ ${Math.round(s.pct*100)}% of your training max`}`).join(', ')}. On the “+” set, do as many good reps as you can.`); }
+  else if(it.fsl) out.push('“First set last”: repeat the first set’s weight for 5 sets of 5 — smooth, fast reps.');
+  else if(String(it.reps).includes('+')) out.push('Last set: do as many good reps as you can, stopping before your form breaks down.');
+  if(it.tier) out.push({T1:'T1 = your heavy lift today. Rest 3–5 minutes between sets.', T2:'T2 = lighter volume work. Rest 2–3 minutes.', T3:'T3 = accessory work. Rest 60–90 seconds and push the last set.'}[it.tier]);
+  if(/–/.test(it.reps) && !ex.t && it.inc!==0) out.push('Pick a weight where the last rep or two are tough. When every set reaches the top of the range, go heavier next time.');
+  else if(/–/.test(it.reps) && it.inc===0) out.push('Work toward the top of the range, then make it harder (slower reps, a stronger band, or a harder version).');
+  if(ex.t) out.push('Hold for the time shown — stop early if your form slips.');
+  return out;
+}
+function exInfoHtml(e, notes=[]){
+  const pi = PATTERN_INFO[e.p] || {};
+  const row = (ic, label, txt) => txt ? `<div class="xi-row"><span class="xi-ic">${ic}</span><div><b>${label}</b><div>${esc(txt)}</div></div></div>` : '';
+  return `<div class="xinfo">
+    ${row('👟','How to', e.cue)}${row('🎯','Works', pi.works)}${row('🌬️','Breathing', pi.breathe)}${row('⚠️','Watch out for', pi.avoid)}
+    ${notes.filter(Boolean).map(n=>row('📋','In this program', n)).join('')}
+    <a class="xi-demo" href="${demoUrl(e)}" target="_blank" rel="noopener">▶ Watch a demo video</a></div>`;
+}
+// Rows for a program day: [{e, scheme, notes}]
+function progDayRows(entry){
+  const def = prDef(entry.id);
+  if(def.kind==='routine'){ const wk = def.workouts[routineNext(entry)];
+    return wk.ex.filter(it=>EXBY[it.ex]).map(it=>({e:EXBY[it.ex], tag: it.tier || (it.fsl?'FSL':it.w531?'5/3/1':''), scheme: routineScheme(entry,it).replace(/^T\d · /,''), notes: routineNotes(it, entry)})); }
+  if(def.kind==='tracks') return Object.entries(def.tracks).map(([k,t])=>{ const lv = trackLevels(entry,k)[entry.tracks[k]], e = EXBY[lv.ex]; return e ? {e, tag:t.label, scheme: lv.plan, notes:[`Your level: ${lv.name}. Hit the goal to move up a level.`]} : null; }).filter(Boolean);
+  return [];
+}
+function progHeroHtml(entry, d){
+  const def = prDef(entry.id), n = prSessions(entry), tot = prTotal(entry), sub = def.kind==='routine' ? def.workouts[routineNext(entry)].name : def.kind==='flows' ? nextFlow(entry).name : def.kind==='meditate' ? `${medMin(entry)}-minute meditation` : `Session ${Math.min(n+1,tot)}`;
+  const rows = progDayRows(entry), pct = Math.min(100, Math.round(n/tot*100));
+  return `<div class="phero">
+    <div class="phero-top"><span class="phero-ic">${def.icon}</span><span class="phero-prog">${esc(def.title)}</span>${def.level?`<span class="chip">${esc(def.level)}</span>`:''}</div>
+    <div class="phero-name">${esc(sub)}</div>
+    <div class="phero-meta">${rows.length?`<span>💪 ${rows.length} exercises</span>`:''}<span>⏱ ~${def.minutes || (def.kind==='meditate'?medMin(entry):30)} min</span>${def.kind==='routine'?`<span>📅 Week ${Math.floor(n/(def.perWeek||3))+1} of ${def.weeks}</span>`:''}</div>
+    <div class="phero-bar"><i style="width:${Math.max(3,pct)}%"></i></div>
+    <div class="phero-prg"><span>Session ${Math.min(n+1,tot)} of ${tot}</span><span>${pct}% done</span></div>
+  </div>
+  ${def.warmup?`<div class="pwarm"><span>🔥</span><div><b>Warm-up</b><div>${esc(def.warmup)}</div></div></div>`:''}`;
+}
 // Program days in a replaced plan have no exercises of their own — read them from the program.
 function progDayInfo(d){
   if(!d || d.key!=='program') return null;
@@ -2486,24 +2561,30 @@ function viewPlanDay(){
     .concat(d.key==='recovery'?['<b>Recovery:</b> a gentle yoga flow plus an easy walk. Keep it relaxed.']:d.exercises.length?dayNotes(d,p):[]);
   const exOptions = Object.keys(PATTERN_LABEL).map(pat=>{ const opts = EX.filter(e=>e.p===pat && canDo(e,p) && e.id!=='cardio-of-your-choice' && !e.ms && !d.exercises.includes(e.id)); return opts.length ? `<optgroup label="${PATTERN_LABEL[pat]}">${opts.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>` : ''; }).join('');
   $('#app').innerHTML = `
-    <div class="dayhdr">${back}<h2>${wd} · ${esc(d.name)}</h2>${ro?'':`<button class="btn sm ${edit?'primary':''}" id="editToggle">${edit?'Done':'✏️ Edit'}</button>`}</div>
-    <div class="hint" style="margin:-6px 2px 10px">${parseYmd(date).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})}${done?' · <span style="color:var(--accent)">✓ Logged</span>':''} · ~${dayMin(d,p)} min</div>
+    <div class="dayhdr">${back}<h2>${pday ? parseYmd(date).toLocaleDateString(undefined,{weekday:'long'}) : `${wd} · ${esc(d.name)}`}</h2>${ro?'':`<button class="btn sm ${edit?'primary':''}" id="editToggle">${edit?'Done':'✏️ Edit'}</button>`}</div>
+    <div class="hint" style="margin:-6px 2px 10px">${parseYmd(date).toLocaleDateString(undefined, pday ? {month:'long',day:'numeric'} : {weekday:'long',month:'short',day:'numeric'})}${done?' · <span style="color:var(--accent)">✓ Logged</span>':''} · ~${dayMin(d,p)} min</div>
     ${edit?`<div class="card editbar"><div class="row" style="gap:8px;flex-wrap:wrap"><span class="small">Move to</span><select class="dowsel2" id="moveDay">${WEEK.map(w=>`<option ${w===wd?'selected':''}>${w}</option>`).join('')}</select><button class="btn sm ghost" id="delDay" style="margin-left:auto">Remove day</button></div>
       <div class="hint" style="margin-top:6px">Moving onto a day that has a workout swaps the two.</div></div>`:''}
     ${notes.length?`<details class="tips"><summary>🔥 ${notes[0].replace(/<\/?b>/g,'')}${notes.length>1?` <u>${notes.length-1} more tip${notes.length>2?'s':''}</u>`:''}</summary>${notes.slice(1).map(n=>`<div class="small" style="margin-top:6px">${n}</div>`).join('')}</details>`:''}
-    ${pday ? `<div class="card">${progBlockHtml(pday.entry)}<div class="hint" style="margin-top:8px">Part of your ${esc(pday.def.title)} — change it from Plan → Programs.</div></div>` : ''}
+    ${pday ? progHeroHtml(pday.entry, d) + (progDayRows(pday.entry).length ? `<div class="card exlist2 pexlist">${progDayRows(pday.entry).map((r,i)=>{ const key = 'p'+i, last = lastShort(r.e.id), open = S.cueOpen===key;
+        return `<div class="exr ${open?'open':''}" data-cue="${key}" role="button" tabindex="0" aria-expanded="${open}"><span class="n">${i+1}</span><div class="t"><b>${esc(r.e.name)}${r.tag?` <span class="xtag">${esc(r.tag)}</span>`:''}</b><span class="rx">${esc(r.scheme)}</span><span class="last">${last||'New for you'}</span>
+          ${open?exInfoHtml(r.e, r.notes):''}</div><span class="xchev" aria-hidden="true">${open?'−':'+'}</span></div>`; }).join('')}
+        <div class="hint pexfoot">Tap an exercise for how-to tips and a demo video.</div></div>` : `<div class="card">${progBlockHtml(pday.entry)}</div>`)
+      + `<div class="hint" style="margin:2px 4px 12px">Part of your ${esc(pday.def.title)} · <a href="#plan" id="toPrograms">change it in Programs</a></div>` : ''}
     <div class="card exlist2" ${pday && !d.exercises.length && !edit?'hidden':''}>
       ${d.exercises.map((id,ei)=>{ const e = EXBY[id]; if(!e) return ''; const r = rx(e,p), last = lastShort(id);
-        return `<div class="exr"><span class="n">${ei+1}</span><div class="t"><b>${esc(e.name)}</b><span class="rx">${r.text}</span><span class="last">${last||'New'}</span>
-          <div class="cue" ${S.cueOpen===id?'':'hidden'}>${esc(e.cue)}</div></div>
-          ${edit?`<div class="exbtns"><button class="iconbtn" data-swap="${di}:${ei}" aria-label="Swap ${esc(e.name)}">${ICON_SWAP}</button><button class="iconbtn" data-delex="${di}:${ei}" aria-label="Remove ${esc(e.name)}">${ICON_X}</button></div>`:`<button class="info" data-cue="${id}" aria-label="How to do ${esc(e.name)}">i</button>`}</div>`; }).join('') || '<div class="small muted" style="padding:10px 0">No exercises yet — tap Edit to add some.</div>'}
+        return `<div class="exr ${!edit?'tap':''} ${S.cueOpen===id?'open':''}" ${edit?'':`data-cue="${id}" role="button" tabindex="0" aria-expanded="${S.cueOpen===id}"`}><span class="n">${ei+1}</span><div class="t"><b>${esc(e.name)}</b><span class="rx">${r.text}</span><span class="last">${last||'New'}</span>
+          ${S.cueOpen===id ? exInfoHtml(e) : ''}</div>
+          ${edit?`<div class="exbtns"><button class="iconbtn" data-swap="${di}:${ei}" aria-label="Swap ${esc(e.name)}">${ICON_SWAP}</button><button class="iconbtn" data-delex="${di}:${ei}" aria-label="Remove ${esc(e.name)}">${ICON_X}</button></div>`:`<span class="xchev" aria-hidden="true">${S.cueOpen===id?'−':'+'}</span>`}</div>`; }).join('') || '<div class="small muted" style="padding:10px 0">No exercises yet — tap Edit to add some.</div>'}
       ${edit?`<select id="addEx" style="margin-top:10px"><option value="">+ Add an exercise…</option>${exOptions}</select>`:''}
     </div>
     ${ex.length?`<div class="hint" style="margin:4px 2px 6px">ALSO ${date===today?'TODAY':'THIS DAY'}</div>${ex.map(x=>extraRow(x, !isNext && date===today)).join('')}`:''}
     ${!isNext?`<div class="stickylog row" style="gap:8px"><button class="btn primary" style="flex:1" id="playThis" ${d.exercises.length||pday?'':'disabled'}>▶ Play</button><button class="btn" style="flex:1;background:var(--panel)" id="logThis" ${d.exercises.length||ex.length||pday?'':'disabled'}>${done?'Log it again':'Log'}</button></div>`:''}`;
   $('#dayBack').onclick = ()=>{ S.planDay=null; S.planEdit=false; viewPlan(); window.scrollTo(0,0); };
   $('#editToggle')?.addEventListener('click', ()=>{ S.planEdit=!S.planEdit; const y=window.scrollY; viewPlan(); window.scrollTo(0,y); });
-  document.querySelectorAll('[data-cue]').forEach(b=>b.onclick=()=>{ S.cueOpen = S.cueOpen===b.dataset.cue ? null : b.dataset.cue; const y=window.scrollY; viewPlan(); window.scrollTo(0,y); });
+  document.querySelectorAll('[data-cue]').forEach(b=>{ const tog = ev=>{ if(ev.target.closest('a')) return; S.cueOpen = S.cueOpen===b.dataset.cue ? null : b.dataset.cue; const y=window.scrollY; viewPlan(); window.scrollTo(0,y); };
+    b.onclick = tog; if(b.tagName!=='BUTTON') b.onkeydown = ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); tog(ev); } }; });
+  $('#toPrograms')?.addEventListener('click', e=>{ e.preventDefault(); S.planDay=null; S.planTab='programs'; viewPlan(); window.scrollTo(0,0); });
   $('#logThis')?.addEventListener('click', ()=>{ startDraft(di); go('workout'); });
   $('#playThis')?.addEventListener('click', ()=>playWorkout(di));
   const save = async msg => { await savePlanEditQuiet(); if(msg) toast(msg); const y=window.scrollY; viewPlan(); window.scrollTo(0,y); };
