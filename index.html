@@ -2907,6 +2907,9 @@ const FIG_POSES = {
   'sidebend':  {t:-108, hd:-118, ua1:-150, la1:-170, ua2:95, la2:92, th1:88, sh1:90, th2:94, sh2:92},
   'kneechest': {t:180, hd:180, ua1:-35, la1:-20, ua2:-30, la2:-15, th1:-120, sh1:35, ft1:-50, th2:0, sh2:0, ft2:-90},
   'supineham': {t:180, hd:180, ua1:-55, la1:-75, ua2:-50, la2:-70, th1:-88, sh1:-88, ft1:180, th2:0, sh2:0, ft2:-90},
+  'deadbug':   {t:180, hd:180, ua1:-90, la1:-90, ua2:-165, la2:-172, th1:-90, sh1:0, ft1:-90, th2:-12, sh2:-8, ft2:-90},
+  'situpneg':  {t:-140, hd:-132, ua1:-30, la1:-5, ua2:-25, la2:0, th1:-42, sh1:62, ft1:0, th2:-40, sh2:64, ft2:0},
+  'birddog':   {t:-8, hd:-4, ua1:-6, la1:-6, ua2:88, la2:90, th1:90, sh1:180, ft1:180, th2:178, sh2:178, ft2:90},
   'bridge':    {t:150, hd:180, ua1:8, la1:2, ua2:6, la2:0, th1:-25, sh1:100, ft1:0, th2:-20, sh2:102, ft2:0},
   'fig4':      {t:180, hd:180, ua1:-35, la1:-15, ua2:-30, la2:-10, th1:-80, sh1:10, ft1:-90, th2:-50, sh2:70, ft2:0},
   'seatedham': {t:-62, hd:-55, ua1:15, la1:10, ua2:20, la2:12, th1:0, sh1:8, ft1:-80, th2:-4, sh2:88, props:['chair']},
@@ -2929,7 +2932,7 @@ const POSE_FIG = {'Child’s pose':'child','Cat-cow':'catcow','Downward dog':'do
   'Inchworm':'downdog','Torso twists':'tpose','Walking lunges':'lowlunge','Calf raises':'mountain','Ankle rocks':'calf','Wall slides':'reach','Arm swings across chest':'tpose',
   'Cross-body shoulder stretch':'eagle','Overhead triceps stretch':'reach','Lying hamstring stretch':'supineham','Figure-4 stretch (lying)':'fig4','Glute bridge':'bridge',
   'Hip hinge':'fold','Hip hinge with club':'fold','Club rotations':'tpose','Lunge with rotation':'lowlunge','Open book':'supinetwist','Side leg swings':'legswing','Trail-shoulder stretch':'eagle',
-  'Kneel to stand':'lowlunge','90/90 hip switch':'crosslegged','Adductor rock':'catcow','Floor sit to stand':'crosslegged','Sit to stand':'seated','Bear crawl hold':'catcow'};
+  'Dead bug':'deadbug','Slow sit-up lowering':'situpneg','Bird dog':'birddog','Kneel to stand':'lowlunge','90/90 hip switch':'crosslegged','Adductor rock':'catcow','Floor sit to stand':'crosslegged','Sit to stand':'seated','Bear crawl hold':'catcow'};
 const poseFig = (p, cls='') => { const q = FIG_POSES[POSE_FIG[p.name]]; return q ? `<div class="${cls} ${p.side==='left'?'fig-mirror':''}">${figSVG(q)}</div>` : ''; };
 
 // ---------- Programs (multi-week routines) ----------
@@ -3296,6 +3299,43 @@ Object.assign(PROGRAMS, {
         P('Pigeon or figure-4',45,'Front shin across, hips square.','right'), P('Pigeon or figure-4',45,'Front shin across, hips square.','left'),
         P('Sphinx',30,'Forearms down, chest lifted, gentle on the low back.'),
         P('Child’s pose',40,'Walk your hands to one side, then the other, to stretch your lats.'),
+      ]},
+    ]},
+  'stretch-office-dads': {
+    title:'Busy Office Dads Stretch Routine', icon:'🧔', kind:'flows', cat:'stretch', perWeek:5, total:20, defaultMode:'addon', addonOnly:true,
+    forWho:'For dads who sit at a desk all day, want to get down on the floor with their kids, and are building the core strength for sit-ups.',
+    blurb:'One 6–10 minute routine: undo the desk, open your hips for floor play, then wake up your core for sit-ups.',
+    source:'Written for Busy Bodies, combining moves from the Desk Reset, Active Parent Mobility and First sit-up plans (physical-therapist floor-transfer guidance and ACSM stretching guidelines).',
+    howTo:'Do it after work or once the kids are down — the full version is about 9 minutes, the quick one about 6. Stretches should feel like mild tension, never pain. For the core moves, keep your lower back gently pressed into the floor and breathe out on the hard part. Do it most days; your First sit-up practice will feel easier.',
+    flows:[
+      {id:'full', name:'Full routine (~9 min)', poses:[
+        P('Chin tucks',30,'Desk release: slide your chin straight back, hold a second, release. Undo screen head.'),
+        P('Chest opener',30,'Clasp your hands behind you, squeeze your shoulder blades, lift your chest.'),
+        P('Standing side bend',20,'Reach up and over, long through your side.','right'), P('Standing side bend',20,'Reach up and over, long through your side.','left'),
+        P('Half-kneeling hip flexor stretch',30,'Back knee down, tuck your tailbone and shift forward. This is the sitting-all-day fix.','right'), P('Half-kneeling hip flexor stretch',30,'Back knee down, tuck your tailbone and shift forward. This is the sitting-all-day fix.','left'),
+        P('Cat-cow',40,'On hands and knees, arch and round slowly with your breath.'),
+        P('Thread the needle',25,'Slide one arm under your body and rest your shoulder down. Opens your upper back.','right'), P('Thread the needle',25,'Slide one arm under your body and rest your shoulder down. Opens your upper back.','left'),
+        P('Deep squat hold',40,'Kid-play mobility: heels down (on a book if needed), elbows pushing knees out. Hold a couch for balance.'),
+        P('90/90 hip switch',40,'Sit with both knees bent to one side, then swing them to the other. Slow and controlled.'),
+        P('Kneel to stand',40,'From kneeling, step one foot forward and stand, then kneel back down. Alternate legs — this is getting up off the floor.'),
+        P('Glute bridge',30,'Core time: feet flat, squeeze your glutes and lift your hips, lower slowly.'),
+        P('Dead bug',40,'On your back, arms up, knees over hips. Slowly lower opposite arm and leg, back flat, then switch.'),
+        P('Bird dog',40,'On hands and knees, reach one arm forward and the opposite leg back. Hold 2 seconds, switch sides.'),
+        P('Slow sit-up lowering',40,'Start sitting up, knees bent, arms crossed. Lower yourself to the floor for 5 seconds. Roll to your side to come back up. Repeat.'),
+        P('Child’s pose',30,'Sit back on your heels, arms long, and breathe.'),
+      ]},
+      {id:'quick', name:'Quick routine (~6 min)', poses:[
+        P('Chin tucks',20,'Slide your chin straight back, hold a second, release.'),
+        P('Half-kneeling hip flexor stretch',25,'Back knee down, tuck your tailbone and shift forward.','right'), P('Half-kneeling hip flexor stretch',25,'Back knee down, tuck your tailbone and shift forward.','left'),
+        P('Cat-cow',30,'Arch and round slowly with your breath.'),
+        P('Thread the needle',20,'Slide one arm under and rest your shoulder down.','right'), P('Thread the needle',20,'Slide one arm under and rest your shoulder down.','left'),
+        P('Deep squat hold',30,'Heels down, elbows pushing knees out. Hold something for balance.'),
+        P('90/90 hip switch',30,'Swing your knees side to side, slow and controlled.'),
+        P('Glute bridge',30,'Squeeze your glutes and lift your hips, lower slowly.'),
+        P('Dead bug',30,'Lower opposite arm and leg with your back flat, then switch.'),
+        P('Bird dog',30,'Reach one arm forward and the opposite leg back, hold 2 seconds, switch.'),
+        P('Slow sit-up lowering',30,'Lower from sitting for 5 seconds; roll to your side to come back up.'),
+        P('Child’s pose',20,'Breathe and relax.'),
       ]},
     ]},
   'stretch-parent': {
