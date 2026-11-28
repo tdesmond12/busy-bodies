@@ -314,6 +314,10 @@ body.tvmode > *:not(.tvroot):not(.toast){display:none!important}
 .exr .xchev{width:28px;height:28px;flex:none;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-weight:600;margin-top:2px}
 .exr.open .xchev{border-color:var(--accent);color:var(--accent)}
 .xtag{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:6px;background:var(--panel2);color:var(--muted);vertical-align:2px;margin-left:4px}
+.sshead{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted);padding:12px 2px 4px}
+.sstag{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 4px;border-radius:6px;background:rgba(198,244,50,.16);color:var(--accent);font-size:11px;font-weight:800}
+.exr.ssrow{border-left:3px solid rgba(198,244,50,.45);padding-left:10px;margin-left:2px}
+.exr.ssrow .n{font-size:11px;color:var(--accent)}
 .pexfoot{padding:8px 0 10px;text-align:center}
 .xinfo{display:grid;gap:10px;margin-top:10px;padding:12px;border-radius:12px;background:var(--panel2);font-size:13px;color:var(--muted);cursor:default}
 .xi-row{display:flex;gap:10px;align-items:flex-start}.xi-row b{color:var(--text);font-size:12px;letter-spacing:.02em}
@@ -2245,6 +2249,7 @@ function routineNotes(it, entry){
   if(it.w531 && entry){ out.push(`Sets this week: ${routineSets(entry,it).map(s=>`${s.reps}${s.w?` @ ${s.w} lb`:` @ ${Math.round(s.pct*100)}% of your training max`}`).join(', ')}. On the “+” set, do as many good reps as you can.`); }
   else if(it.fsl) out.push('“First set last”: repeat the first set’s weight for 5 sets of 5 — smooth, fast reps.');
   else if(String(it.reps).includes('+')) out.push('Last set: do as many good reps as you can, stopping before your form breaks down.');
+  if(it.ss) out.push(it.ss.endsWith('1') ? `Superset ${it.ss[0]}: do this, then go straight to ${it.ss[0]}2 with no rest. Rest 60–90 s after both, then repeat.` : `Superset ${it.ss[0]}: do this right after ${it.ss[0]}1, then rest 60–90 s before the next round.`);
   if(it.tier) out.push({T1:'T1 = your heavy lift today. Rest 3–5 minutes between sets.', T2:'T2 = lighter volume work. Rest 2–3 minutes.', T3:'T3 = accessory work. Rest 60–90 seconds and push the last set.'}[it.tier]);
   if(/–/.test(it.reps) && !ex.t && it.inc!==0) out.push('Pick a weight where the last rep or two are tough. When every set reaches the top of the range, go heavier next time.');
   else if(/–/.test(it.reps) && it.inc===0) out.push('Work toward the top of the range, then make it harder (slower reps, a stronger band, or a harder version).');
@@ -2263,7 +2268,7 @@ function exInfoHtml(e, notes=[]){
 function progDayRows(entry, date){
   const def = prDef(entry.id);
   if(def.kind==='routine'){ const wk = def.workouts[routineNext(entry, date)];
-    return wk.ex.filter(it=>EXBY[it.ex]).map(it=>({e:EXBY[it.ex], tag: it.tier || (it.fsl?'FSL':it.w531?'5/3/1':''), scheme: routineScheme(entry,it).replace(/^T\d · /,''), notes: routineNotes(it, entry)})); }
+    return wk.ex.filter(it=>EXBY[it.ex]).map(it=>({e:EXBY[it.ex], tag: it.ss || it.tier || (it.fsl?'FSL':it.w531?'5/3/1':''), ss: it.ss ? it.ss[0] : null, scheme: routineScheme(entry,it).replace(/^T\d · /,''), notes: routineNotes(it, entry)})); }
   if(def.kind==='tracks') return Object.entries(def.tracks).map(([k,t])=>{ const lv = trackLevels(entry,k)[entry.tracks[k]], e = EXBY[lv.ex]; return e ? {e, tag:t.label, scheme: lv.plan, notes:[`Your level: ${lv.name}. Hit the goal to move up a level.`]} : null; }).filter(Boolean);
   return [];
 }
@@ -2318,6 +2323,7 @@ function buildPlaySteps(draft, day){
   const p = profile(), steps = [];
   if(day && day.key!=='recovery') steps.push({type:'warm', secs: p.age>=50 ? 480 : 300, name:'Warm-up', sub: day.key==='cardio' ? 'Easy pace, then leg swings and arm circles' : 'Easy cardio, then leg swings, arm circles and hip openers'});
   const exs = draft.exercises.map((e,i)=>({e,i})).filter(({e})=>EXBY[e.id] && !(e.prog && (e.prog.flow || prDef(e.prog.id)?.kind==='meditate')));
+  const items = [];
   exs.forEach(({e,i}, k)=>{
     const ex = EXBY[e.id];
     let target, restS, timed = 0, cardio = false;
@@ -2328,11 +2334,28 @@ function buildPlaySteps(draft, day){
     target = String(target||'').replace(/^[\d–-]+\s*sets?\s*×\s*/i,'').replace(/^\d+\s*×\s*/,'');
     if(/^[\d–-]+$/.test(target.trim())) target = `${target.trim()} reps`;
     const lt = lastTimeOf(e.id), n = e.sets.length || 1, rr = repRange('× '+target);
+    const ssTag = e.prog && e.prog.wk!=null ? (routineItem(e.prog)||{}).ss : null, item = {works:[], restS, cardio, ss: ssTag ? ssTag[0] : null, tag: ssTag};
+    items.push(item);
     for(let j=0;j<n;j++){
       const prev = lt && lt.e.sets[j];
-      steps.push({type:'work', di:i, set:j, sets:n, ex, entry:e, name:ex.name, target, timed, cardio, cue:ex.cue, weight: usesWeight(ex) ? (e.sets[j] && e.sets[j].w) || (prev && prev.w) || '' : '', defReps: cardio ? (parseInt(target)||20) : timed || (prev && prev.r) || (rr ? rr.lo : 10), last: prev ? `${prev.w?prev.w+' lb × ':''}${prev.r}${ex.t?' sec':cardio?' min':''}` : '' });
-      const lastSet = j===n-1, lastEx = k===exs.length-1;
-      if(!(lastSet && lastEx) && !cardio) steps.push({type:'rest', secs: lastSet ? Math.max(restS, 60) : restS, between: lastSet});
+      item.works.push({type:'work', ss: ssTag||null, di:i, set:j, sets:n, ex, entry:e, name:ex.name, target, timed, cardio, cue:ex.cue, weight: usesWeight(ex) ? (e.sets[j] && e.sets[j].w) || (prev && prev.w) || '' : '', defReps: cardio ? (parseInt(target)||20) : timed || (prev && prev.r) || (rr ? rr.lo : 10), last: prev ? `${prev.w?prev.w+' lb × ':''}${prev.r}${ex.t?' sec':cardio?' min':''}` : '' });
+    }
+  });
+  // Group consecutive superset partners (A1, A2…) and alternate their sets; everything else runs set by set.
+  const blocks = [];
+  for(const it of items){ const b = blocks[blocks.length-1]; if(it.ss && b && b.ss===it.ss) b.items.push(it); else blocks.push({ss: it.ss, items:[it]}); }
+  blocks.forEach((b, bi)=>{
+    const lastBlock = bi===blocks.length-1;
+    if(b.items.length===1){ const it = b.items[0];
+      it.works.forEach((w,j)=>{ steps.push(w); const lastSet = j===it.works.length-1;
+        if(!(lastSet && lastBlock) && !it.cardio) steps.push({type:'rest', secs: lastSet ? Math.max(it.restS, 60) : it.restS, between: lastSet}); });
+      return; }
+    const rounds = Math.max(...b.items.map(it=>it.works.length)), roundRest = Math.max(60, Math.min(90, Math.max(...b.items.map(it=>it.restS))));
+    for(let j=0;j<rounds;j++){
+      const ws = b.items.map(it=>it.works[j]).filter(Boolean);
+      ws.forEach((w,m)=>{ w.round = j; w.rounds = rounds; steps.push(w);
+        if(m < ws.length-1) steps.push({type:'rest', secs:15, swap:true});
+        else if(!(j===rounds-1 && lastBlock)) steps.push({type:'rest', secs: roundRest, between: j===rounds-1}); });
     }
   });
   return steps;
@@ -2360,6 +2383,7 @@ function playWorkout(dayIdx){
     idx = Math.max(0, Math.min(steps.length-1, i)); const st = steps[idx]; paused = false;
     left = st.type==='rest' || st.type==='warm' ? st.secs : st.timed ? st.timed : 0;
     if(st.type==='work'){ say(`${st.sets>1?`Set ${st.set+1} of ${st.sets}. `:''}${st.name}. ${spokenTarget(st.timed?`${st.timed} sec`:st.target)}.`); if(st.timed) beep(1046,.25); }
+    else if(st.type==='rest' && st.swap){ const nx = nextWork(idx); say(`Switch. ${nx?nx.name:''}.`); }
     else if(st.type==='rest'){ const nx = nextWork(idx); say(`Rest ${st.secs>=90?clock(st.secs).replace(':00',' minutes').replace(/^(\d):(\d\d)$/,'$1 minutes $2 seconds'):st.secs+' seconds'}.${nx&&st.between?` Up next, ${nx.name}.`:''}`); }
     else if(st.type==='warm') say(`Warm up. ${Math.round(st.secs/60)} minutes. ${st.sub}.`);
     render();
@@ -2415,7 +2439,7 @@ function playWorkout(dayIdx){
       <div class="gtopr"><span>${esc(draft.dayName)}</span><span>${doneCount()}/${workCount} sets</span><button class="gico ${tv?'tvon':''}" id="gTv" aria-label="Show on a TV">📺${tv?` ${tv.code}`:''}</button><button class="gico" id="gVoice" aria-label="Voice">${voice?'🔊':'🔇'}</button><button class="gico" id="gEnd" aria-label="End workout">✕</button></div></div>`;
     let main;
     if(st.type==='work'){
-      main = `<div class="gmain work"><div class="gtag">${st.sets>1?`SET ${st.set+1} OF ${st.sets}`:'GO'}${st.entry.ms?' · MILESTONE':st.entry.prog?' · PROGRAM':''}</div>
+      main = `<div class="gmain work"><div class="gtag">${st.ss?`SUPERSET ${esc(st.ss)} · `:''}${st.sets>1?`SET ${st.set+1} OF ${st.sets}`:'GO'}${st.ss?'':st.entry.ms?' · MILESTONE':st.entry.prog?' · PROGRAM':''}</div>
         <h1>${esc(st.name)}</h1>
         <div class="gtarget">${st.timed ? `${st.timed} sec` : esc(st.target)}${st.weight && !usesWeight(st.ex)?` <span>@ ${st.weight} lb</span>`:''}</div>
         ${usesWeight(st.ex) ? `<div class="gwt ${st.weight?'':'need'}"><span class="gwl">${st.weight?'Weight':'How much weight?'}</span>
@@ -2424,7 +2448,7 @@ function playWorkout(dayIdx){
         ${st.last?`<div class="glast">Last time: ${esc(st.last)}</div>`:''}
         <div class="gcue">${esc(st.cue||'')}</div></div>`;
     } else {
-      main = `<div class="gmain rest"><div class="gtag">${st.type==='warm'?'WARM-UP':'REST'}</div>
+      main = `<div class="gmain rest"><div class="gtag">${st.type==='warm'?'WARM-UP':st.swap?'SWITCH — NO REST':'REST'}</div>${st.swap && nextWork(idx) ? `<h1>${esc(nextWork(idx).name)}</h1><div class="gsub">Go straight to ${esc(nextWork(idx).ss||'the next move')} — keep your heart rate up.</div>` : ''}
         ${st.type==='warm'?`<h1>Warm-up</h1><div class="gsub">${esc(st.sub)}</div>`:''}
         <div class="gring ${left<=10?'hurry':''}" style="--p:${left/st.secs}"><span id="gClock">${clock(left)}</span></div>
         ${pl ? `<div class="glog"><span>Set ${prevSet.set+1} · ${esc(prevSet.name)}</span>
@@ -2584,8 +2608,9 @@ function viewPlanDay(){
     ${edit?`<div class="card editbar"><div class="row" style="gap:8px;flex-wrap:wrap"><span class="small">Move to</span><select class="dowsel2" id="moveDay">${WEEK.map(w=>`<option ${w===wd?'selected':''}>${w}</option>`).join('')}</select><button class="btn sm ghost" id="delDay" style="margin-left:auto">Remove day</button></div>
       <div class="hint" style="margin-top:6px">Moving onto a day that has a workout swaps the two.</div></div>`:''}
     ${notes.length?`<details class="tips"><summary>🔥 ${notes[0].replace(/<\/?b>/g,'')}${notes.length>1?` <u>${notes.length-1} more tip${notes.length>2?'s':''}</u>`:''}</summary>${notes.slice(1).map(n=>`<div class="small" style="margin-top:6px">${n}</div>`).join('')}</details>`:''}
-    ${pday ? progHeroHtml(pday.entry, {date}) + (progDayRows(pday.entry, date).length ? `<div class="card exlist2 pexlist">${progDayRows(pday.entry, date).map((r,i)=>{ const key = 'p'+i, last = lastShort(r.e.id), open = S.cueOpen===key;
-        return `<div class="exr ${open?'open':''}" data-cue="${key}" role="button" tabindex="0" aria-expanded="${open}"><span class="n">${i+1}</span><div class="t"><b>${esc(r.e.name)}${r.tag?` <span class="xtag">${esc(r.tag)}</span>`:''}</b><span class="rx">${esc(r.scheme)}</span><span class="last">${last||'New for you'}</span>
+    ${pday ? progHeroHtml(pday.entry, {date}) + (progDayRows(pday.entry, date).length ? `<div class="card exlist2 pexlist">${progDayRows(pday.entry, date).map((r,i,all)=>{ const key = 'p'+i, last = lastShort(r.e.id), open = S.cueOpen===key;
+        const head = r.ss && (i===0 || all[i-1].ss!==r.ss) ? `<div class="sshead"><span class="sstag">${esc(r.ss)}</span> Superset ${esc(r.ss)} · ${all.filter(x=>x.ss===r.ss).length} moves back to back, then rest 60–90 s</div>` : '';
+        return `${head}<div class="exr ${open?'open':''} ${r.ss?'ssrow':''}" data-cue="${key}" role="button" tabindex="0" aria-expanded="${open}"><span class="n">${r.ss?esc(r.tag):i+1}</span><div class="t"><b>${esc(r.e.name)}${r.tag && !r.ss?` <span class="xtag">${esc(r.tag)}</span>`:''}</b><span class="rx">${esc(r.scheme)}</span><span class="last">${last||'New for you'}</span>
           ${open?exInfoHtml(r.e, r.notes):''}</div><span class="xchev" aria-hidden="true">${open?'−':'+'}</span></div>`; }).join('')}
         <div class="hint pexfoot">Tap an exercise for how-to tips and a demo video.</div></div>` : `<div class="card">${progBlockHtml(pday.entry)}</div>`)
       + `<div class="hint" style="margin:2px 4px 12px">Part of your ${esc(pday.def.title)} · <a href="#plan" id="toPrograms">change it in Programs</a></div>` : ''}
@@ -3543,6 +3568,17 @@ Object.assign(PROGRAMS, {
       {name:'Push B', ex:[R('push-up',3,'10+',{inc:0}), R('goblet-squat',3,'10–15'), R('dumbbell-chest-fly',3,'12–15'), R('dumbbell-reverse-lunge',3,'8–12'), R('dumbbell-lateral-raise',4,'15–20'), R('overhead-dumbbell-triceps-extension',3,'10–15')]},
       {name:'Pull B', ex:[R('one-arm-dumbbell-row',3,'8–12'), R('dumbbell-romanian-deadlift',3,'10–15'), R('dumbbell-rear-delt-fly',3,'12–15'), R('dumbbell-leg-curl',3,'8–12'), R('incline-dumbbell-curl',3,'8–12'), R('reverse-crunch',3,'15–20',{inc:0})]},
     ]},
+  'db-superset-4': { title:'Dumbbell Push/Pull Supersets · 4 days', icon:'⚡', kind:'routine', cat:'strength', level:'Beginner–Intermediate', perWeek:4, weeks:10, total:40, minutes:40, defaultMode:'replace',
+    blurb:'The push/pull split rebuilt as supersets: pairs of moves back to back with no rest between them. Shorter workouts and a higher heart rate. Thu/Fri use different exercises from Mon/Tue.',
+    source:'Written for Busy Bodies in the style of the Muscle Evo dumbbell push/pull split. Upper body is paired with legs or core so one muscle rests while the other works. Research shows supersets take less time than regular sets (Iversen 2024; Zhang/Weakley 2025 meta-analysis).', url:'https://pubmed.ncbi.nlm.nih.gov/39072654/',
+    warmup:'3–5 min of marching, arm circles, bodyweight squats and band pull-aparts, then one light set of A1 and A2.',
+    howTo:'Push A Mon, Pull A Tue, Push B Thu, Pull B Fri. Do moves with the same letter as a superset: A1, then straight to A2 (no rest, just switch), then rest 60–90 s and repeat for 3 rounds. Then B1/B2, and so on. Pick weights that leave 1–2 reps in the tank — supersets feel harder than regular sets, so start a little lighter than usual. Once every set hits the top of the range, go heavier. About 35–45 minutes.',
+    workouts:[
+      {name:'Push A', ex:[R('incline-dumbbell-press',3,'8–12',{ss:'A1'}), R('goblet-squat',3,'10–12',{ss:'A2'}), R('dumbbell-shoulder-press',3,'8–12',{ss:'B1'}), R('dumbbell-reverse-lunge',3,'10',{ss:'B2'}), R('dumbbell-chest-fly',3,'12–15',{ss:'C1'}), R('dumbbell-lateral-raise',3,'12–15',{ss:'C2'}), R('overhead-dumbbell-triceps-extension',3,'10–15',{ss:'D1'}), R('dead-bug',3,'10',{ss:'D2', inc:0})]},
+      {name:'Pull A', ex:[R('chest-supported-dumbbell-row',3,'8–12',{ss:'A1'}), R('dumbbell-romanian-deadlift',3,'10–12',{ss:'A2'}), R('one-arm-dumbbell-row',3,'10',{ss:'B1'}), R('dumbbell-hip-thrust',3,'10–12',{ss:'B2'}), R('dumbbell-rear-delt-fly',3,'12–15',{ss:'C1'}), R('dumbbell-curl',3,'10–12',{ss:'C2'}), R('hammer-curl',3,'10–12',{ss:'D1'}), R('reverse-crunch',3,'12–15',{ss:'D2', inc:0})]},
+      {name:'Push B', ex:[R('dumbbell-bench-press',3,'8–12',{ss:'A1'}), R('bulgarian-split-squat',3,'8–10',{ss:'A2'}), R('arnold-press',3,'10–12',{ss:'B1'}), R('dumbbell-step-up',3,'10',{ss:'B2'}), R('push-up',3,'10+',{ss:'C1', inc:0}), R('dumbbell-sumo-squat',3,'12',{ss:'C2'}), R('lying-dumbbell-triceps-extension',3,'10–12',{ss:'D1'}), R('plank',3,'30–45',{ss:'D2', inc:0})]},
+      {name:'Pull B', ex:[R('dumbbell-bent-over-row',3,'8–12',{ss:'A1'}), R('single-leg-dumbbell-rdl',3,'8–10',{ss:'A2'}), R('dumbbell-pullover',3,'12',{ss:'B1'}), R('dumbbell-leg-curl',3,'10–12',{ss:'B2'}), R('dumbbell-shrug',3,'12–15',{ss:'C1'}), R('incline-dumbbell-curl',3,'10–12',{ss:'C2'}), R('zottman-curl',3,'10–12',{ss:'D1'}), R('lying-leg-raise',3,'10–12',{ss:'D2', inc:0})]},
+    ]},
   'dbb-full-3': { title:'Dumbbells & Bands Full Body · 3 days', icon:'🎗️', kind:'routine', cat:'strength', level:'Beginner', perWeek:3, weeks:4, total:12, minutes:35, defaultMode:'replace',
     blurb:'Short full-body workouts mixing dumbbells, resistance bands and bodyweight. Built for working out at home.',
     source:'Based on Muscle & Strength’s 3 Day At-Home Workout (bands, dumbbells & bodyweight).', url:'https://www.muscleandstrength.com/workouts/3-day-at-home-womens-workout',
@@ -3653,7 +3689,7 @@ function routineDraftEntries(entry, date){
 }
 function routineWorkoutsHtml(def, entry){
   return def.workouts.map((w,wi)=>`<div class="rtw ${entry && routineNext(entry)===wi?'cur':''}"><div class="small" style="font-weight:600">${esc(w.name)}${entry && routineNext(entry)===wi?' <span class="chip on" style="margin-left:4px">Next</span>':''}</div>
-    ${w.ex.filter(it=>EXBY[it.ex]).map(it=>`<div class="small"><span>${esc(EXBY[it.ex].name)}</span> <span class="muted">${esc(entry ? routineScheme(entry,it) : `${it.tier?it.tier+' · ':''}${it.w531?'5/3/1 wave':it.fsl?'5 × 5 (first-set-last)':`${it.sets} × ${it.reps}${EXBY[it.ex].t?' sec':''}`}`)}</span></div>`).join('')}</div>`).join('');
+    ${w.ex.filter(it=>EXBY[it.ex]).map(it=>`<div class="small">${it.ss?`<b class="sstag">${esc(it.ss)}</b> `:''}<span>${esc(EXBY[it.ex].name)}</span> <span class="muted">${esc(entry ? routineScheme(entry,it) : `${it.tier?it.tier+' · ':''}${it.w531?'5/3/1 wave':it.fsl?'5 × 5 (first-set-last)':`${it.sets} × ${it.reps}${EXBY[it.ex].t?' sec':''}`}`)}</span></div>`).join('')}</div>`).join('');
 }
 function routineCardHtml(entry){
   const def = prDef(entry.id), miss = prMissing(def);
